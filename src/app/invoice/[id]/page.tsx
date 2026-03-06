@@ -9,7 +9,7 @@ import { format } from "date-fns"
 import { id as idLocale } from "date-fns/locale"
 import { Button } from "@/components/ui/button"
 import { Printer, ArrowLeft } from "lucide-react"
-import Link from "next/link"
+import Image from "next/image"
 
 export default function InvoicePage() {
   const params = useParams()
@@ -60,11 +60,9 @@ export default function InvoicePage() {
     <div className="max-w-[210mm] mx-auto bg-white min-h-screen p-8 print:p-0">
       {/* Navigation - Hidden on Print */}
       <div className="flex justify-between items-center mb-8 print:hidden">
-        <Link href="/">
-          <Button variant="outline">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-          </Button>
-        </Link>
+        <Button variant="outline" onClick={() => window.location.href = "/"}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+        </Button>
         <Button onClick={() => window.print()}>
           <Printer className="mr-2 h-4 w-4" /> Print Invoice
         </Button>
@@ -75,9 +73,13 @@ export default function InvoicePage() {
         
         {/* Header / Kop Surat */}
         <div className="flex items-center justify-between border-b-2 border-black pb-4 mb-4">
-          <div className="w-24 h-24 relative flex items-center justify-center border border-dashed border-gray-300 rounded-full">
-            {/* Logo Placeholder */}
-            <span className="text-xs text-center text-gray-400">Logo<br/>Desa</span>
+          <div className="w-24 h-24 relative flex items-center justify-center">
+            <Image 
+              src="/logo.png" 
+              alt="Logo Desa" 
+              fill
+              className="object-contain"
+            />
           </div>
           <div className="text-center flex-1 px-4">
             <h1 className="font-bold text-lg uppercase">Koperasi Desa Merah Putih</h1>
