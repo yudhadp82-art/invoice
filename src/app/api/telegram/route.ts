@@ -1,58 +1,110 @@
 import { NextResponse } from "next/server"
-import { addDoc, collection, serverTimestamp } from "firebase/firestore"
+import { addDoc, collection, serverTimestamp, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
-function parseOrderText(text: string) {
+// Helper to find product price
+async function findProductPrice(itemName: string) {
+  try {
+    // Basic fuzzy match: Check if product name is contained in item name or vice versa
+    // In a real app, use a search index like Algolia or Typesense
+    // Here we fetch all products and filter in memory (OK for small lists)
+    const productsRef = collection(db, "products")
+    const snapshot = await getDocs(productsRef)
+    
+    let bestMatch = null
+    const normalizedItem = itemName.toLowerCase().trim()
+
+    snapshot.forEach(doc => {
+      const product = doc.data()
+      const normalizedProduct = product.name.toLowerCase().trim()
+      
+      // Exact match
+      if (normalizedItem === normalizedProduct) {
+        bestMatch = product
+      }
+      // Partial match (e.g. "Singkong" matches "Singkong Mentega")
+      else if (normalizedItem.includes(normalizedProduct) && !bestMatch) {
+        bestMatch = product
+      }
+    })
+
+    return bestMatch ? (bestMatch as any).price : 0
+  } catch (error) {
+    console.error("Error finding product price:", error)
+    return 0
+  }
+}
+
+async function parseOrderText(text: string) {
   const lines = text.split('\n')
   const data: any = {
     customerName: "Unknown",
     customerPhone: "",
     items: [],
-    totalAmount: 0
+    totalAmount: 0,
+    rawMessage: text
   }
 
-  let parsingItems = false
+  // New Format Detection: "PO ..."
+  // Example:
+  // PO SPPG SINDANGJAYA5 
+  // •Singkong : 350kg 
+  
+  let isPOFormat = false
+  const firstLine = lines[0].trim()
+  
+  if (firstLine.toUpperCase().startsWith("PO")) {
+    isPOFormat = true
+    data.customerName = firstLine.replace("PO", "").trim() || "Unknown Customer"
+  }
 
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) continue
 
-    if (trimmed.toLowerCase().startsWith("nama:")) {
-      data.customerName = trimmed.split(":")[1].trim()
-    } else if (trimmed.toLowerCase().startsWith("hp:") || trimmed.toLowerCase().startsWith("phone:")) {
-      data.customerPhone = trimmed.split(":")[1].trim()
-    } else if (trimmed.toLowerCase().includes("item:") || trimmed.toLowerCase().includes("pesanan:")) {
-      parsingItems = true
-      continue
+    // Handle Old Format (Nama: ..., Item: ...)
+    if (!isPOFormat) {
+      if (trimmed.toLowerCase().startsWith("nama:")) {
+        data.customerName = trimmed.split(":")[1].trim()
+      } else if (trimmed.toLowerCase().startsWith("hp:") || trimmed.toLowerCase().startsWith("phone:")) {
+        data.customerPhone = trimmed.split(":")[1].trim()
+      }
     }
 
-    if (parsingItems && trimmed.startsWith("-")) {
-      // Format: - ItemName (Qty) Price
-      // Example: - Nasi Goreng (2) 15000
+    // Parse Items (Both Formats)
+    // Format 1: - Item (Qty) Price
+    // Format 2: •Item : Qty
+    
+    if (trimmed.startsWith("-") || trimmed.startsWith("•") || trimmed.startsWith("*")) {
       try {
-        const itemContent = trimmed.substring(1).trim()
-        // Regex to extract Name, (Qty), Price
-        // Matches "Item Name (2) 10000"
-        const match = itemContent.match(/^(.*)\((\d+)\)\s*(\d+)$/)
+        const cleanLine = trimmed.substring(1).trim() // Remove bullet
         
-        if (match) {
-          const name = match[1].trim()
-          const quantity = parseInt(match[2])
-          const price = parseInt(match[3])
+        // Format 2: "Singkong : 350kg"
+        if (cleanLine.includes(":")) {
+          const parts = cleanLine.split(":")
+          const name = parts[0].trim()
+          const qtyString = parts[1].trim() // "350kg" or "350 kg"
           
-          data.items.push({ name, quantity, price })
+          // Extract number from "350kg" -> 350
+          const qtyMatch = qtyString.match(/(\d+)/)
+          const quantity = qtyMatch ? parseInt(qtyMatch[0]) : 1
+          
+          // Lookup Price
+          const price = await findProductPrice(name)
+          
+          data.items.push({ name, quantity, price, unit: qtyString.replace(/\d+/g, '').trim() })
           data.totalAmount += (quantity * price)
-        } else {
-          // Fallback simple split if regex fails: Name, Qty, Price
-          // Example: Nasi Goreng, 2, 15000
-          const parts = itemContent.split(',')
-          if (parts.length === 3) {
-            const name = parts[0].trim()
-            const quantity = parseInt(parts[1].trim())
-            const price = parseInt(parts[2].trim())
-            data.items.push({ name, quantity, price })
-            data.totalAmount += (quantity * price)
-          }
+        }
+        // Format 1: "Sepatu (1) 150000"
+        else {
+           const match = cleanLine.match(/^(.*)\((\d+)\)\s*(\d+)$/)
+           if (match) {
+             const name = match[1].trim()
+             const quantity = parseInt(match[2])
+             const price = parseInt(match[3])
+             data.items.push({ name, quantity, price })
+             data.totalAmount += (quantity * price)
+           }
         }
       } catch (e) {
         console.error("Error parsing item line:", line, e)
@@ -82,10 +134,14 @@ export async function POST(req: Request) {
     const text = message.text
     console.log("Processing text:", text)
     
-    // Only process if it looks like an order
-    // Relaxed check: Just need "item" or "pesanan" keyword
-    if (text.toLowerCase().includes("item:") || text.toLowerCase().includes("pesanan:")) {
-      const orderData = parseOrderText(text)
+    // Check keywords for both formats
+    // Format 1: "item:" or "pesanan:"
+    // Format 2: Starts with "PO" or has bullets "•"
+    const isFormat1 = text.toLowerCase().includes("item:") || text.toLowerCase().includes("pesanan:")
+    const isFormat2 = text.trim().toUpperCase().startsWith("PO") || text.includes("•")
+    
+    if (isFormat1 || isFormat2) {
+      const orderData = await parseOrderText(text)
       console.log("Parsed order data:", JSON.stringify(orderData, null, 2))
       
       if (orderData.items.length > 0) {
@@ -95,7 +151,6 @@ export async function POST(req: Request) {
             source: "telegram",
             createdAt: serverTimestamp(),
             status: "pending",
-            rawMessage: text,
             chatId: message.chat.id, 
           })
           console.log("Order saved to Firestore with ID:", docRef.id)
@@ -103,7 +158,14 @@ export async function POST(req: Request) {
           // Reply to Telegram
           const botToken = process.env.TELEGRAM_BOT_TOKEN
           if (botToken) {
-            const replyText = `✅ Pesanan Diterima!\nID: ${docRef.id.slice(0, 8)}\nTotal: ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(orderData.totalAmount)}\n\nTerima kasih! Invoice sedang diproses.`
+            let replyText = `✅ Pesanan Diterima!\nID: ${docRef.id.slice(0, 8)}\nCustomer: ${orderData.customerName}\n`
+            
+            // List items in reply
+            orderData.items.forEach((item: any) => {
+               replyText += `- ${item.name} (${item.quantity}) = ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(item.price * item.quantity)}\n`
+            })
+            
+            replyText += `\nTotal: ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(orderData.totalAmount)}\n\nTerima kasih!`
             
             const telegramResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
               method: 'POST',
@@ -117,12 +179,9 @@ export async function POST(req: Request) {
             
             const telegramResult = await telegramResponse.json()
             console.log("Telegram reply sent:", telegramResult)
-          } else {
-            console.warn("TELEGRAM_BOT_TOKEN is missing")
           }
         } catch (dbError) {
           console.error("Database error:", dbError)
-          // Still return ok to Telegram so it doesn't retry
         }
       } else {
         console.log("No items parsed from text")

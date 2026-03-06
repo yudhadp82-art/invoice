@@ -1,9 +1,11 @@
 import { OrderForm } from "@/components/OrderForm"
 import { OrderList } from "@/components/OrderList"
+import { MainNav } from "@/components/MainNav"
 
 export default function Home() {
   return (
     <div className="container mx-auto py-10 space-y-8 px-4">
+      <MainNav />
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Invoice Dashboard</h1>

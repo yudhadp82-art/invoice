@@ -1,3 +1,12 @@
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  category?: string;
+  createdAt: any;
+}
+
 export interface PurchaseNote {
   id: string;
   orderId: string;
@@ -11,6 +20,7 @@ export interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  unit?: string;
 }
 
 export interface Order {
@@ -25,6 +35,8 @@ export interface Order {
   hpp?: number;
   notes?: string;
   purchaseNotes?: PurchaseNote[];
+  rawMessage?: string;
+  chatId?: number;
 }
 
 export interface Invoice {
