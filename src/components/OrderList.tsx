@@ -77,7 +77,7 @@ export function OrderList() {
                 const date = order.createdAt?.seconds ? new Timestamp(order.createdAt.seconds, order.createdAt.nanoseconds).toDate() : new Date()
 
                 return (
-                  <TableRow key={order.id}>
+                  <TableRow key={order.id} className="align-top">
                     <TableCell className="font-medium whitespace-nowrap">
                       {format(date, "dd MMM HH:mm")}
                     </TableCell>
@@ -91,8 +91,14 @@ export function OrderList() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm max-w-[200px] truncate" title={order.items.map(i => `${i.quantity}x ${i.name}`).join(", ")}>
-                        {order.items.length} items
+                      <div className="text-sm">
+                        <ul className="list-disc list-inside space-y-1">
+                          {order.items.map((item, idx) => (
+                            <li key={idx}>
+                              {item.name} <span className="text-muted-foreground">({item.quantity} {item.unit || ""})</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     </TableCell>
                     <TableCell>
