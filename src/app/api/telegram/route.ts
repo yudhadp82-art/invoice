@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
-import { addDoc, collection, serverTimestamp, getDocs, query, where } from "firebase/firestore"
+import { addDoc, collection, serverTimestamp, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { Product } from "@/types"
 
 // Helper to find product price
 async function findProductPrice(itemName: string) {
@@ -11,11 +12,11 @@ async function findProductPrice(itemName: string) {
     const productsRef = collection(db, "products")
     const snapshot = await getDocs(productsRef)
     
-    let bestMatch = null
+    let bestMatch: Product | null = null
     const normalizedItem = itemName.toLowerCase().trim()
 
     snapshot.forEach(doc => {
-      const product = doc.data()
+      const product = doc.data() as Product
       const normalizedProduct = product.name.toLowerCase().trim()
       
       // Exact match
@@ -28,7 +29,7 @@ async function findProductPrice(itemName: string) {
       }
     })
 
-    return bestMatch ? (bestMatch as any).price : 0
+    return bestMatch ? (bestMatch as Product).price : 0
   } catch (error) {
     console.error("Error finding product price:", error)
     return 0
