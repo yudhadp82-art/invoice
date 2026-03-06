@@ -47,6 +47,15 @@ export default function InvoicePage() {
   const formatRupiah = (value: number) => 
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value)
 
+  // Generate Invoice Number Format: DD/ROMAN_MONTH/INV/YY
+  // Example: 06/III/INV/26
+  const day = format(date, "dd")
+  const month = date.getMonth() + 1
+  const year = format(date, "yy")
+  
+  const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
+  const invoiceNumber = `${day}/${romanMonths[month - 1]}/INV/${year}`
+
   return (
     <div className="max-w-[210mm] mx-auto bg-white min-h-screen p-8 print:p-0">
       {/* Navigation - Hidden on Print */}
@@ -84,7 +93,7 @@ export default function InvoicePage() {
         <div className="mb-4">
           <div className="flex mb-1">
             <span className="w-24">Invoice :</span>
-            <span className="font-medium">#{order.id.slice(0, 8).toUpperCase()}</span>
+            <span className="font-medium">{invoiceNumber}</span>
           </div>
           <div className="flex">
             <span className="w-24">Tanggal</span>
@@ -121,8 +130,7 @@ export default function InvoicePage() {
           <div className="flex-1 border border-black p-2 flex flex-col justify-between">
             <div className="text-right font-bold">jatuh tempo :</div>
             <div className="text-right text-lg">
-               {/* Assuming due date is same day or specific logic, here using order date for simplicity */}
-               {format(date, "dd MMMM yyyy", { locale: idLocale })}
+               
             </div>
           </div>
         </div>
