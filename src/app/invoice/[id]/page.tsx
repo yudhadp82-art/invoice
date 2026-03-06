@@ -74,11 +74,11 @@ export default function InvoicePage() {
         {/* Header / Kop Surat */}
         <div className="flex items-center justify-between border-b-2 border-black pb-4 mb-4">
           <div className="w-24 h-24 relative flex items-center justify-center">
-            <Image 
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
               src="/logo.png" 
               alt="Logo Desa" 
-              fill
-              className="object-contain"
+              className="w-full h-full object-contain"
             />
           </div>
           <div className="text-center flex-1 px-4">
