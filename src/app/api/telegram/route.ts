@@ -45,30 +45,20 @@ async function parseOrderText(text: string) {
     rawMessage: text
   }
 
-  // New Format Detection: "PO ..."
-  // Example:
-  // PO SPPG SINDANGJAYA5 
-  // •Singkong : 350kg 
-  
-  let isPOFormat = false
+  // Always take first line as Customer Name (with or without PO)
   const firstLine = lines[0].trim()
-  
-  if (firstLine.toUpperCase().startsWith("PO")) {
-    isPOFormat = true
-    data.customerName = firstLine.replace("PO", "").trim() || "Unknown Customer"
+  if (firstLine) {
+    // Remove "PO" prefix if present (case insensitive), but keep the rest
+    data.customerName = firstLine.replace(/^PO\s+/i, "").trim() || firstLine
   }
 
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) continue
 
-    // Handle Old Format (Nama: ..., Item: ...)
-    if (!isPOFormat) {
-      if (trimmed.toLowerCase().startsWith("nama:")) {
-        data.customerName = trimmed.split(":")[1].trim()
-      } else if (trimmed.toLowerCase().startsWith("hp:") || trimmed.toLowerCase().startsWith("phone:")) {
-        data.customerPhone = trimmed.split(":")[1].trim()
-      }
+    // Also try to find phone number in any line
+    if (trimmed.toLowerCase().startsWith("hp:") || trimmed.toLowerCase().startsWith("phone:")) {
+      data.customerPhone = trimmed.split(":")[1].trim()
     }
 
     // Parse Items (Both Formats)
@@ -136,9 +126,9 @@ export async function POST(req: Request) {
     
     // Check keywords for both formats
     // Format 1: "item:" or "pesanan:"
-    // Format 2: Starts with "PO" or has bullets "•"
+    // Format 2: Starts with "PO" or has bullets "•", "-", "*"
     const isFormat1 = text.toLowerCase().includes("item:") || text.toLowerCase().includes("pesanan:")
-    const isFormat2 = text.trim().toUpperCase().startsWith("PO") || text.includes("•")
+    const isFormat2 = text.trim().toUpperCase().startsWith("PO") || text.includes("•") || text.includes("- ") || text.includes("* ")
     
     if (isFormat1 || isFormat2) {
       const orderData = await parseOrderText(text)
