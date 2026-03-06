@@ -79,14 +79,30 @@ export async function POST(req: Request) {
       const orderData = parseOrderText(text)
       
       if (orderData.items.length > 0) {
-        await addDoc(collection(db, "orders"), {
+        const docRef = await addDoc(collection(db, "orders"), {
           ...orderData,
           source: "telegram",
           createdAt: serverTimestamp(),
           status: "pending",
           rawMessage: text,
-          chatId: message.chat.id, // Useful for replying later
+          chatId: message.chat.id, 
         })
+        
+        // Reply to Telegram
+        const botToken = process.env.TELEGRAM_BOT_TOKEN
+        if (botToken) {
+          const replyText = `✅ Pesanan Diterima!\nID: ${docRef.id.slice(0, 8)}\nTotal: ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(orderData.totalAmount)}\n\nTerima kasih! Invoice sedang diproses.`
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: message.chat.id,
+              text: replyText,
+              reply_to_message_id: message.message_id
+            })
+          })
+        }
+        
         console.log("Order saved from Telegram")
       }
     }
