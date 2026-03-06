@@ -62,6 +62,7 @@ export function OrderList() {
                 <TableHead>Customer</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Items</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>HPP</TableHead>
                 <TableHead>Profit</TableHead>
@@ -92,10 +93,21 @@ export function OrderList() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        <ul className="list-disc list-inside space-y-1">
+                        <ul className="space-y-1">
                           {order.items.map((item, idx) => (
-                            <li key={idx}>
-                              {item.name} <span className="text-muted-foreground">({item.quantity} {item.unit || ""})</span>
+                            <li key={idx} className="h-6 flex items-center">
+                              {item.name}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="text-sm">
+                        <ul className="space-y-1">
+                          {order.items.map((item, idx) => (
+                            <li key={idx} className="h-6 flex items-center justify-end text-muted-foreground">
+                              {item.quantity} {item.unit || ""}
                             </li>
                           ))}
                         </ul>
