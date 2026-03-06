@@ -1,10 +1,18 @@
+export interface Ingredient {
+  productId: string;
+  name: string; // snapshot of name
+  quantity: number;
+}
+
 export interface Product {
   id: string;
   name: string;
+  brand?: string; // New field
   price: number; // Default price
   priceSppg?: number; // Price for SPPG 5 & SPPG 3
   priceAlHam?: number; // Price for Al Ham
   materialCost?: number;
+  ingredients?: Ingredient[]; // New field for composite products
   unit: string;
   category?: string;
   createdAt: any;
