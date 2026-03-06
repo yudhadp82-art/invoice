@@ -83,8 +83,25 @@ async function parseOrderText(text: string) {
           
           // Lookup Price and Material Cost
           const product = await findProductPrice(name)
-          const price = product ? product.price : 0
-          const materialCost = product ? product.materialCost || 0 : 0
+          let price = 0
+          let materialCost = 0
+
+          if (product) {
+            materialCost = product.materialCost || 0
+            
+            // Dynamic Pricing Logic
+            const customer = data.customerName.toUpperCase()
+            if (customer.includes("SPPG")) {
+              // Priority: SPPG Price -> Default Price
+              price = product.priceSppg && product.priceSppg > 0 ? product.priceSppg : product.price
+            } else if (customer.includes("AL HAM")) {
+              // Priority: Al Ham Price -> Default Price
+              price = product.priceAlHam && product.priceAlHam > 0 ? product.priceAlHam : product.price
+            } else {
+              // Default
+              price = product.price
+            }
+          }
           
           data.items.push({ name, quantity, price, materialCost, unit: qtyString.replace(/\d+/g, '').trim() })
           data.totalAmount += (quantity * price)

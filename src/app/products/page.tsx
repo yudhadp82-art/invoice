@@ -63,11 +63,13 @@ export default function ProductsPage() {
     if (editingProduct) {
       setValue("name", editingProduct.name)
       setValue("price", editingProduct.price)
+      setValue("priceSppg", editingProduct.priceSppg || 0)
+      setValue("priceAlHam", editingProduct.priceAlHam || 0)
       setValue("materialCost", editingProduct.materialCost || 0)
       setValue("unit", editingProduct.unit)
       setValue("category", editingProduct.category || "")
     } else {
-      reset({ name: "", price: 0, materialCost: 0, unit: "kg", category: "" })
+      reset({ name: "", price: 0, priceSppg: 0, priceAlHam: 0, materialCost: 0, unit: "kg", category: "" })
     }
   }, [editingProduct, setValue, reset])
 
@@ -132,7 +134,7 @@ export default function ProductsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Selling Price (IDR)</Label>
+                  <Label htmlFor="price">Default Price (Umum)</Label>
                   <Input 
                     id="price" 
                     type="number" 
@@ -140,6 +142,24 @@ export default function ProductsPage() {
                     placeholder="0" 
                   />
                   {errors.price && <p className="text-sm text-red-500">{errors.price.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="priceSppg">Price SPPG (5 & 3)</Label>
+                  <Input 
+                    id="priceSppg" 
+                    type="number" 
+                    {...register("priceSppg", { valueAsNumber: true })} 
+                    placeholder="0" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="priceAlHam">Price Al Ham</Label>
+                  <Input 
+                    id="priceAlHam" 
+                    type="number" 
+                    {...register("priceAlHam", { valueAsNumber: true })} 
+                    placeholder="0" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="materialCost">Material Cost / HPP (IDR)</Label>

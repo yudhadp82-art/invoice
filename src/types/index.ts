@@ -1,8 +1,10 @@
 export interface Product {
   id: string;
   name: string;
-  price: number;
-  materialCost?: number; // HPP per unit
+  price: number; // Default price
+  priceSppg?: number; // Price for SPPG 5 & SPPG 3
+  priceAlHam?: number; // Price for Al Ham
+  materialCost?: number;
   unit: string;
   category?: string;
   createdAt: any;
