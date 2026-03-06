@@ -1,6 +1,6 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { getFirestore, Firestore } from "firebase/firestore";
+import { getStorage, FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,9 +12,9 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app;
-let db;
-let storage;
+let app: FirebaseApp;
+let db: Firestore;
+let storage: FirebaseStorage;
 
 try {
   app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -22,6 +22,11 @@ try {
   storage = getStorage(app);
 } catch (error) {
   console.error("Firebase initialization error:", error);
+  // Create dummy objects to prevent build errors, but they will fail at runtime if config is missing
+  // This is better than crashing build
+  app = {} as FirebaseApp;
+  db = {} as Firestore;
+  storage = {} as FirebaseStorage;
 }
 
 export { app, db, storage };
