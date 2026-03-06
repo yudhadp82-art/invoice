@@ -87,19 +87,21 @@ async function parseOrderText(text: string) {
           let materialCost = 0
 
           if (product) {
-            materialCost = product.materialCost || 0
+            // Type guard to ensure product is not null
+            const p = product as Product
+            materialCost = p.materialCost || 0
             
             // Dynamic Pricing Logic
             const customer = data.customerName.toUpperCase()
             if (customer.includes("SPPG")) {
               // Priority: SPPG Price -> Default Price
-              price = product.priceSppg && product.priceSppg > 0 ? product.priceSppg : product.price
+              price = p.priceSppg && p.priceSppg > 0 ? p.priceSppg : p.price
             } else if (customer.includes("AL HAM")) {
               // Priority: Al Ham Price -> Default Price
-              price = product.priceAlHam && product.priceAlHam > 0 ? product.priceAlHam : product.price
+              price = p.priceAlHam && p.priceAlHam > 0 ? p.priceAlHam : p.price
             } else {
               // Default
-              price = product.price
+              price = p.price
             }
           }
           
