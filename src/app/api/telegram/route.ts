@@ -63,6 +63,10 @@ function parseOrderText(text: string) {
   return data
 }
 
+export async function GET() {
+  return NextResponse.json({ status: "Telegram Webhook is Active", mode: "POST only for updates" })
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
