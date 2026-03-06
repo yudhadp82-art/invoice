@@ -63,10 +63,11 @@ export default function ProductsPage() {
     if (editingProduct) {
       setValue("name", editingProduct.name)
       setValue("price", editingProduct.price)
+      setValue("materialCost", editingProduct.materialCost || 0)
       setValue("unit", editingProduct.unit)
       setValue("category", editingProduct.category || "")
     } else {
-      reset({ name: "", price: 0, unit: "kg", category: "" })
+      reset({ name: "", price: 0, materialCost: 0, unit: "kg", category: "" })
     }
   }, [editingProduct, setValue, reset])
 
@@ -131,7 +132,7 @@ export default function ProductsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price (IDR)</Label>
+                  <Label htmlFor="price">Selling Price (IDR)</Label>
                   <Input 
                     id="price" 
                     type="number" 
@@ -141,10 +142,20 @@ export default function ProductsPage() {
                   {errors.price && <p className="text-sm text-red-500">{errors.price.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="unit">Unit</Label>
-                  <Input id="unit" {...register("unit")} placeholder="e.g. kg, pcs, ikat" />
-                  {errors.unit && <p className="text-sm text-red-500">{errors.unit.message}</p>}
+                  <Label htmlFor="materialCost">Material Cost / HPP (IDR)</Label>
+                  <Input 
+                    id="materialCost" 
+                    type="number" 
+                    {...register("materialCost", { valueAsNumber: true })} 
+                    placeholder="0" 
+                  />
+                  {errors.materialCost && <p className="text-sm text-red-500">{errors.materialCost.message}</p>}
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit">Unit</Label>
+                <Input id="unit" {...register("unit")} placeholder="e.g. kg, pcs, ikat" />
+                {errors.unit && <p className="text-sm text-red-500">{errors.unit.message}</p>}
               </div>
               <DialogFooter>
                 <Button type="submit">Save Product</Button>
@@ -161,6 +172,7 @@ export default function ProductsPage() {
               <TableHead>Product Name</TableHead>
               <TableHead>Unit</TableHead>
               <TableHead>Price</TableHead>
+              <TableHead>Material Cost</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -171,6 +183,9 @@ export default function ProductsPage() {
                 <TableCell>{product.unit}</TableCell>
                 <TableCell>
                   {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(product.price)}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {product.materialCost ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(product.materialCost) : "-"}
                 </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button variant="ghost" size="icon" onClick={() => {

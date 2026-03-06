@@ -29,10 +29,10 @@ async function findProductPrice(itemName: string) {
       }
     })
 
-    return bestMatch ? (bestMatch as Product).price : 0
+    return bestMatch
   } catch (error) {
-    console.error("Error finding product price:", error)
-    return 0
+    console.error("Error finding product:", error)
+    return null
   }
 }
 
@@ -43,6 +43,7 @@ async function parseOrderText(text: string) {
     customerPhone: "",
     items: [],
     totalAmount: 0,
+    hpp: 0, // Initialize HPP
     rawMessage: text
   }
 
@@ -80,11 +81,14 @@ async function parseOrderText(text: string) {
           const qtyMatch = qtyString.match(/(\d+)/)
           const quantity = qtyMatch ? parseInt(qtyMatch[0]) : 1
           
-          // Lookup Price
-          const price = await findProductPrice(name)
+          // Lookup Price and Material Cost
+          const product = await findProductPrice(name)
+          const price = product ? product.price : 0
+          const materialCost = product ? product.materialCost || 0 : 0
           
-          data.items.push({ name, quantity, price, unit: qtyString.replace(/\d+/g, '').trim() })
+          data.items.push({ name, quantity, price, materialCost, unit: qtyString.replace(/\d+/g, '').trim() })
           data.totalAmount += (quantity * price)
+          data.hpp = (data.hpp || 0) + (quantity * materialCost)
         }
         // Format 1: "Sepatu (1) 150000"
         else {

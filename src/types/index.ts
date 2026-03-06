@@ -2,6 +2,7 @@ export interface Product {
   id: string;
   name: string;
   price: number;
+  materialCost?: number; // HPP per unit
   unit: string;
   category?: string;
   createdAt: any;
@@ -20,6 +21,7 @@ export interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  materialCost?: number; // HPP per unit at time of order
   unit?: string;
 }
 
