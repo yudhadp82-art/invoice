@@ -51,7 +51,19 @@ async function parseOrderText(text: string) {
   const firstLine = lines[0].trim()
   if (firstLine) {
     // Remove "PO" prefix if present (case insensitive), but keep the rest
-    data.customerName = firstLine.replace(/^PO\s+/i, "").trim() || firstLine
+    let rawName = firstLine.replace(/^PO\s+/i, "").trim()
+    
+    // Normalize Customer Name for SPPG
+    const normalized = rawName.toUpperCase().replace(/\s/g, "")
+    if (normalized.includes("SPPG5")) {
+      data.customerName = "SPPG SINDANGJAYA 5"
+    } else if (normalized.includes("SPPG3")) {
+      data.customerName = "SPPG SINDANGJAYA 3"
+    } else if (normalized.includes("SPPG2")) {
+      data.customerName = "SPPG SINDANGJAYA 2"
+    } else {
+      data.customerName = rawName || "Unknown"
+    }
   }
 
   for (const line of lines) {
