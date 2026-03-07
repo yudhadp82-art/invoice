@@ -79,6 +79,7 @@ export function OrderList() {
                   <TableHead>Source</TableHead>
                   <TableHead>Items</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>HPP</TableHead>
                   <TableHead>Profit</TableHead>
@@ -124,6 +125,17 @@ export function OrderList() {
                             {order.items.map((item, idx) => (
                               <li key={idx} className="h-6 flex items-center justify-end text-muted-foreground">
                                 {item.quantity} {item.unit || ""}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="text-sm">
+                          <ul className="space-y-1">
+                            {order.items.map((item, idx) => (
+                              <li key={idx} className="h-6 flex items-center justify-end text-muted-foreground">
+                                {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(item.price)}
                               </li>
                             ))}
                           </ul>
@@ -178,7 +190,7 @@ export function OrderList() {
                 })}
                 {orders.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       No orders found. Create one manually or via chat.
                     </TableCell>
                   </TableRow>
