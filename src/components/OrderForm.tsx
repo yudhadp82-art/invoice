@@ -159,11 +159,21 @@ export function OrderForm({ order, open: controlledOpen, onOpenChange: setContro
       setValue(`items.${index}.name`, product.name)
       setValue(`items.${index}.brand`, product.brand || "")
       setValue(`items.${index}.unit`, product.unit)
-      setValue(`items.${index}.price`, product.price) // Default to general price
-      setValue(`items.${index}.materialCost`, product.materialCost)
       
-      // Auto-adjust price based on customer name logic if possible?
-      // For simplicity, just use default price and let user edit
+      // Dynamic Pricing Logic based on Customer Name
+      const customerName = watch("customerName").toUpperCase()
+      let price = product.price // Default price
+
+      if (customerName.includes("SPPG 5") || customerName.includes("SPPG 2")) {
+        price = product.priceSppg5 && product.priceSppg5 > 0 ? product.priceSppg5 : product.price
+      } else if (customerName.includes("SPPG 3")) {
+        price = product.priceSppg3 && product.priceSppg3 > 0 ? product.priceSppg3 : product.price
+      } else if (customerName.includes("AL HAM")) {
+        price = product.priceAlHam && product.priceAlHam > 0 ? product.priceAlHam : product.price
+      }
+
+      setValue(`items.${index}.price`, price)
+      setValue(`items.${index}.materialCost`, product.materialCost)
     }
   }
 
