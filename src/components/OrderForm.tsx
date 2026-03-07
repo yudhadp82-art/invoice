@@ -186,18 +186,12 @@ export function OrderForm({ order, open: controlledOpen, onOpenChange: setContro
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Customer Name</Label>
-              <Input id="name" {...register("customerName")} placeholder="John Doe" />
-              {errors.customerName && (
-                <p className="text-sm text-red-500">{errors.customerName.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" {...register("customerPhone")} placeholder="0812..." />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="name">Customer Name</Label>
+            <Input id="name" {...register("customerName")} placeholder="John Doe" />
+            {errors.customerName && (
+              <p className="text-sm text-red-500">{errors.customerName.message}</p>
+            )}
           </div>
           
           <div className="space-y-2">

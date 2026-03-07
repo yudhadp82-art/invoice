@@ -438,6 +438,9 @@ export default function ProductsPage() {
               <TableHead>Brand</TableHead>
               <TableHead>Unit</TableHead>
               <TableHead>Price (Gen)</TableHead>
+              <TableHead>Price (SPPG 5&2)</TableHead>
+              <TableHead>Price (SPPG 3)</TableHead>
+              <TableHead>Price (Al Ham)</TableHead>
               <TableHead>HPP</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -455,6 +458,15 @@ export default function ProductsPage() {
                 <TableCell>{product.unit}</TableCell>
                 <TableCell>
                   {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(product.price)}
+                </TableCell>
+                <TableCell>
+                  {product.priceSppg5 ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(product.priceSppg5) : "-"}
+                </TableCell>
+                <TableCell>
+                  {product.priceSppg3 ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(product.priceSppg3) : "-"}
+                </TableCell>
+                <TableCell>
+                  {product.priceAlHam ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(product.priceAlHam) : "-"}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {product.materialCost ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(product.materialCost) : "-"}
@@ -474,7 +486,7 @@ export default function ProductsPage() {
             ))}
             {products.length === 0 && !loading && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   No products found. Import or add one to start.
                 </TableCell>
               </TableRow>
