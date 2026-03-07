@@ -118,12 +118,21 @@ export function OrderForm({ order, open: controlledOpen, onOpenChange: setContro
       let totalHpp = 0
 
       const processedItems = data.items.map(item => {
-        const itemTotal = item.price * item.quantity
+        // Ensure price and quantity are numbers before calculation
+        const price = Number(item.price) || 0
+        const quantity = Number(item.quantity) || 0
+        const materialCost = Number(item.materialCost) || 0
+
+        const itemTotal = price * quantity
         totalAmount += itemTotal
-        if (item.materialCost) {
-          totalHpp += item.materialCost * item.quantity
+        totalHpp += materialCost * quantity
+        
+        return {
+          ...item,
+          price,
+          quantity,
+          materialCost
         }
-        return item
       })
       
       const orderData = {
