@@ -131,7 +131,8 @@ export function OrderForm({ order, open: controlledOpen, onOpenChange: setContro
           ...item,
           price,
           quantity,
-          materialCost
+          materialCost,
+          total: itemTotal
         }
       })
 
