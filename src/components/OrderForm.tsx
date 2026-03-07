@@ -168,6 +168,27 @@ export function OrderForm({ order, open: controlledOpen, onOpenChange: setContro
 
   const watchedCustomerName = watch("customerName")
 
+  // Helper function to calculate price based on customer
+  const getPriceForCustomer = (product: Product, customerName: string) => {
+    if (!customerName) return product.price
+    
+    const normalizedCustomer = customerName.toUpperCase().replace(/\s/g, "")
+    
+    if (normalizedCustomer.includes("SPPG5") || normalizedCustomer.includes("SPPG2")) {
+      return product.priceSppg5 && product.priceSppg5 > 0 ? product.priceSppg5 : product.price
+    } 
+    
+    if (normalizedCustomer.includes("SPPG3")) {
+      return product.priceSppg3 && product.priceSppg3 > 0 ? product.priceSppg3 : product.price
+    } 
+    
+    if (normalizedCustomer.includes("ALHAM")) {
+      return product.priceAlHam && product.priceAlHam > 0 ? product.priceAlHam : product.price
+    }
+    
+    return product.price
+  }
+
   useEffect(() => {
     // Only proceed if customer name is entered
     if (!watchedCustomerName) return
@@ -181,16 +202,7 @@ export function OrderForm({ order, open: controlledOpen, onOpenChange: setContro
       const product = products.find(p => p.name === currentName)
       
       if (product) {
-        const customerName = watchedCustomerName.toUpperCase()
-        let price = product.price // Default price
-
-        if (customerName.includes("SPPG 5") || customerName.includes("SPPG 2")) {
-          price = product.priceSppg5 && product.priceSppg5 > 0 ? product.priceSppg5 : product.price
-        } else if (customerName.includes("SPPG 3")) {
-          price = product.priceSppg3 && product.priceSppg3 > 0 ? product.priceSppg3 : product.price
-        } else if (customerName.includes("AL HAM")) {
-          price = product.priceAlHam && product.priceAlHam > 0 ? product.priceAlHam : product.price
-        }
+        const price = getPriceForCustomer(product, watchedCustomerName)
         
         // Update price
         setValue(`items.${index}.price`, price)
@@ -206,16 +218,8 @@ export function OrderForm({ order, open: controlledOpen, onOpenChange: setContro
       setValue(`items.${index}.unit`, product.unit)
       
       // Dynamic Pricing Logic based on Customer Name
-      const customerName = watch("customerName").toUpperCase()
-      let price = product.price // Default price
-
-      if (customerName.includes("SPPG 5") || customerName.includes("SPPG 2")) {
-        price = product.priceSppg5 && product.priceSppg5 > 0 ? product.priceSppg5 : product.price
-      } else if (customerName.includes("SPPG 3")) {
-        price = product.priceSppg3 && product.priceSppg3 > 0 ? product.priceSppg3 : product.price
-      } else if (customerName.includes("AL HAM")) {
-        price = product.priceAlHam && product.priceAlHam > 0 ? product.priceAlHam : product.price
-      }
+      const customerName = watch("customerName")
+      const price = getPriceForCustomer(product, customerName)
 
       setValue(`items.${index}.price`, price)
       setValue(`items.${index}.materialCost`, product.materialCost)
