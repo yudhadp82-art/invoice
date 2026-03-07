@@ -63,6 +63,16 @@ export function OrderList() {
     return <div className="p-4 text-center">Loading orders...</div>
   }
 
+  // Format currency without decimals
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("id-ID", { 
+      style: "currency", 
+      currency: "IDR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value)
+  }
+
   return (
     <>
       <Card className="w-full">
@@ -135,20 +145,20 @@ export function OrderList() {
                           <ul className="space-y-1">
                             {order.items.map((item, idx) => (
                               <li key={idx} className="h-6 flex items-center justify-end text-muted-foreground">
-                                {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(item.price)}
+                                {formatCurrency(item.price)}
                               </li>
                             ))}
                           </ul>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(order.totalAmount)}
+                        {formatCurrency(order.totalAmount)}
                       </TableCell>
                       <TableCell className="text-red-500 font-medium">
-                        {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(hpp)}
+                        {formatCurrency(hpp)}
                       </TableCell>
                       <TableCell className={profit >= 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
-                        {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(profit)}
+                        {formatCurrency(profit)}
                       </TableCell>
                       <TableCell>
                         <Badge variant={order.status === "completed" ? "default" : "secondary"}>
