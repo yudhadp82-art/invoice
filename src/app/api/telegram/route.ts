@@ -85,12 +85,13 @@ async function parseOrderText(text: string) {
           const product = await findProductPrice(name)
           let price = 0
           let materialCost = 0
+          let brand = ""
 
           if (product) {
             // Type guard to ensure product is not null
             const p = product as Product
             materialCost = p.materialCost || 0
-            const brand = p.brand || ""
+            brand = p.brand || ""
             
             // Dynamic Pricing Logic
             const customer = data.customerName.toUpperCase()
