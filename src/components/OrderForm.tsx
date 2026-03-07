@@ -166,6 +166,38 @@ export function OrderForm({ order, open: controlledOpen, onOpenChange: setContro
     }
   }
 
+  const watchedCustomerName = watch("customerName")
+
+  useEffect(() => {
+    // Only proceed if customer name is entered
+    if (!watchedCustomerName) return
+
+    fields.forEach((field, index) => {
+      // Try to find product by name since we don't store ID directly in item object yet
+      // This runs when Customer Name changes OR when Products are loaded
+      const currentName = watch(`items.${index}.name`)
+      if (!currentName) return
+
+      const product = products.find(p => p.name === currentName)
+      
+      if (product) {
+        const customerName = watchedCustomerName.toUpperCase()
+        let price = product.price // Default price
+
+        if (customerName.includes("SPPG 5") || customerName.includes("SPPG 2")) {
+          price = product.priceSppg5 && product.priceSppg5 > 0 ? product.priceSppg5 : product.price
+        } else if (customerName.includes("SPPG 3")) {
+          price = product.priceSppg3 && product.priceSppg3 > 0 ? product.priceSppg3 : product.price
+        } else if (customerName.includes("AL HAM")) {
+          price = product.priceAlHam && product.priceAlHam > 0 ? product.priceAlHam : product.price
+        }
+        
+        // Update price
+        setValue(`items.${index}.price`, price)
+      }
+    })
+  }, [watchedCustomerName, products, setValue, watch]) // Removed fields from dependency to avoid loop, using watch inside
+
   const handleProductSelect = (index: number, productId: string) => {
     const product = products.find(p => p.id === productId)
     if (product) {
