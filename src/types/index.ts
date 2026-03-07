@@ -30,6 +30,7 @@ export interface PurchaseNote {
 
 export interface OrderItem {
   name: string;
+  brand?: string; // Added brand field
   quantity: number;
   price: number;
   materialCost?: number; // HPP per unit at time of order

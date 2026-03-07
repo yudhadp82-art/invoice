@@ -2,11 +2,14 @@ import { z } from "zod"
 
 export const orderSchema = z.object({
   customerName: z.string().min(2, "Name is required"),
-  customerPhone: z.string().min(10, "Valid phone number is required"),
+  customerPhone: z.string().optional(),
   items: z.array(z.object({
     name: z.string().min(1, "Item name is required"),
-    quantity: z.number().min(1, "Quantity must be at least 1"),
+    brand: z.string().optional(),
+    quantity: z.number().min(0.1, "Quantity must be greater than 0"),
     price: z.number().min(0, "Price must be non-negative"),
+    materialCost: z.number().optional(),
+    unit: z.string().optional(),
   })).min(1, "At least one item is required"),
   source: z.enum(["whatsapp", "telegram", "manual"]),
 })

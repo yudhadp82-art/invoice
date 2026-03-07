@@ -90,6 +90,7 @@ async function parseOrderText(text: string) {
             // Type guard to ensure product is not null
             const p = product as Product
             materialCost = p.materialCost || 0
+            const brand = p.brand || ""
             
             // Dynamic Pricing Logic
             const customer = data.customerName.toUpperCase()
@@ -106,9 +107,13 @@ async function parseOrderText(text: string) {
               // Default
               price = p.price
             }
+
+            data.items.push({ name, quantity, price, materialCost, brand, unit: qtyString.replace(/\d+/g, '').trim() })
+          } else {
+             // Fallback if product not found
+             data.items.push({ name, quantity, price: 0, materialCost: 0, unit: qtyString.replace(/\d+/g, '').trim() })
           }
           
-          data.items.push({ name, quantity, price, materialCost, unit: qtyString.replace(/\d+/g, '').trim() })
           data.totalAmount += (quantity * price)
           data.hpp = (data.hpp || 0) + (quantity * materialCost)
         }
