@@ -9,7 +9,8 @@ export interface Product {
   name: string;
   brand?: string; // New field
   price: number; // Default price
-  priceSppg?: number; // Price for SPPG 5 & SPPG 3
+  priceSppg5?: number; // Price for SPPG 5 & SPPG 2
+  priceSppg3?: number; // Price for SPPG 3
   priceAlHam?: number; // Price for Al Ham
   materialCost?: number;
   ingredients?: Ingredient[]; // New field for composite products

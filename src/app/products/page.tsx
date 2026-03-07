@@ -100,7 +100,8 @@ export default function ProductsPage() {
       setValue("name", editingProduct.name)
       setValue("brand", editingProduct.brand || "")
       setValue("price", editingProduct.price)
-      setValue("priceSppg", editingProduct.priceSppg || 0)
+      setValue("priceSppg5", editingProduct.priceSppg5 || 0)
+      setValue("priceSppg3", editingProduct.priceSppg3 || 0)
       setValue("priceAlHam", editingProduct.priceAlHam || 0)
       setValue("materialCost", editingProduct.materialCost || 0)
       setValue("unit", editingProduct.unit)
@@ -111,7 +112,8 @@ export default function ProductsPage() {
         name: "", 
         brand: "",
         price: 0, 
-        priceSppg: 0, 
+        priceSppg5: 0, 
+        priceSppg3: 0, 
         priceAlHam: 0, 
         materialCost: 0, 
         unit: "kg", 
@@ -154,7 +156,8 @@ export default function ProductsPage() {
       Brand: p.brand || "",
       Unit: p.unit,
       "Price (General)": p.price,
-      "Price (SPPG)": p.priceSppg || 0,
+      "Price (SPPG 5)": p.priceSppg5 || 0,
+      "Price (SPPG 3)": p.priceSppg3 || 0,
       "Price (Al Ham)": p.priceAlHam || 0,
       "Material Cost (HPP)": p.materialCost || 0,
       Category: p.category || "",
@@ -190,7 +193,8 @@ export default function ProductsPage() {
             brand: row["Brand"] || row["brand"] || "",
             unit: row["Unit"] || row["unit"] || "kg",
             price: Number(row["Price (General)"] || row["price"] || 0),
-            priceSppg: Number(row["Price (SPPG)"] || row["priceSppg"] || 0),
+            priceSppg5: Number(row["Price (SPPG 5)"] || row["priceSppg5"] || 0),
+            priceSppg3: Number(row["Price (SPPG 3)"] || row["priceSppg3"] || 0),
             priceAlHam: Number(row["Price (Al Ham)"] || row["priceAlHam"] || 0),
             materialCost: Number(row["Material Cost (HPP)"] || row["materialCost"] || 0),
             category: row["Category"] || row["category"] || "",
@@ -224,7 +228,8 @@ export default function ProductsPage() {
         Brand: "Lokal",
         Unit: "kg",
         "Price (General)": 15000,
-        "Price (SPPG)": 14000,
+        "Price (SPPG 5)": 14000,
+        "Price (SPPG 3)": 14500,
         "Price (Al Ham)": 14500,
         "Material Cost (HPP)": 10000,
         Category: "Sayuran"
@@ -234,7 +239,8 @@ export default function ProductsPage() {
         Brand: "Premium",
         Unit: "pck",
         "Price (General)": 25000,
-        "Price (SPPG)": 24000,
+        "Price (SPPG 5)": 24000,
+        "Price (SPPG 3)": 24500,
         "Price (Al Ham)": 24500,
         "Material Cost (HPP)": 18000,
         Category: "Frozen"
@@ -304,7 +310,7 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="price">Default Price</Label>
                     <Input 
@@ -315,11 +321,20 @@ export default function ProductsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="priceSppg">Price SPPG</Label>
+                    <Label htmlFor="priceSppg5">Price SPPG 5 & 2</Label>
                     <Input 
-                      id="priceSppg" 
+                      id="priceSppg5" 
                       type="number" 
-                      {...register("priceSppg", { valueAsNumber: true })} 
+                      {...register("priceSppg5", { valueAsNumber: true })} 
+                      placeholder="0" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="priceSppg3">Price SPPG 3</Label>
+                    <Input 
+                      id="priceSppg3" 
+                      type="number" 
+                      {...register("priceSppg3", { valueAsNumber: true })} 
                       placeholder="0" 
                     />
                   </div>

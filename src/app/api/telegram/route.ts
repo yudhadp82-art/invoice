@@ -93,9 +93,12 @@ async function parseOrderText(text: string) {
             
             // Dynamic Pricing Logic
             const customer = data.customerName.toUpperCase()
-            if (customer.includes("SPPG")) {
-              // Priority: SPPG Price -> Default Price
-              price = p.priceSppg && p.priceSppg > 0 ? p.priceSppg : p.price
+            if (customer.includes("SPPG 5") || customer.includes("SPPG 2")) {
+              // Priority: SPPG 5/2 Price -> Default Price
+              price = p.priceSppg5 && p.priceSppg5 > 0 ? p.priceSppg5 : p.price
+            } else if (customer.includes("SPPG 3")) {
+              // Priority: SPPG 3 Price -> Default Price
+              price = p.priceSppg3 && p.priceSppg3 > 0 ? p.priceSppg3 : p.price
             } else if (customer.includes("AL HAM")) {
               // Priority: Al Ham Price -> Default Price
               price = p.priceAlHam && p.priceAlHam > 0 ? p.priceAlHam : p.price
