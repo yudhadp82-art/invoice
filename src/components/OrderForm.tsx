@@ -134,12 +134,15 @@ export function OrderForm({ order, open: controlledOpen, onOpenChange: setContro
           materialCost
         }
       })
+
+      const profit = totalAmount - totalHpp
       
       const orderData = {
         ...data,
         items: processedItems,
         totalAmount,
         hpp: totalHpp,
+        profit,
         updatedAt: serverTimestamp(),
       }
 
