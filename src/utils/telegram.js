@@ -53,11 +53,18 @@ export function parseOrderMessage(text) {
 
   const customerRaw = lines[0];
 
+  // Detect SPPG number from line 1 (e.g., "PO SPPG SINDANGJAYA5" -> 5, "SPPG sindangjaya 3" -> 3)
+  // Match isolated digit OR digit directly attached to a word (e.g. "SINDANGJAYA5")
+  const sppgNumMatch = customerRaw.match(/(?:^|\s|[A-Za-z])(\d+)(?:\s|$)/);
+  const sppgNumber = sppgNumMatch ? parseInt(sppgNumMatch[1], 10) : null;
+
   // Extract keyword tokens — all words that are not pure numbers
+  // Also strip trailing digits from words (e.g., "SINDANGJAYA5" -> "sindangjaya")
   const customerKeywords = customerRaw
     .split(/\s+/)
-    .filter(w => isNaN(w.replace(',', '.')) && w.length > 0)
-    .map(w => w.toLowerCase());
+    .filter(w => w.length > 0)
+    .map(w => w.replace(/\d+$/, '').toLowerCase())
+    .filter(w => w.length > 0 && isNaN(w));
 
   const items = [];
 
@@ -108,14 +115,16 @@ export function parseOrderMessage(text) {
     });
   }
 
-  return { customerRaw, customerKeywords, items };
+  return { customerRaw, customerKeywords, sppgNumber, items };
 }
 
 /**
  * Match customer by keywords extracted from order message.
- * Returns best matching customer (by keyword score).
+ * sppgNumber: jika ada angka di baris 1 (misal 3 atau 5), digunakan sebagai
+ * discriminator tambahan agar SPPG SINDANGJAYA 3 tidak tertukar dengan SPPG SINDANGJAYA 5.
+ * Kategori harga SPPG 5 dan SPPG 2 adalah sama (sudah diset di data customer).
  */
-export function matchCustomer(customerKeywords, availableCustomers) {
+export function matchCustomer(customerKeywords, availableCustomers, sppgNumber = null) {
   if (!customerKeywords?.length || !availableCustomers?.length) return null;
 
   let best = null;
@@ -127,6 +136,22 @@ export function matchCustomer(customerKeywords, availableCustomers) {
     for (const kw of customerKeywords) {
       if (kw.length >= 2 && haystack.includes(kw)) score++;
     }
+
+    // Bonus/penalti berdasarkan angka SPPG di baris 1
+    if (sppgNumber !== null && score > 0) {
+      // Ekstrak angka dari nama customer (misal "SPPG SINDANGJAYA 3" -> 3)
+      const custNumMatch = c.name.match(/(\d+)/);
+      const custNum = custNumMatch ? parseInt(custNumMatch[1], 10) : null;
+
+      if (custNum !== null) {
+        if (custNum === sppgNumber) {
+          score += 10; // cocok persis
+        } else {
+          score -= 5;  // angka tidak cocok, kurangi skor agar tidak dipilih
+        }
+      }
+    }
+
     if (score > bestScore) {
       bestScore = score;
       best = c;

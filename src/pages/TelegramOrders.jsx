@@ -63,7 +63,7 @@ export default function TelegramOrdersPage() {
         const parsed = parseOrderMessage(text);
         if (!parsed || parsed.items.length === 0) continue;
 
-        const matchedCust = matchCustomer(parsed.customerKeywords, custs);
+        const matchedCust = matchCustomer(parsed.customerKeywords, custs, parsed.sppgNumber);
 
         const scopedProducts = prods.filter(p => !p.customerId || (matchedCust && p.customerId === matchedCust.id));
 
