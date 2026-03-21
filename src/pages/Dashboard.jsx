@@ -26,10 +26,13 @@ export default function Dashboard() {
   const [products, setProducts] = useState([]);
 
   useEffect(() => {
-    setInvoices(Invoices.getAll());
-    setDN(DeliveryNotes.getAll());
-    setPurchases(Purchases.getAll());
-    setProducts(Products.getAll());
+    const load = async () => {
+      setInvoices(await Invoices.getAll());
+      setDN(await DeliveryNotes.getAll());
+      setPurchases(await Purchases.getAll());
+      setProducts(await Products.getAll());
+    };
+    load();
   }, []);
 
   // Stats calculations

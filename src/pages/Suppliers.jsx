@@ -17,8 +17,8 @@ export default function Suppliers() {
     reload();
   }, []);
 
-  function reload() {
-    setSuppliers(SupplierStore.getAll());
+  async function reload() {
+    setSuppliers(await SupplierStore.getAll());
   }
 
   function openAdd() {
@@ -40,21 +40,21 @@ export default function Suppliers() {
     setModalOpen(true);
   }
 
-  function handleSave(e) {
+  async function handleSave(e) {
     e.preventDefault();
     if (editingId) {
-      SupplierStore.update(editingId, form);
+      await SupplierStore.update(editingId, form);
     } else {
-      SupplierStore.create(form);
+      await SupplierStore.create(form);
     }
     setModalOpen(false);
-    reload();
+    await reload();
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (confirm('Hapus supplier ini?')) {
-      SupplierStore.delete(id);
-      reload();
+      await SupplierStore.delete(id);
+      await reload();
     }
   }
 
@@ -79,11 +79,11 @@ export default function Suppliers() {
       'Alamat': 'address',
       'Catatan': 'notes',
     };
-    triggerImportExcel((data) => {
+    triggerImportExcel(async (data) => {
       let count = 0;
-      data.forEach(item => {
+      for (const item of data) {
         if (item.name || item.company) {
-          SupplierStore.create({
+          await SupplierStore.create({
             name: item.name || '',
             company: item.company || '',
             phone: String(item.phone || ''),
@@ -93,9 +93,9 @@ export default function Suppliers() {
           });
           count++;
         }
-      });
+      }
       alert(`Berhasil import ${count} supplier`);
-      reload();
+      await reload();
     }, columnMap);
   }
 

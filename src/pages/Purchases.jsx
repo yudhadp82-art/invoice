@@ -18,9 +18,9 @@ export default function Purchases() {
 
   useEffect(() => { reload(); }, []);
 
-  function reload() {
-    setPurchases(PurchaseStore.getAll());
-    setProducts(ProductStore.getAll());
+  async function reload() {
+    setPurchases(await PurchaseStore.getAll());
+    setProducts(await ProductStore.getAll());
   }
 
   function openAdd() {
@@ -69,7 +69,7 @@ export default function Purchases() {
     setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== index) }));
   }
 
-  function handleSave(e) {
+  async function handleSave(e) {
     e.preventDefault();
     if (form.items.length === 0) {
       alert('Tambahkan minimal 1 item');
@@ -77,27 +77,27 @@ export default function Purchases() {
     }
 
     const totalCost = form.items.reduce((sum, item) => sum + (item.costPerUnit * item.qty), 0);
-    PurchaseStore.create({ ...form, totalCost });
+    await PurchaseStore.create({ ...form, totalCost });
 
     // Update product stock and purchase cost
-    form.items.forEach(item => {
-      const product = ProductStore.getById(item.productId);
+    for (const item of form.items) {
+      const product = await ProductStore.getById(item.productId);
       if (product) {
-        ProductStore.update(item.productId, {
+        await ProductStore.update(item.productId, {
           stock: (product.stock || 0) + item.qty,
           purchaseCost: item.costPerUnit, // Update latest cost
         });
       }
-    });
+    }
 
     setModalOpen(false);
-    reload();
+    await reload();
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (confirm('Hapus catatan pembelian ini?')) {
-      PurchaseStore.delete(id);
-      reload();
+      await PurchaseStore.delete(id);
+      await reload();
     }
   }
 

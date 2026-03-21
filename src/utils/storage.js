@@ -1,172 +1,182 @@
-// LocalStorage CRUD helpers for all entities
+import { db } from './firebase';
+import { collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-const KEYS = {
-  PRODUCTS: 'invoicepro_products',
-  CUSTOMERS: 'invoicepro_customers',
-  INVOICES: 'invoicepro_invoices',
-  DELIVERY_NOTES: 'invoicepro_delivery_notes',
-  PURCHASES: 'invoicepro_purchases',
-  PRICE_CATEGORIES: 'invoicepro_price_categories',
-  SUPPLIERS: 'invoicepro_suppliers',
-  TELEGRAM_ORDERS: 'invoicepro_telegram_orders',
-  TELEGRAM_OFFSET: 'invoicepro_telegram_offset',
-  HPP_REPORTS: 'invoicepro_hpp_reports',
+const COLLECTIONS = {
+  PRODUCTS: 'products',
+  CUSTOMERS: 'customers',
+  INVOICES: 'invoices',
+  DELIVERY_NOTES: 'delivery_notes',
+  PURCHASES: 'purchases',
+  PRICE_CATEGORIES: 'price_categories',
+  SUPPLIERS: 'suppliers',
+  TELEGRAM_ORDERS: 'telegram_orders',
+  HPP_REPORTS: 'hpp_reports',
 };
 
-function generateId() {
-  return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
-function getAll(key) {
+async function getAllFromStore(collectionName) {
   try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
-  } catch {
+    const colRef = collection(db, collectionName);
+    const snapshot = await getDocs(colRef);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error(`Error getting all from ${collectionName}:`, error);
     return [];
   }
 }
 
-function saveAll(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
+async function getByIdFromStore(collectionName, id) {
+  try {
+    const docRef = doc(db, collectionName, id);
+    const snapshot = await getDoc(docRef);
+    return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+  } catch (error) {
+    console.error(`Error getting ${id} from ${collectionName}:`, error);
+    return null;
+  }
 }
 
-function getById(key, id) {
-  const items = getAll(key);
-  return items.find(item => item.id === id) || null;
+async function createInStore(collectionName, item) {
+  try {
+    const newItem = {
+      ...item,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    if (item.id) {
+      const docRef = doc(db, collectionName, item.id);
+      await setDoc(docRef, newItem);
+      return { ...newItem, id: item.id };
+    } else {
+      const colRef = collection(db, collectionName);
+      const docRef = await addDoc(colRef, newItem);
+      return { id: docRef.id, ...newItem };
+    }
+  } catch (error) {
+    console.error(`Error creating in ${collectionName}:`, error);
+    return null;
+  }
 }
 
-function create(key, item) {
-  const items = getAll(key);
-  const newItem = {
-    ...item,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  items.push(newItem);
-  saveAll(key, items);
-  return newItem;
+async function updateInStore(collectionName, id, updates) {
+  try {
+    const docRef = doc(db, collectionName, id);
+    const updatedData = {
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    await updateDoc(docRef, updatedData);
+    return { id, ...updatedData };
+  } catch (error) {
+    console.error(`Error updating ${id} in ${collectionName}:`, error);
+    return null;
+  }
 }
 
-function update(key, id, updates) {
-  const items = getAll(key);
-  const index = items.findIndex(item => item.id === id);
-  if (index === -1) return null;
-  items[index] = {
-    ...items[index],
-    ...updates,
-    id,
-    updatedAt: new Date().toISOString(),
-  };
-  saveAll(key, items);
-  return items[index];
+async function removeInStore(collectionName, id) {
+  try {
+    const docRef = doc(db, collectionName, id);
+    await deleteDoc(docRef);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting ${id} in ${collectionName}:`, error);
+    return false;
+  }
 }
 
-function remove(key, id) {
-  const items = getAll(key);
-  const filtered = items.filter(item => item.id !== id);
-  saveAll(key, filtered);
-  return filtered;
-}
-
-// Products
 export const Products = {
-  getAll: () => getAll(KEYS.PRODUCTS),
-  getById: (id) => getById(KEYS.PRODUCTS, id),
-  create: (product) => create(KEYS.PRODUCTS, product),
-  update: (id, updates) => update(KEYS.PRODUCTS, id, updates),
-  delete: (id) => remove(KEYS.PRODUCTS, id),
+  getAll: () => getAllFromStore(COLLECTIONS.PRODUCTS),
+  getById: (id) => getByIdFromStore(COLLECTIONS.PRODUCTS, id),
+  create: (item) => createInStore(COLLECTIONS.PRODUCTS, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.PRODUCTS, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.PRODUCTS, id),
 };
 
-// Customers
 export const Customers = {
-  getAll: () => getAll(KEYS.CUSTOMERS),
-  getById: (id) => getById(KEYS.CUSTOMERS, id),
-  create: (customer) => create(KEYS.CUSTOMERS, customer),
-  update: (id, updates) => update(KEYS.CUSTOMERS, id, updates),
-  delete: (id) => remove(KEYS.CUSTOMERS, id),
+  getAll: () => getAllFromStore(COLLECTIONS.CUSTOMERS),
+  getById: (id) => getByIdFromStore(COLLECTIONS.CUSTOMERS, id),
+  create: (item) => createInStore(COLLECTIONS.CUSTOMERS, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.CUSTOMERS, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.CUSTOMERS, id),
 };
 
-// Suppliers
 export const Suppliers = {
-  getAll: () => getAll(KEYS.SUPPLIERS),
-  getById: (id) => getById(KEYS.SUPPLIERS, id),
-  create: (supplier) => create(KEYS.SUPPLIERS, supplier),
-  update: (id, updates) => update(KEYS.SUPPLIERS, id, updates),
-  delete: (id) => remove(KEYS.SUPPLIERS, id),
+  getAll: () => getAllFromStore(COLLECTIONS.SUPPLIERS),
+  getById: (id) => getByIdFromStore(COLLECTIONS.SUPPLIERS, id),
+  create: (item) => createInStore(COLLECTIONS.SUPPLIERS, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.SUPPLIERS, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.SUPPLIERS, id),
 };
 
-// Invoices
 export const Invoices = {
-  getAll: () => getAll(KEYS.INVOICES),
-  getById: (id) => getById(KEYS.INVOICES, id),
-  create: (invoice) => create(KEYS.INVOICES, invoice),
-  update: (id, updates) => update(KEYS.INVOICES, id, updates),
-  delete: (id) => remove(KEYS.INVOICES, id),
+  getAll: () => getAllFromStore(COLLECTIONS.INVOICES),
+  getById: (id) => getByIdFromStore(COLLECTIONS.INVOICES, id),
+  create: (item) => createInStore(COLLECTIONS.INVOICES, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.INVOICES, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.INVOICES, id),
 };
 
-// Delivery Notes (Surat Jalan)
 export const DeliveryNotes = {
-  getAll: () => getAll(KEYS.DELIVERY_NOTES),
-  getById: (id) => getById(KEYS.DELIVERY_NOTES, id),
-  create: (note) => create(KEYS.DELIVERY_NOTES, note),
-  update: (id, updates) => update(KEYS.DELIVERY_NOTES, id, updates),
-  delete: (id) => remove(KEYS.DELIVERY_NOTES, id),
+  getAll: () => getAllFromStore(COLLECTIONS.DELIVERY_NOTES),
+  getById: (id) => getByIdFromStore(COLLECTIONS.DELIVERY_NOTES, id),
+  create: (item) => createInStore(COLLECTIONS.DELIVERY_NOTES, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.DELIVERY_NOTES, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.DELIVERY_NOTES, id),
 };
 
-// Purchases
 export const Purchases = {
-  getAll: () => getAll(KEYS.PURCHASES),
-  getById: (id) => getById(KEYS.PURCHASES, id),
-  create: (purchase) => create(KEYS.PURCHASES, purchase),
-  update: (id, updates) => update(KEYS.PURCHASES, id, updates),
-  delete: (id) => remove(KEYS.PURCHASES, id),
+  getAll: () => getAllFromStore(COLLECTIONS.PURCHASES),
+  getById: (id) => getByIdFromStore(COLLECTIONS.PURCHASES, id),
+  create: (item) => createInStore(COLLECTIONS.PURCHASES, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.PURCHASES, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.PURCHASES, id),
 };
 
-// Price Categories
 export const PriceCategories = {
-  getAll: () => getAll(KEYS.PRICE_CATEGORIES),
-  getById: (id) => getById(KEYS.PRICE_CATEGORIES, id),
-  create: (category) => create(KEYS.PRICE_CATEGORIES, category),
-  update: (id, updates) => update(KEYS.PRICE_CATEGORIES, id, updates),
-  delete: (id) => remove(KEYS.PRICE_CATEGORIES, id),
+  getAll: () => getAllFromStore(COLLECTIONS.PRICE_CATEGORIES),
+  getById: (id) => getByIdFromStore(COLLECTIONS.PRICE_CATEGORIES, id),
+  create: (item) => createInStore(COLLECTIONS.PRICE_CATEGORIES, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.PRICE_CATEGORIES, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.PRICE_CATEGORIES, id),
 };
 
-// HPP Reports (Harga Pokok Penjualan)
 export const HppReports = {
-  getAll: () => getAll(KEYS.HPP_REPORTS),
-  getById: (id) => getById(KEYS.HPP_REPORTS, id),
-  getByInvoiceId: (invoiceId) => getAll(KEYS.HPP_REPORTS).find(r => r.invoiceId === invoiceId) || null,
-  create: (report) => create(KEYS.HPP_REPORTS, report),
-  update: (id, updates) => update(KEYS.HPP_REPORTS, id, updates),
-  delete: (id) => remove(KEYS.HPP_REPORTS, id),
+  getAll: () => getAllFromStore(COLLECTIONS.HPP_REPORTS),
+  getById: (id) => getByIdFromStore(COLLECTIONS.HPP_REPORTS, id),
+  getByInvoiceId: async (invoiceId) => {
+    const all = await getAllFromStore(COLLECTIONS.HPP_REPORTS);
+    return all.find(r => r.invoiceId === invoiceId) || null;
+  },
+  create: (item) => createInStore(COLLECTIONS.HPP_REPORTS, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.HPP_REPORTS, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.HPP_REPORTS, id),
 };
 
-// Telegram Orders
 export const TelegramOrders = {
-  getAll: () => getAll(KEYS.TELEGRAM_ORDERS),
-  getById: (id) => getById(KEYS.TELEGRAM_ORDERS, id),
-  create: (order) => create(KEYS.TELEGRAM_ORDERS, order),
-  update: (id, updates) => update(KEYS.TELEGRAM_ORDERS, id, updates),
-  delete: (id) => remove(KEYS.TELEGRAM_ORDERS, id),
-  getOffset: () => {
-    const val = localStorage.getItem(KEYS.TELEGRAM_OFFSET) || '0';
+  getAll: () => getAllFromStore(COLLECTIONS.TELEGRAM_ORDERS),
+  getById: (id) => getByIdFromStore(COLLECTIONS.TELEGRAM_ORDERS, id),
+  create: (item) => createInStore(COLLECTIONS.TELEGRAM_ORDERS, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.TELEGRAM_ORDERS, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.TELEGRAM_ORDERS, id),
+  getOffset: async () => {
+    // Keep offset in local storage as it's specifically for this bot instance
+    const val = localStorage.getItem('invoicepro_telegram_offset') || '0';
     return Number(val);
   },
-  setOffset: (val) => {
-    localStorage.setItem(KEYS.TELEGRAM_OFFSET, String(val));
+  setOffset: async (val) => {
+    localStorage.setItem('invoicepro_telegram_offset', String(val));
   }
 };
 
-// Seed demo data
-export function seedDemoData() {
-  if (getAll(KEYS.PRICE_CATEGORIES).length === 0) {
-    create(KEYS.PRICE_CATEGORIES, { id: 'cat-retail', name: 'Retail (Default)' });
-    create(KEYS.PRICE_CATEGORIES, { id: 'cat-grosir', name: 'Grosir' });
-    create(KEYS.PRICE_CATEGORIES, { id: 'cat-vip', name: 'VIP' });
+export async function seedDemoData() {
+  const cats = await PriceCategories.getAll();
+  if (cats.length === 0) {
+    await PriceCategories.create({ id: 'cat-retail', name: 'Retail (Default)' });
+    await PriceCategories.create({ id: 'cat-grosir', name: 'Grosir' });
+    await PriceCategories.create({ id: 'cat-vip', name: 'VIP' });
   }
 
-  if (getAll(KEYS.PRODUCTS).length > 0) return;
+  const prods = await Products.getAll();
+  if (prods.length > 0) return;
 
   const products = [
     { name: 'Bawang Merah Brebes', sku: 'BMB-01', category: 'Bumbu', purchaseCost: 25000, sellPrice: 35000, stock: 50, unit: 'kg', categoryPrices: { 'cat-grosir': 32000, 'cat-vip': 30000 } },
@@ -187,7 +197,7 @@ export function seedDemoData() {
     { name: 'PT Bumbu Nusantara', company: 'PT Bumbu Nusantara', phone: '02199887766', email: 'sales@bumbunusa.co.id', address: 'Kawasan Industri Cikarang' },
   ];
 
-  products.forEach(p => Products.create(p));
-  customers.forEach(c => Customers.create(c));
-  suppliers.forEach(s => Suppliers.create(s));
+  for (const p of products) await Products.create(p);
+  for (const c of customers) await Customers.create(c);
+  for (const s of suppliers) await Suppliers.create(s);
 }

@@ -11,12 +11,12 @@ export default function DeliveryNotes() {
   const [printId, setPrintId] = useState(null);
 
   useEffect(() => { reload(); }, []);
-  function reload() { setNotes(DNStore.getAll()); }
+  async function reload() { setNotes(await DNStore.getAll()); }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (confirm('Hapus surat jalan ini?')) {
-      DNStore.delete(id);
-      reload();
+      await DNStore.delete(id);
+      await reload();
     }
   }
 

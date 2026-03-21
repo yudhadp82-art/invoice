@@ -13,19 +13,19 @@ export default function Invoices() {
 
   useEffect(() => { reload(); }, []);
 
-  function reload() { setInvoices(InvoiceStore.getAll()); }
+  async function reload() { setInvoices(await InvoiceStore.getAll()); }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (confirm('Hapus invoice ini?')) {
-      InvoiceStore.delete(id);
-      reload();
+      await InvoiceStore.delete(id);
+      await reload();
     }
   }
 
-  function togglePaid(inv) {
+  async function togglePaid(inv) {
     const newStatus = inv.paymentStatus === 'paid' ? 'unpaid' : 'paid';
-    InvoiceStore.update(inv.id, { paymentStatus: newStatus });
-    reload();
+    await InvoiceStore.update(inv.id, { paymentStatus: newStatus });
+    await reload();
   }
 
   const filtered = invoices

@@ -22,9 +22,9 @@ export default function Pricing() {
 
   useEffect(() => { reload(); }, []);
 
-  function reload() {
-    setCategories(CategoryStore.getAll());
-    setProducts(ProductStore.getAll());
+  async function reload() {
+    setCategories(await CategoryStore.getAll());
+    setProducts(await ProductStore.getAll());
   }
 
   // --- Category Handlers ---
@@ -40,21 +40,21 @@ export default function Pricing() {
     setCatModalOpen(true);
   }
 
-  function handleSaveCategory(e) {
+  async function handleSaveCategory(e) {
     e.preventDefault();
     if (editingCatId) {
-      CategoryStore.update(editingCatId, { name: catName });
+      await CategoryStore.update(editingCatId, { name: catName });
     } else {
-      CategoryStore.create({ name: catName });
+      await CategoryStore.create({ name: catName });
     }
     setCatModalOpen(false);
-    reload();
+    await reload();
   }
 
-  function handleDeleteCategory(id) {
+  async function handleDeleteCategory(id) {
     if (confirm('Hapus kategori harga ini? Peringatan: Customer yang menggunakan kategori ini bisa jadi error.')) {
-      CategoryStore.delete(id);
-      reload();
+      await CategoryStore.delete(id);
+      await reload();
     }
   }
 
@@ -65,7 +65,7 @@ export default function Pricing() {
     setPriceModalOpen(true);
   }
 
-  function handleSavePrices(e) {
+  async function handleSavePrices(e) {
     e.preventDefault();
     if (!editingProduct) return;
     
@@ -77,9 +77,9 @@ export default function Pricing() {
       }
     });
 
-    ProductStore.update(editingProduct.id, { categoryPrices: cleanPrices });
+    await ProductStore.update(editingProduct.id, { categoryPrices: cleanPrices });
     setPriceModalOpen(false);
-    reload();
+    await reload();
   }
 
   function handleExport() {
@@ -87,12 +87,12 @@ export default function Pricing() {
   }
 
   function handleImport() {
-    triggerImportExcel((data) => {
+    triggerImportExcel(async (data) => {
       let count = 0;
-      data.forEach(item => {
+      for (const item of data) {
         const sku = item['SKU'];
         const name = item['Nama Produk'];
-        if (!sku && !name) return;
+        if (!sku && !name) continue;
 
         const productIndex = products.findIndex(p => (sku && p.sku === sku) || (name && p.name === name));
         if (productIndex !== -1) {
@@ -111,12 +111,12 @@ export default function Pricing() {
             updates.sellPrice = Number(item['Harga Jual Utama (Default)']);
           }
           
-          ProductStore.update(product.id, updates);
+          await ProductStore.update(product.id, updates);
           count++;
         }
-      });
+      }
       alert(`Berhasil update harga untuk ${count} produk!`);
-      reload();
+      await reload();
     });
   }
 

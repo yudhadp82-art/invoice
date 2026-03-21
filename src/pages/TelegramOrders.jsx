@@ -15,16 +15,19 @@ export default function TelegramOrdersPage() {
   const [editOrder, setEditOrder] = useState(null); // order being edited in modal
 
   useEffect(() => {
-    const custs = Customers.getAll();
-    const prods = ProductStorage.getAll();
-    setAllCustomers(custs);
-    setAllProducts(prods);
-    loadOrders();
-    loadBotStatus();
+    async function init() {
+      const custs = await Customers.getAll();
+      const prods = await ProductStorage.getAll();
+      setAllCustomers(custs);
+      setAllProducts(prods);
+      await loadOrders();
+      await loadBotStatus();
+    }
+    init();
   }, []);
 
-  function loadOrders() {
-    const list = TelegramOrders.getAll();
+  async function loadOrders() {
+    const list = await TelegramOrders.getAll();
     setOrders([...list].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
   }
 
@@ -35,14 +38,16 @@ export default function TelegramOrdersPage() {
 
   async function handleRefresh() {
     setLoading(true);
-    const custs = Customers.getAll();
-    const prods = ProductStorage.getAll();
+    const custs = await Customers.getAll();
+    const prods = await ProductStorage.getAll();
 
     const offset  = TelegramOrders.getOffset();
     const updates = await fetchUpdates(offset + 1);
 
     let newOffset  = offset;
     let addedCount = 0;
+
+    const allOrders = await TelegramOrders.getAll();
 
     for (const update of updates) {
       if (update.update_id > newOffset) newOffset = update.update_id;
@@ -52,7 +57,7 @@ export default function TelegramOrdersPage() {
         const chatId = update.message.chat.id;
         const msgId  = update.message.message_id;
 
-        const existing = TelegramOrders.getAll().find(o => o.telegramMessageId === msgId);
+        const existing = allOrders.find(o => o.telegramMessageId === msgId);
         if (existing) continue;
 
         const parsed = parseOrderMessage(text);
@@ -72,7 +77,7 @@ export default function TelegramOrdersPage() {
           };
         });
 
-        TelegramOrders.create({
+        await TelegramOrders.create({
           rawMessage:        text,
           telegramMessageId: msgId,
           telegramChatId:    chatId,
@@ -88,7 +93,7 @@ export default function TelegramOrdersPage() {
 
     if (newOffset > offset) TelegramOrders.setOffset(newOffset);
 
-    loadOrders();
+    await loadOrders();
     if (addedCount > 0) {
       alert(`Berhasil mengambil ${addedCount} pesanan baru`);
     } else if (updates.length > 0) {
@@ -99,16 +104,16 @@ export default function TelegramOrdersPage() {
     setLoading(false);
   }
 
-  function handleProcess(order) {
-    TelegramOrders.update(order.id, { status: 'diproses' });
-    loadOrders();
+  async function handleProcess(order) {
+    await TelegramOrders.update(order.id, { status: 'diproses' });
+    await loadOrders();
     sendMessage(order.telegramChatId, `Pesanan "${order.customerRaw || order.customerName}" sedang kami proses. Terima kasih!`);
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (confirm('Hapus log pesanan ini?')) {
-      TelegramOrders.delete(id);
-      loadOrders();
+      await TelegramOrders.delete(id);
+      await loadOrders();
     }
   }
 
@@ -127,12 +132,12 @@ export default function TelegramOrdersPage() {
 
   function closeEdit() { setEditOrder(null); }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (!editOrder) return;
     const { id, matchedCustomerId, customerName, items, status } = editOrder;
     // Remap productId/matchedName from selection
-    TelegramOrders.update(id, { matchedCustomerId, customerName, items, status });
-    loadOrders();
+    await TelegramOrders.update(id, { matchedCustomerId, customerName, items, status });
+    await loadOrders();
     setEditOrder(null);
   }
 

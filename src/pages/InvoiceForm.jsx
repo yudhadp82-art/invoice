@@ -25,51 +25,54 @@ export default function InvoiceForm() {
   });
 
   useEffect(() => {
-    const c = Customers.getAll();
-    const p = Products.getAll();
-    setCustomers(c);
-    setProducts(p);
+    async function loadData() {
+      const c = await Customers.getAll();
+      const p = await Products.getAll();
+      setCustomers(c);
+      setProducts(p);
 
-    if (isEdit) {
-      const invoice = Invoices.getById(id);
-      if (invoice) {
-        setForm({
-          customerId: invoice.customerId || '',
-          customerName: invoice.customerName || '',
-          customerAddress: invoice.customerAddress || '',
-          invoiceNumber: invoice.invoiceNumber || '',
-          items: invoice.items || [],
-          notes: invoice.notes || '',
-          paymentStatus: invoice.paymentStatus || 'unpaid',
-        });
-      }
-    } else if (telegramOrder) {
-      const customer = c.find(cust => cust.id === telegramOrder.matchedCustomerId);
-      
-      const items = telegramOrder.items.map(item => {
-        const product = p.find(prod => prod.id === item.productId);
-        const unitPrice = customer && product ? getCustomerPrice(product, customer) : (product ? product.sellPrice : 0);
+      if (isEdit) {
+        const invoice = await Invoices.getById(id);
+        if (invoice) {
+          setForm({
+            customerId: invoice.customerId || '',
+            customerName: invoice.customerName || '',
+            customerAddress: invoice.customerAddress || '',
+            invoiceNumber: invoice.invoiceNumber || '',
+            items: invoice.items || [],
+            notes: invoice.notes || '',
+            paymentStatus: invoice.paymentStatus || 'unpaid',
+          });
+        }
+      } else if (telegramOrder) {
+        const customer = c.find(cust => cust.id === telegramOrder.matchedCustomerId);
         
-        return {
-          productId: item.productId || '',
-          productName: item.matchedName || item.productName,
-          unit: item.matchedUnit || item.unit || 'kg',
-          qty: item.qty,
-          unitPrice: unitPrice,
-          purchaseCost: product ? product.purchaseCost : 0,
-          subtotal: unitPrice * item.qty
-        };
-      });
+        const items = telegramOrder.items.map(item => {
+          const product = p.find(prod => prod.id === item.productId);
+          const unitPrice = customer && product ? getCustomerPrice(product, customer) : (product ? product.sellPrice : 0);
+          
+          return {
+            productId: item.productId || '',
+            productName: item.matchedName || item.productName,
+            unit: item.matchedUnit || item.unit || 'kg',
+            qty: item.qty,
+            unitPrice: unitPrice,
+            purchaseCost: product ? product.purchaseCost : 0,
+            subtotal: unitPrice * item.qty
+          };
+        });
 
-      setForm(f => ({
-        ...f,
-        customerId: telegramOrder.matchedCustomerId || '',
-        customerName: customer ? customer.name : telegramOrder.customerName,
-        customerAddress: customer ? customer.address : '',
-        items: items,
-        notes: `Pesan Telegram:\n${telegramOrder.rawMessage}`
-      }));
+        setForm(f => ({
+          ...f,
+          customerId: telegramOrder.matchedCustomerId || '',
+          customerName: customer ? customer.name : telegramOrder.customerName,
+          customerAddress: customer ? customer.address : '',
+          items: items,
+          notes: `Pesan Telegram:\n${telegramOrder.rawMessage}`
+        }));
+      }
     }
+    loadData();
   }, [id, telegramOrder]);
 
   function handleCustomerChange(customerId) {
@@ -156,7 +159,7 @@ export default function InvoiceForm() {
   const profit = grandTotal - totalCost;
   const profitMargin = grandTotal > 0 ? ((profit / grandTotal) * 100).toFixed(1) : 0;
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.customerId || form.items.length === 0) {
       alert('Pilih customer dan tambahkan minimal 1 item');
       return;
@@ -174,14 +177,15 @@ export default function InvoiceForm() {
 
     let savedInvoice;
     if (isEdit) {
-      savedInvoice = Invoices.update(id, data);
+      savedInvoice = await Invoices.update(id, data);
     } else {
-      savedInvoice = Invoices.create(data);
+      savedInvoice = await Invoices.create(data);
     }
 
     // === Sync with Delivery Note ===
     if (savedInvoice) {
-      const existingNotes = DeliveryNotes.getAll().filter(n => n.invoiceId === savedInvoice.id);
+      const allNotes = await DeliveryNotes.getAll();
+      const existingNotes = allNotes.filter(n => n.invoiceId === savedInvoice.id);
       
       let noteItems = [];
       (form.items || []).forEach(item => {
@@ -214,7 +218,7 @@ export default function InvoiceForm() {
           }
         });
         
-        DeliveryNotes.update(note.id, {
+        await DeliveryNotes.update(note.id, {
           ...note,
           customerId: form.customerId,
           customerName: form.customerName,
@@ -223,7 +227,7 @@ export default function InvoiceForm() {
         });
       } else {
         // Create new note automatically
-        DeliveryNotes.create({
+        await DeliveryNotes.create({
           customerId: form.customerId,
           customerName: form.customerName,
           customerAddress: form.customerAddress,

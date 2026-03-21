@@ -21,9 +21,9 @@ export default function Products() {
 
   useEffect(() => { reload(); }, []);
 
-  function reload() {
-    setProducts(ProductStore.getAll());
-    setCustomers(Customers.getAll());
+  async function reload() {
+    setProducts(await ProductStore.getAll());
+    setCustomers(await Customers.getAll());
   }
 
   function openAdd() {
@@ -55,7 +55,7 @@ export default function Products() {
     setModalOpen(true);
   }
 
-  function handleSave(e) {
+  async function handleSave(e) {
     e.preventDefault();
     const data = {
       ...form,
@@ -65,18 +65,18 @@ export default function Products() {
       customerId: form.customerId === 'global' ? '' : form.customerId
     };
     if (editingId) {
-      ProductStore.update(editingId, data);
+      await ProductStore.update(editingId, data);
     } else {
-      ProductStore.create(data);
+      await ProductStore.create(data);
     }
     setModalOpen(false);
-    reload();
+    await reload();
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (confirm('Hapus produk ini?')) {
-      ProductStore.delete(id);
-      reload();
+      await ProductStore.delete(id);
+      await reload();
     }
   }
 
@@ -110,11 +110,11 @@ export default function Products() {
       'Stok': 'stock',
       'Satuan': 'unit',
     };
-    triggerImportExcel((data) => {
+    triggerImportExcel(async (data) => {
       let count = 0;
-      data.forEach(item => {
+      for (const item of data) {
         if (item.name) {
-          ProductStore.create({
+          await ProductStore.create({
             name: item.name || '',
             sku: item.sku || '',
             category: item.category || '',
@@ -126,9 +126,9 @@ export default function Products() {
           });
           count++;
         }
-      });
+      }
       alert(`Berhasil meng-import ${count} produk ke ${importCustomerId && importCustomerId !== 'global' ? 'Customer Terpilih' : 'Daftar Global'}`);
-      reload();
+      await reload();
     }, columnMap);
   }
 

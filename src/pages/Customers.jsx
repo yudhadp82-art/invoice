@@ -18,9 +18,9 @@ export default function Customers() {
     reload();
   }, []);
 
-  function reload() {
-    setCustomers(CustomerStore.getAll());
-    setPriceCategories(CategoryStore.getAll());
+  async function reload() {
+    setCustomers(await CustomerStore.getAll());
+    setPriceCategories(await CategoryStore.getAll());
   }
 
   function getCategoryName(id) {
@@ -47,21 +47,21 @@ export default function Customers() {
     setModalOpen(true);
   }
 
-  function handleSave(e) {
+  async function handleSave(e) {
     e.preventDefault();
     if (editingId) {
-      CustomerStore.update(editingId, form);
+      await CustomerStore.update(editingId, form);
     } else {
-      CustomerStore.create(form);
+      await CustomerStore.create(form);
     }
     setModalOpen(false);
-    reload();
+    await reload();
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (confirm('Hapus customer ini?')) {
-      CustomerStore.delete(id);
-      reload();
+      await CustomerStore.delete(id);
+      await reload();
     }
   }
 
@@ -86,9 +86,9 @@ export default function Customers() {
       'Alamat': 'address',
       'Kategori Harga': 'categoryName',
     };
-    triggerImportExcel((data) => {
+    triggerImportExcel(async (data) => {
       let count = 0;
-      data.forEach(item => {
+      for (const item of data) {
         if (item.name) {
           // Find category ID by name (case insensitive), fallback to cat-retail
           let matchCatId = 'cat-retail';
@@ -97,7 +97,7 @@ export default function Customers() {
             if (match) matchCatId = match.id;
           }
 
-          CustomerStore.create({
+          await CustomerStore.create({
             name: item.name || '',
             company: item.company || '',
             phone: String(item.phone || ''),
@@ -107,9 +107,9 @@ export default function Customers() {
           });
           count++;
         }
-      });
+      }
       alert(`Berhasil import ${count} customer`);
-      reload();
+      await reload();
     }, columnMap);
   }
 

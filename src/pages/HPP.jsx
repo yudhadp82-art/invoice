@@ -61,13 +61,13 @@ export default function HPP() {
 
   useEffect(() => { reload(); }, []);
 
-  function reload() {
-    const allInvs = InvoiceStore.getAll();
-    let allReports = HppReports.getAll();
+  async function reload() {
+    const allInvs = await InvoiceStore.getAll();
+    let allReports = await HppReports.getAll();
 
     // Auto-sync reports secretly on load in case parent invoice was modified
     let needsUpdate = false;
-    allReports = allReports.map(r => {
+    allReports = await Promise.all(allReports.map(async r => {
       const parentInv = allInvs.find(i => i.id === r.invoiceId);
       if (!parentInv) return r;
 
@@ -129,11 +129,11 @@ export default function HPP() {
           margin: Number(margin.toFixed(2)),
           rugi: labaKotor < 0,
         };
-        HppReports.update(r.id, updatedReport);
+        await HppReports.update(r.id, updatedReport);
         return updatedReport;
       }
       return r;
-    });
+    }));
 
     setReports(allReports);
     setInvoices(allInvs);
@@ -253,7 +253,7 @@ export default function HPP() {
     return { totalModalBarang, totalBiayaInvoice, totalHPP, labaKotor, margin };
   }
 
-  function handleSave(e) {
+  async function handleSave(e) {
     e.preventDefault();
     if (!form.invoiceId) {
       alert('Pilih invoice terlebih dahulu');
@@ -284,18 +284,18 @@ export default function HPP() {
     };
 
     if (editId) {
-      HppReports.update(editId, data);
+      await HppReports.update(editId, data);
     } else {
-      HppReports.create(data);
+      await HppReports.create(data);
     }
     setModalOpen(false);
-    reload();
+    await reload();
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (confirm('Hapus laporan HPP ini?')) {
-      HppReports.delete(id);
-      reload();
+      await HppReports.delete(id);
+      await reload();
     }
   }
 

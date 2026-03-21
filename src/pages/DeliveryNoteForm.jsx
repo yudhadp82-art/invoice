@@ -27,50 +27,53 @@ export default function DeliveryNoteForm() {
   });
 
   useEffect(() => {
-    setCustomers(Customers.getAll());
-    setProducts(Products.getAll());
-    const allInvoices = Invoices.getAll();
-    setInvoices(allInvoices);
+    async function loadData() {
+      setCustomers(await Customers.getAll());
+      setProducts(await Products.getAll());
+      const allInvoices = await Invoices.getAll();
+      setInvoices(allInvoices);
 
-    if (isEdit) {
-      const note = DeliveryNotes.getById(id);
-      if (note) {
-        setForm({
-          customerId: note.customerId || '',
-          customerName: note.customerName || '',
-          customerAddress: note.customerAddress || '',
-          noteNumber: note.noteNumber || '',
-          invoiceId: note.invoiceId || '',
-          invoiceNumber: note.invoiceNumber || '',
-          driver: note.driver || '',
-          vehicleNumber: note.vehicleNumber || '',
-          items: note.items || [],
-          notes: note.notes || '',
-        });
-      }
-    } else {
-      const initInvoiceId = searchParams.get('invoiceId');
-      if (initInvoiceId) {
-        const invoice = allInvoices.find(i => i.id === initInvoiceId);
-        if (invoice) {
-          setForm(f => ({
-            ...f,
-            invoiceId: invoice.id,
-            invoiceNumber: invoice.invoiceNumber,
-            customerId: invoice.customerId,
-            customerName: invoice.customerName,
-            customerAddress: invoice.customerAddress || '',
-            items: (invoice.items || []).map(item => ({
-              productId: item.productId,
-              productName: item.productName,
-              unit: item.unit,
-              qty: item.qty,
-              notes: '',
-            })),
-          }));
+      if (isEdit) {
+        const note = await DeliveryNotes.getById(id);
+        if (note) {
+          setForm({
+            customerId: note.customerId || '',
+            customerName: note.customerName || '',
+            customerAddress: note.customerAddress || '',
+            noteNumber: note.noteNumber || '',
+            invoiceId: note.invoiceId || '',
+            invoiceNumber: note.invoiceNumber || '',
+            driver: note.driver || '',
+            vehicleNumber: note.vehicleNumber || '',
+            items: note.items || [],
+            notes: note.notes || '',
+          });
+        }
+      } else {
+        const initInvoiceId = searchParams.get('invoiceId');
+        if (initInvoiceId) {
+          const invoice = allInvoices.find(i => i.id === initInvoiceId);
+          if (invoice) {
+            setForm(f => ({
+              ...f,
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoiceNumber,
+              customerId: invoice.customerId,
+              customerName: invoice.customerName,
+              customerAddress: invoice.customerAddress || '',
+              items: (invoice.items || []).map(item => ({
+                productId: item.productId,
+                productName: item.productName,
+                unit: item.unit,
+                qty: item.qty,
+                notes: '',
+              })),
+            }));
+          }
         }
       }
     }
+    loadData();
   }, [id, searchParams]);
 
   function handleCustomerChange(customerId) {
@@ -146,15 +149,15 @@ export default function DeliveryNoteForm() {
     setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== index) }));
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.customerName || form.items.length === 0) {
       alert('Pilih customer dan tambahkan minimal 1 item');
       return;
     }
     if (isEdit) {
-      DeliveryNotes.update(id, form);
+      await DeliveryNotes.update(id, form);
     } else {
-      DeliveryNotes.create(form);
+      await DeliveryNotes.create(form);
     }
     navigate('/delivery-notes');
   }

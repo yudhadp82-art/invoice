@@ -26,9 +26,12 @@ export default function Reports() {
   const [purchases, setPurchases] = useState([]);
 
   useEffect(() => {
-    setInvoices(Invoices.getAll());
-    setProducts(Products.getAll());
-    setPurchases(Purchases.getAll());
+    async function loadData() {
+      setInvoices(await Invoices.getAll());
+      setProducts(await Products.getAll());
+      setPurchases(await Purchases.getAll());
+    }
+    loadData();
   }, []);
 
   // Filter by period
