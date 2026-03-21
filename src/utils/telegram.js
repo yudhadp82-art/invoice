@@ -1,0 +1,174 @@
+const BOT_TOKEN = '8671171673:AAGqI3BacRQEeKm1YrVdhmqTKtiBA6S-B84';
+const BASE_URL = `/tgapi/bot${BOT_TOKEN}`;
+
+export async function checkBotStatus() {
+  try {
+    const res = await fetch(`${BASE_URL}/getMe`);
+    const data = await res.json();
+    return data.ok ? data.result : null;
+  } catch (err) {
+    console.error('Failed to check bot status:', err);
+    return null;
+  }
+}
+
+export async function fetchUpdates(offset = 0) {
+  try {
+    const res = await fetch(`${BASE_URL}/getUpdates?offset=${offset}&timeout=10`);
+    const data = await res.json();
+    if (data.ok) return data.result;
+    return [];
+  } catch (err) {
+    console.error('Failed to fetch Telegram updates:', err);
+    return [];
+  }
+}
+
+export async function sendMessage(chatId, text) {
+  try {
+    const res = await fetch(`${BASE_URL}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Failed to send Telegram message:', err);
+    return { ok: false };
+  }
+}
+
+const UNIT_PATTERN = /^(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|liter|lt|pcs|lusin|jrg|jrigen|jerigen|dirigen|botol|btl|kaleng|bag|kotak|slice|lbr|lembar|renteng|sisir|tandan|slop|karton|tray|biji)$/i;
+
+/**
+ * Parse Telegram order message.
+ * Baris 1: kode/nama customer (boleh campur teks+angka, e.g. "SPPG sindangjaya 5")
+ *   → Token non-angka = keyword customer
+ * Baris 2+: "- namaBarang qa[unit]"  atau "namaBarang qty [unit]"
+ */
+export function parseOrderMessage(text) {
+  if (!text) return null;
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  if (lines.length < 1) return null;
+
+  const customerRaw = lines[0];
+
+  // Extract keyword tokens — all words that are not pure numbers
+  const customerKeywords = customerRaw
+    .split(/\s+/)
+    .filter(w => isNaN(w.replace(',', '.')) && w.length > 0)
+    .map(w => w.toLowerCase());
+
+  const items = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Remove leading dash/bullet if any
+    let clean = line.replace(/^[-*•]\s*/, '').trim();
+    // Replace colon or equals with space (e.g., "Saos Tomat : 3jrg" -> "Saos Tomat   3jrg")
+    clean = clean.replace(/\s*[:=]\s*/, ' ');
+    if (!clean) continue;
+
+    // Split by whitespace
+    const parts = clean.split(/\s+/);
+    if (parts.length < 2) continue;
+
+    // The last token may be unit, second-to-last may be qty, or qty glued with unit ("5kg")
+    let unit = 'kg';
+    let qty = 0;
+    let productParts = [];
+
+    // Check if last part is a pure unit
+    if (parts.length >= 2 && UNIT_PATTERN.test(parts[parts.length - 1])) {
+      unit = parts[parts.length - 1].toLowerCase();
+      const qtyStr = parts[parts.length - 2];
+      qty = parseFloat(qtyStr.replace(',', '.'));
+      productParts = parts.slice(0, parts.length - 2);
+    } else {
+      // Last part might be "5kg" or just "5"
+      const lastPart = parts[parts.length - 1];
+      const gluedMatch = lastPart.match(/^(\d+(?:[.,]\d+)?)(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|liter|lt|pcs|lusin|jrg|jrigen|jerigen|dirigen|botol|btl|kaleng|bag|kotak|slice|lbr|lembar|renteng|sisir|tandan|slop|karton|tray|biji)?$/i);
+      if (gluedMatch) {
+        qty = parseFloat(gluedMatch[1].replace(',', '.'));
+        unit = gluedMatch[2] ? gluedMatch[2].toLowerCase() : 'kg';
+        productParts = parts.slice(0, parts.length - 1);
+      } else {
+        // No number found, skip
+        continue;
+      }
+    }
+
+    if (!qty || productParts.length === 0) continue;
+
+    items.push({
+      productName: productParts.join(' '),
+      qty,
+      unit,
+    });
+  }
+
+  return { customerRaw, customerKeywords, items };
+}
+
+/**
+ * Match customer by keywords extracted from order message.
+ * Returns best matching customer (by keyword score).
+ */
+export function matchCustomer(customerKeywords, availableCustomers) {
+  if (!customerKeywords?.length || !availableCustomers?.length) return null;
+
+  let best = null;
+  let bestScore = 0;
+
+  for (const c of availableCustomers) {
+    const haystack = `${c.name} ${c.company || ''}`.toLowerCase();
+    let score = 0;
+    for (const kw of customerKeywords) {
+      if (kw.length >= 2 && haystack.includes(kw)) score++;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+
+  return bestScore > 0 ? best : null;
+}
+
+/**
+ * Tiered fuzzy product matching:
+ * 1. Exact (lowercase)
+ * 2. Product name contains search
+ * 3. Search contains product name
+ * 4. Token-level word overlap
+ */
+export function matchProduct(productName, availableProducts) {
+  if (!productName || !availableProducts?.length) return null;
+  const search = productName.toLowerCase().trim();
+
+  let m = availableProducts.find(p => p.name.toLowerCase() === search);
+  if (m) return m;
+
+  m = availableProducts.find(p => p.name.toLowerCase().includes(search));
+  if (m) return m;
+
+  m = availableProducts.find(p => search.includes(p.name.toLowerCase()));
+  if (m) return m;
+
+  // Token-level: score by word overlap
+  const searchTokens = search.split(/\s+/);
+  let best = null;
+  let bestHits = 0;
+  for (const p of availableProducts) {
+    const pTokens = p.name.toLowerCase().split(/\s+/);
+    const hits = searchTokens.filter(t =>
+      t.length >= 3 && pTokens.some(pt => pt.includes(t) || t.includes(pt))
+    ).length;
+    if (hits > bestHits) {
+      bestHits = hits;
+      best = p;
+    }
+  }
+  return bestHits > 0 ? best : null;
+}
