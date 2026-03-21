@@ -248,7 +248,7 @@ export default function TelegramOrdersPage() {
                 <p style={{ fontWeight: 500, fontSize: 13, marginBottom: 6 }}>Item:</p>
                 {order.items.map((item, i) => (
                   <div key={i} className="item-match">
-                    <span>{item.productName} <span style={{ color: 'var(--text-muted)' }}>({item.qty} {item.unit})</span></span>
+                    <span><span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{i + 1}.</span>{item.productName} <span style={{ color: 'var(--text-muted)' }}>({item.qty} {item.unit})</span></span>
                     <span className={`match-tag ${item.productId ? '' : 'unmatched'}`}>
                       {item.productId ? `✓ ${item.matchedName}` : '? Unmatched'}
                     </span>
@@ -312,7 +312,8 @@ export default function TelegramOrdersPage() {
                   <button className="btn btn-secondary btn-sm" onClick={addEditItem}>+ Tambah</button>
                 </div>
                 {editOrder.items.map((item, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 2fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500, textAlign: 'right' }}>{i + 1}.</span>
                     {/* Original name (read-only reference) */}
                     <input
                       className="form-input"
