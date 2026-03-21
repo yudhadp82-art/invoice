@@ -5,26 +5,34 @@ export async function runSindangjaya5Seeder() {
   const CAT_NAME = "SPPG SINDANGJAYA 5 (Khusus)";
 
   const existingCustomers = await Customers.getAll();
-  if (existingCustomers.some(c => c.name.toLowerCase() === CUSTOMER_NAME.toLowerCase())) {
-    console.log(`${CUSTOMER_NAME} seeder already run.`);
-    return; // Already run
-  }
-
+  const existingCustomer = existingCustomers.find(c => c.name.toLowerCase() === CUSTOMER_NAME.toLowerCase());
+  
   const categories = await PriceCategories.getAll();
-  let catId = categories.find(c => c.name === CAT_NAME)?.id;
+  let catId;
+  
+  if (existingCustomer) {
+    console.log(`${CUSTOMER_NAME} already exists. Proceeding to update products.`);
+    catId = existingCustomer.priceCategoryId;
+  }
+  
   if (!catId) {
-    const newCat = await PriceCategories.create({ name: CAT_NAME });
-    catId = newCat.id;
+    let existingCat = categories.find(c => c.name === CAT_NAME);
+    if (!existingCat) {
+      existingCat = await PriceCategories.create({ name: CAT_NAME });
+    }
+    catId = existingCat.id;
   }
 
-  await Customers.create({
-    name: CUSTOMER_NAME,
-    company: "SPPG",
-    phone: "",
-    email: "",
-    address: "Sindangjaya 5",
-    priceCategoryId: catId
-  });
+  if (!existingCustomer) {
+    await Customers.create({
+      name: CUSTOMER_NAME,
+      company: "SPPG",
+      phone: "",
+      email: "",
+      address: "Sindangjaya 5",
+      priceCategoryId: catId
+    });
+  }
 
   const SINDANGJAYA5_PRICES = [
     { name: "asem jawa", price: 75000, unit: "kg" },
