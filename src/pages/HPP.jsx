@@ -719,7 +719,17 @@ export default function HPP() {
                                       updateSubItem(idx, si, 'qty', val);
                                     }}
                                   />
-                                  {b.maxQty && <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Max: {b.maxQty}</div>}
+                                  {(() => {
+                                    const matching = sisaPurchases.filter(p => (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase());
+                                    const sisa = matching.reduce((s, p) => s + (p.sisaQty || 0), 0);
+                                    if (sisa > 0) {
+                                      return <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Sisa Beli: {sisa}</div>;
+                                    } else if (b.maxQty) {
+                                      return <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Max: {b.maxQty}</div>;
+                                    } else {
+                                      return <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Sisa Beli: 0</div>;
+                                    }
+                                  })()}
                                 </div>
                                 <span style={{ color: '#64748b', fontSize: 12 }}>×</span>
                                 <input
