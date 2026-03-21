@@ -15,6 +15,8 @@ export default function Purchases() {
     items: [],
     notes: '',
   });
+  const [openIndex, setOpenIndex] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => { reload(); }, []);
 
@@ -196,7 +198,10 @@ export default function Purchases() {
       {/* Modal */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Catat Pembelian" size="lg">
         <form onSubmit={handleSave}>
-          <div className="modal-body">
+          <div className="modal-body" style={{ position: 'relative' }}>
+            {openIndex !== null && (
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90 }} onClick={() => setOpenIndex(null)} />
+            )}
             <div className="form-group">
               <label className="form-label">Nama Supplier</label>
               <input name="supplier_4" className="form-input" value={form.supplier} onChange={e => setForm({...form, supplier: e.target.value})} placeholder="Nama supplier/toko" />
@@ -225,10 +230,48 @@ export default function Purchases() {
                 <tbody>
                   {form.items.map((item, i) => (
                     <tr key={i}>
-                      <td>
-                        <select name="productId_6" className="form-select" value={item.productId} onChange={e => updateItem(i, 'productId', e.target.value)}>
-                          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+                      <td style={{ position: 'relative' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Cari produk..."
+                          value={openIndex === i ? searchQuery : item.productName || ''}
+                          onChange={e => {
+                            setSearchQuery(e.target.value);
+                            setOpenIndex(i);
+                          }}
+                          onFocus={() => {
+                            setOpenIndex(i);
+                            setSearchQuery(item.productName || '');
+                          }}
+                        />
+                        {openIndex === i && (
+                          <div className="dropdown-panel" style={{ 
+                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, 
+                            background: '#1e293b', border: '1px solid #334155', borderRadius: 8, 
+                            maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', 
+                            marginTop: 4 
+                          }}>
+                            {products
+                              .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                              .map(p => (
+                                <div
+                                  key={p.id}
+                                  className="dropdown-item"
+                                  style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                                  onClick={() => {
+                                    updateItem(i, 'productId', p.id);
+                                    setOpenIndex(null);
+                                    setSearchQuery('');
+                                  }}
+                                  onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.05)'}
+                                  onMouseLeave={e => e.target.style.background = 'transparent'}
+                                >
+                                  {p.name}
+                                </div>
+                              ))}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <input name="qty_8" className="form-input" type="number" min="1" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} style={{ width: 80 }} />
