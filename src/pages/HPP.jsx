@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiDollarSign, FiTruck, FiPackage, FiUsers, FiAlertTriangle, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import Modal from '../components/Modal';
-import { HppReports, Invoices as InvoiceStore } from '../utils/storage';
+import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 
 // Bahan default untuk mix vegetable
@@ -58,12 +58,29 @@ export default function HPP() {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [expandedRow, setExpandedRow] = useState(null);
+  const [purchaseItems, setPurchaseItems] = useState([]);
+  const [openSubIndex, setOpenSubIndex] = useState(null);
+  const [subQuery, setSubQuery] = useState('');
 
   useEffect(() => { reload(); }, []);
 
   async function reload() {
     const allInvs = await InvoiceStore.getAll();
     let allReports = await HppReports.getAll();
+    const allPurchases = await PurchaseStore.getAll();
+
+    // Flatten purchase items untuk mempermudah pencarian
+    const items = [];
+    allPurchases.forEach(p => {
+      (p.items || []).forEach(it => {
+        items.push({
+          supplier: p.supplier,
+          createdAt: p.createdAt,
+          ...it
+        });
+      });
+    });
+    setPurchaseItems(items);
 
     // Auto-sync reports secretly on load in case parent invoice was modified
     let needsUpdate = false;
@@ -516,7 +533,10 @@ export default function HPP() {
       {/* Modal Form */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Edit Laporan HPP' : 'Tambah Laporan HPP'} size="xl">
         <form onSubmit={handleSave}>
-          <div className="modal-body">
+          <div className="modal-body" style={{ position: 'relative' }}>
+            {openSubIndex !== null && (
+              <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setOpenSubIndex(null)} />
+            )}
 
             {/* Pilih Invoice */}
             <div className="form-group">
@@ -603,24 +623,70 @@ export default function HPP() {
                               </button>
                             </div>
                             {item.subItems.map((b, si) => (
-                              <div key={si} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-                                <input
-                                  className="form-input"
-                                  placeholder="Nama bahan"
-                                  value={b.nama}
-                                  onChange={e => updateSubItem(idx, si, 'nama', e.target.value)}
-                                  style={{ flex: 2 }}
-                                />
-                                <input
-                                  className="form-input"
-                                  type="number"
-                                  placeholder="Qty"
-                                  min="0"
-                                  step="0.1"
-                                  value={b.qty}
-                                  onChange={e => updateSubItem(idx, si, 'qty', Number(e.target.value))}
-                                  style={{ flex: 1 }}
-                                />
+                              <div key={si} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, position: 'relative' }}>
+                                <div style={{ flex: 2, position: 'relative' }}>
+                                  <input
+                                    className="form-input"
+                                    placeholder="Nama bahan"
+                                    value={b.nama}
+                                    onChange={e => {
+                                      updateSubItem(idx, si, 'nama', e.target.value);
+                                      setSubQuery(e.target.value);
+                                      setOpenSubIndex(`${idx}-${si}`);
+                                    }}
+                                    onFocus={() => {
+                                      setOpenSubIndex(`${idx}-${si}`);
+                                      setSubQuery(b.nama || '');
+                                    }}
+                                  />
+                                  {openSubIndex === `${idx}-${si}` && (
+                                    <div className="dropdown-panel" style={{ 
+                                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, 
+                                      background: '#1e293b', border: '1px solid #334155', borderRadius: 8, 
+                                      maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', 
+                                      marginTop: 4 
+                                    }}>
+                                      {purchaseItems
+                                        .filter(p => (p.productName || '').toLowerCase().includes(subQuery.toLowerCase()))
+                                        .map((p, pi) => (
+                                          <div
+                                            key={pi}
+                                            className="dropdown-item"
+                                            style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '12px' }}
+                                            onClick={() => {
+                                              updateSubItem(idx, si, 'nama', p.productName);
+                                              updateSubItem(idx, si, 'harga', p.costPerUnit);
+                                              updateSubItem(idx, si, 'maxQty', p.qty);
+                                              setOpenSubIndex(null);
+                                            }}
+                                            onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.05)'}
+                                            onMouseLeave={e => e.target.style.background = 'transparent'}
+                                          >
+                                            {p.productName} - {p.supplier} (Rp {p.costPerUnit} / Qty: {p.qty})
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <input
+                                    className="form-input"
+                                    type="number"
+                                    placeholder="Qty"
+                                    min="0"
+                                    step="0.1"
+                                    value={b.qty}
+                                    onChange={e => {
+                                      let val = Number(e.target.value);
+                                      if (b.maxQty && val > b.maxQty) {
+                                        alert(`Kapasitas maksimal adalah ${b.maxQty} (sesuai pembelian)`);
+                                        val = b.maxQty;
+                                      }
+                                      updateSubItem(idx, si, 'qty', val);
+                                    }}
+                                  />
+                                  {b.maxQty && <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Max: {b.maxQty}</div>}
+                                </div>
                                 <span style={{ color: '#64748b', fontSize: 12 }}>×</span>
                                 <input
                                   className="form-input"
