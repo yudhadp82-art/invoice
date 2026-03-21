@@ -243,7 +243,18 @@ export default function TelegramOrdersPage() {
                 <p className="text-muted" style={{ fontSize: 12, marginBottom: 8 }}>{formatDateTime(order.createdAt)}</p>
                 <div style={{ background: 'rgba(0,0,0,0.15)', padding: '8px 10px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
                   <p style={{ fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 4 }}>Pesan Asli:</p>
-                  <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', color: 'var(--text-primary)' }}>{order.rawMessage}</pre>
+                  <div style={{ fontFamily: 'inherit', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                    {order.rawMessage.split('\n').map(l => l.trim()).filter(l => l).map((line, idx) => {
+                      if (idx === 0) return <div key={idx} style={{ fontWeight: 500, marginBottom: 4 }}>{line}</div>;
+                      const cleanLine = line.replace(/^[-*•]\s*/, '');
+                      return (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'flex-start' }}>
+                          <span style={{ color: 'var(--text-muted)', width: '22px', flexShrink: 0, textAlign: 'right', display: 'inline-block', marginRight: '6px' }}>{idx}.</span>
+                          <span>{cleanLine}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 <p style={{ fontWeight: 500, fontSize: 13, marginBottom: 6 }}>Item:</p>
                 {order.items.map((item, i) => (
