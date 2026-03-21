@@ -38,25 +38,28 @@ export default function Products() {
   }
 
   function openEdit(product) {
-    const safeUnit = product.unit || 'pcs';
-    setForm({
-      name: product.name || '',
-      sku: product.sku || '',
-      category: product.category || '',
-      purchaseCost: product.purchaseCost || 0,
-      sellPrice: product.sellPrice || 0,
-      stock: product.stock || 0,
-      unit: safeUnit,
-      customerId: product.customerId || ''
-    });
-    setEditingId(product.id);
-    
-    // Check if it's a known unit or custom
-    const standardUnits = ['kg', 'gram', 'ons', 'pcs', 'ikat', 'bungkus', 'pack', 'liter', 'ml', 'kardus', 'karung', 'botol', 'renteng'];
-    const allKnownUnits = Array.from(new Set([...standardUnits, ...products.map(p => p.unit).filter(Boolean)]));
-    setIsCustomUnit(!allKnownUnits.includes(safeUnit));
+    try {
+      const safeUnit = typeof product.unit === 'string' ? product.unit : 'pcs';
+      setForm({
+        name: product.name || '',
+        sku: product.sku || '',
+        category: product.category || '',
+        purchaseCost: product.purchaseCost || 0,
+        sellPrice: product.sellPrice || 0,
+        stock: product.stock || 0,
+        unit: safeUnit,
+        customerId: product.customerId || ''
+      });
+      setEditingId(product.id);
+      
+      const standardUnits = ['kg', 'gram', 'ons', 'pcs', 'ikat', 'bungkus', 'pack', 'liter', 'ml', 'kardus', 'karung', 'botol', 'renteng'];
+      const allKnownUnits = Array.from(new Set([...standardUnits, ...products.map(p => typeof p.unit === 'string' ? p.unit : '').filter(Boolean)]));
+      setIsCustomUnit(!allKnownUnits.includes(safeUnit));
 
-    setModalOpen(true);
+      setModalOpen(true);
+    } catch (e) {
+      alert("Error: " + e.message);
+    }
   }
 
   async function handleSave(e) {
@@ -313,9 +316,12 @@ export default function Products() {
                       setForm({...form, unit: e.target.value});
                     }
                   }}>
-                    {uniqueUnits.map(u => (
-                      <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>
-                    ))}
+                    {uniqueUnits.map(u => {
+                      const label = typeof u === 'string' && u.length > 0 ? u.charAt(0).toUpperCase() + u.slice(1) : String(u);
+                      return (
+                        <option key={String(u)} value={String(u)}>{label}</option>
+                      );
+                    })}
                     <option value="custom">+ Tambah Satuan Baru...</option>
                   </select>
                 )}
