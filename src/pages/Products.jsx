@@ -19,7 +19,11 @@ export default function Products() {
   const [form, setForm] = useState(emptyProduct);
   const [isCustomUnit, setIsCustomUnit] = useState(false);
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    window.addEventListener('app-data-mutation', reload);
+    return () => window.removeEventListener('app-data-mutation', reload);
+  }, []);
 
   async function reload() {
     setProducts(await ProductStore.getAll());

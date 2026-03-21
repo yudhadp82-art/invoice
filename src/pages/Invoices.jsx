@@ -11,7 +11,11 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [printId, setPrintId] = useState(null);
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    window.addEventListener('app-data-mutation', reload);
+    return () => window.removeEventListener('app-data-mutation', reload);
+  }, []);
 
   async function reload() { setInvoices(await InvoiceStore.getAll()); }
 

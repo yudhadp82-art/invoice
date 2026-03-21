@@ -10,7 +10,11 @@ export default function DeliveryNotes() {
   const [search, setSearch] = useState('');
   const [printId, setPrintId] = useState(null);
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    window.addEventListener('app-data-mutation', reload);
+    return () => window.removeEventListener('app-data-mutation', reload);
+  }, []);
   async function reload() { setNotes(await DNStore.getAll()); }
 
   async function handleDelete(id) {

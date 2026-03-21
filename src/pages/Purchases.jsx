@@ -18,7 +18,11 @@ export default function Purchases() {
   const [openIndex, setOpenIndex] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    window.addEventListener('app-data-mutation', reload);
+    return () => window.removeEventListener('app-data-mutation', reload);
+  }, []);
 
   async function reload() {
     setPurchases(await PurchaseStore.getAll());

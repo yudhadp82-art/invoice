@@ -1,8 +1,10 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, Outlet } from 'react-router-dom';
 import {
   FiHome, FiPackage, FiUsers, FiFileText,
   FiTruck, FiShoppingCart, FiBarChart2, FiTag, FiBriefcase, FiMessageCircle, FiPieChart
 } from 'react-icons/fi';
+import { addMutationListener, removeMutationListener, executeUndo } from '../utils/storage';
 
 const navItems = [
   { section: 'Menu Utama' },
@@ -22,6 +24,36 @@ const navItems = [
 ];
 
 export default function Layout() {
+  const [latestMutation, setLatestMutation] = useState(null);
+
+  useEffect(() => {
+    const handleMutation = (mut) => {
+      setLatestMutation(mut);
+      const timer = setTimeout(() => {
+        setLatestMutation(prev => prev === mut ? null : prev);
+      }, 5000);
+      return () => clearTimeout(timer);
+    };
+    addMutationListener(handleMutation);
+    return () => removeMutationListener(handleMutation);
+  }, []);
+
+  const handleUndo = async () => {
+    if (latestMutation) {
+      await executeUndo(latestMutation);
+      setLatestMutation(null);
+    }
+  };
+
+  const getCollectionLabel = (col) => {
+    const map = {
+      products: 'Produk', customers: 'Customer', suppliers: 'Supplier',
+      invoices: 'Invoice', delivery_notes: 'Surat Jalan', purchases: 'Pembelian',
+      price_categories: 'Kategori Harga', hpp_reports: 'HPP'
+    };
+    return map[col] || col;
+  };
+
   return (
     <div className="app-layout">
       <aside className="sidebar">
@@ -50,6 +82,20 @@ export default function Layout() {
       </aside>
       <main className="main-content">
         <Outlet />
+        
+        {latestMutation && (
+          <div className="undo-snackbar">
+            <div className="undo-content">
+              <span>
+                {getCollectionLabel(latestMutation.collection)}{' '}
+                {latestMutation.action === 'create' ? 'ditambahkan' : latestMutation.action === 'update' ? 'diubah' : 'dihapus'}
+              </span>
+              <button className="btn btn-primary btn-sm" onClick={handleUndo} style={{ marginLeft: 12 }}>
+                Batal (Undo)
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

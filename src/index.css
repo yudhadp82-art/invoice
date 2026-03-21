@@ -1017,6 +1017,32 @@ body {
 .item-match.unmatched-item > span:first-child {
   color: #ef4444;
 }
+
+/* ===== Undo Snackbar ===== */
+.undo-snackbar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  padding: 12px 18px;
+  z-index: 2000;
+  animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  display: flex;
+  align-items: center;
+}
+
+.undo-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-weight: 500;
+}
 .item-match.unmatched-item > span:first-child span {
   color: rgba(239, 68, 68, 0.8) !important;
 }

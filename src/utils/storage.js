@@ -13,6 +13,19 @@ const COLLECTIONS = {
   HPP_REPORTS: 'hpp_reports',
 };
 
+// Event listener untuk Undo
+const mutationListeners = [];
+export function addMutationListener(fn) { mutationListeners.push(fn); }
+export function removeMutationListener(fn) {
+  const i = mutationListeners.indexOf(fn);
+  if (i > -1) mutationListeners.splice(i, 1);
+}
+function notifyMutation(action, collectionName, payload) {
+  mutationListeners.forEach(fn => fn({ action, collection: collectionName, ...payload }));
+  // Dispatch global custom event agar layout/pages bisa reload jika ada update
+  window.dispatchEvent(new Event('app-data-mutation'));
+}
+
 async function getAllFromStore(collectionName) {
   try {
     const colRef = collection(db, collectionName);
@@ -42,15 +55,19 @@ async function createInStore(collectionName, item) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    let savedItem = null;
     if (item.id) {
       const docRef = doc(db, collectionName, item.id);
       await setDoc(docRef, newItem);
-      return { ...newItem, id: item.id };
+      savedItem = { ...newItem, id: item.id };
     } else {
       const colRef = collection(db, collectionName);
       const docRef = await addDoc(colRef, newItem);
-      return { id: docRef.id, ...newItem };
+      savedItem = { id: docRef.id, ...newItem };
     }
+    
+    notifyMutation('create', collectionName, { id: savedItem.id, item: savedItem });
+    return savedItem;
   } catch (error) {
     console.error(`Error creating in ${collectionName}:`, error);
     return null;
@@ -60,11 +77,16 @@ async function createInStore(collectionName, item) {
 async function updateInStore(collectionName, id, updates) {
   try {
     const docRef = doc(db, collectionName, id);
+    const snap = await getDoc(docRef);
+    const previous = snap.exists() ? snap.data() : null; // Simpan untuk Undo
+
     const updatedData = {
       ...updates,
       updatedAt: new Date().toISOString()
     };
     await updateDoc(docRef, updatedData);
+
+    notifyMutation('update', collectionName, { id, previous: { id, ...previous }, updates: updatedData });
     return { id, ...updatedData };
   } catch (error) {
     console.error(`Error updating ${id} in ${collectionName}:`, error);
@@ -75,7 +97,12 @@ async function updateInStore(collectionName, id, updates) {
 async function removeInStore(collectionName, id) {
   try {
     const docRef = doc(db, collectionName, id);
+    const snap = await getDoc(docRef);
+    const previous = snap.exists() ? snap.data() : null; // Simpan untuk Restore
+
     await deleteDoc(docRef);
+
+    notifyMutation('delete', collectionName, { id, previous: { id, ...previous } });
     return true;
   } catch (error) {
     console.error(`Error deleting ${id} in ${collectionName}:`, error);
@@ -200,4 +227,30 @@ export async function seedDemoData() {
   for (const p of products) await Products.create(p);
   for (const c of customers) await Customers.create(c);
   for (const s of suppliers) await Suppliers.create(s);
+}
+
+// Fungsi Eksekusi Undo
+export async function executeUndo(mutation) {
+  const { action, collection, id, previous, item } = mutation;
+  try {
+    if (action === 'delete') {
+      // Restore kembali data yang dihapus
+      const docRef = doc(db, collection, id);
+      await setDoc(docRef, previous);
+    } else if (action === 'update') {
+      // Balikkan ke data sebelumnya
+      const docRef = doc(db, collection, id);
+      await setDoc(docRef, previous);
+    } else if (action === 'create') {
+      // Hapus data yang ditambahkan
+      const docRef = doc(db, collection, id);
+      await deleteDoc(docRef);
+    }
+    // Dispatch reload layout/pages
+    window.dispatchEvent(new Event('app-data-mutation'));
+    return true;
+  } catch (error) {
+    console.error(`Error executing undo for ${action} in ${collection}:`, error);
+    return false;
+  }
 }

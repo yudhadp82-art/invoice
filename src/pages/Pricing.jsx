@@ -20,7 +20,11 @@ export default function Pricing() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [productPrices, setProductPrices] = useState({});
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    window.addEventListener('app-data-mutation', reload);
+    return () => window.removeEventListener('app-data-mutation', reload);
+  }, []);
 
   async function reload() {
     setCategories(await CategoryStore.getAll());
