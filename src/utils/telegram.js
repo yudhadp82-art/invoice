@@ -172,3 +172,38 @@ export function matchProduct(productName, availableProducts) {
   }
   return bestHits > 0 ? best : null;
 }
+
+/**
+ * Fuzzy product matching to suggest best alternatives.
+ * Returns array of products ranked by similarity score.
+ */
+export function suggestProducts(productName, availableProducts) {
+  if (!productName || !availableProducts?.length) return [];
+  const search = productName.toLowerCase().trim();
+  const searchTokens = search.split(/\s+/).filter(t => t.length >= 2);
+
+  const scored = availableProducts.map(p => {
+    let score = 0;
+    const pName = p.name.toLowerCase();
+    
+    if (pName === search) score += 100;
+    else if (pName.includes(search)) score += 50;
+    else if (search.includes(pName)) score += 40;
+
+    const pTokens = pName.split(/\s+/);
+    let tokenHits = 0;
+    for (const t of searchTokens) {
+      if (pTokens.some(pt => pt.includes(t) || t.includes(pt))) {
+        tokenHits++;
+      }
+    }
+    score += tokenHits * 10;
+    
+    return { product: p, score };
+  });
+
+  return scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(s => s.product);
+}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiRefreshCw, FiCheck, FiFileText, FiTrash2, FiAlertCircle, FiEdit2, FiX, FiSave } from 'react-icons/fi';
 import { TelegramOrders, Customers, Products as ProductStorage } from '../utils/storage';
-import { checkBotStatus, fetchUpdates, parseOrderMessage, matchCustomer, matchProduct, sendMessage } from '../utils/telegram';
+import { checkBotStatus, fetchUpdates, parseOrderMessage, matchCustomer, matchProduct, sendMessage, suggestProducts } from '../utils/telegram';
 import { formatDateTime } from '../utils/formatter';
 
 export default function TelegramOrdersPage() {
@@ -261,7 +261,14 @@ export default function TelegramOrdersPage() {
                   <div key={i} className="item-match">
                     <span><span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{i + 1}.</span>{item.productName} <span style={{ color: 'var(--text-muted)' }}>({item.qty} {item.unit})</span></span>
                     <span className={`match-tag ${item.productId ? '' : 'unmatched'}`}>
-                      {item.productId ? `✓ ${item.matchedName}` : '? Unmatched'}
+                      {item.productId ? `✓ ${item.matchedName}` : 
+                        (() => {
+                          const scopedProducts = allProducts.filter(p => !p.customerId || (order.matchedCustomerId && p.customerId === order.matchedCustomerId));
+                          const suggestions = suggestProducts(item.productName, scopedProducts).slice(0, 2);
+                          if (suggestions.length > 0) return `? Mungkin: ${suggestions.map(s => s.name).join(', ')}`;
+                          return '? Unmatched';
+                        })()
+                      }
                     </span>
                   </div>
                 ))}
@@ -339,11 +346,23 @@ export default function TelegramOrdersPage() {
                       onChange={e => editItemChange(i, 'productId', e.target.value)}
                     >
                       <option value="">-- Pilih Produk --</option>
-                      {allProducts
-                        .filter(p => !p.customerId || p.customerId === (editOrder.matchedCustomerId || 'never-match-if-empty'))
-                        .map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
+                      {(() => {
+                        const scopedProducts = allProducts.filter(p => !p.customerId || p.customerId === (editOrder.matchedCustomerId || 'never-match-if-empty'));
+                        const suggestions = suggestProducts(item.productName, scopedProducts);
+                        const others = scopedProducts.filter(p => !suggestions.find(s => s.id === p.id));
+                        return (
+                          <>
+                            {suggestions.length > 0 && (
+                              <optgroup label="Saran Pendekatan">
+                                {suggestions.slice(0, 5).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              </optgroup>
+                            )}
+                            <optgroup label="Semua Produk">
+                              {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </optgroup>
+                          </>
+                        );
+                      })()}
                     </select>
                     {/* Qty */}
                     <input
