@@ -304,7 +304,8 @@ export default function InvoiceForm() {
           <table className="items-table">
             <thead>
               <tr>
-                <th style={{ width: '30%' }}>Produk</th>
+                <th style={{ width: '5%', textAlign: 'center' }}>No.</th>
+                <th style={{ width: '25%' }}>Produk</th>
                 <th style={{ width: '10%' }}>Qty</th>
                 <th style={{ width: '8%' }}>Satuan</th>
                 <th style={{ width: '20%' }}>Harga</th>
@@ -317,6 +318,7 @@ export default function InvoiceForm() {
                 const availableProducts = products.filter(p => !p.customerId || p.customerId === form.customerId);
                 return (
                 <tr key={i}>
+                  <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)' }}>{i + 1}</td>
                   <td>
                     <select name={`productId_${i}`} className="form-select" value={item.productId || ''} onChange={e => updateItem(i, 'productId', e.target.value)}>
                       <option value="">-- Pilih Produk --</option>

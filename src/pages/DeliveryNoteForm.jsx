@@ -230,7 +230,8 @@ export default function DeliveryNoteForm() {
           <table className="items-table">
             <thead>
               <tr>
-                <th style={{ width: '35%' }}>Barang</th>
+                <th style={{ width: '5%', textAlign: 'center' }}>No.</th>
+                <th style={{ width: '30%' }}>Barang</th>
                 <th style={{ width: '12%' }}>Qty</th>
                 <th style={{ width: '12%' }}>Satuan</th>
                 <th style={{ width: '30%' }}>Keterangan</th>
@@ -240,6 +241,7 @@ export default function DeliveryNoteForm() {
             <tbody>
               {form.items.map((item, i) => (
                 <tr key={i}>
+                  <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)' }}>{i + 1}</td>
                   <td>
                     <select name="productId_12" className="form-select" value={item.productId} onChange={e => updateItem(i, 'productId', e.target.value)}>
                       {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
