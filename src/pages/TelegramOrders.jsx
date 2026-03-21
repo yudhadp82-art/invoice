@@ -332,9 +332,12 @@ export default function TelegramOrdersPage() {
                   <p style={{ fontWeight: 600 }}>Item Pesanan</p>
                   <button className="btn btn-secondary btn-sm" onClick={addEditItem}>+ Tambah</button>
                 </div>
-                {editOrder.items.map((item, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 2fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500, textAlign: 'right' }}>{i + 1}.</span>
+                {editOrder.items.map((item, i) => {
+                  const isExact = item.productId && item.productName.toLowerCase().trim() === (item.matchedName || '').toLowerCase().trim();
+                  const needsAttention = !item.productId || !isExact;
+                  return (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 2fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center', background: needsAttention ? 'rgba(239,68,68,0.1)' : 'transparent', padding: '6px 8px', borderRadius: '8px', margin: '0 -8px' }}>
+                    <span style={{ fontSize: 13, color: needsAttention ? '#ef4444' : 'var(--text-muted)', fontWeight: 500, textAlign: 'right' }}>{i + 1}.</span>
                     {/* Original name (read-only reference) */}
                     <input
                       className="form-input"
@@ -381,7 +384,7 @@ export default function TelegramOrdersPage() {
                     {/* Remove */}
                     <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeEditItem(i)}><FiTrash2 /></button>
                   </div>
-                ))}
+                )})}
               </div>
             </div>
             <div className="modal-footer">
