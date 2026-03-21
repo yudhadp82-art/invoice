@@ -60,7 +60,7 @@ export default function TelegramOrdersPage() {
         const existing = allOrders.find(o => o.telegramMessageId === msgId);
         if (existing) continue;
 
-        const parsed = parseOrderMessage(text);
+        const parsed = await parseOrderMessage(text);
         if (!parsed || parsed.items.length === 0) continue;
 
         const matchedCust = matchCustomer(parsed.customerKeywords, custs, parsed.sppgNumber);

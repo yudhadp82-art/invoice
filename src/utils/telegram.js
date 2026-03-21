@@ -46,20 +46,105 @@ const UNIT_PATTERN = /^(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|li
  *   → Token non-angka = keyword customer
  * Baris 2+: "- namaBarang qa[unit]"  atau "namaBarang qty [unit]"
  */
-export function parseOrderMessage(text) {
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
+const OPENROUTER_BASE   = '/orapi/v1';
+
+/**
+ * Parse pesan pesanan menggunakan AI via OpenRouter.
+ * Mengembalikan struktur yang sama dengan regex parser.
+ * Jika AI gagal, fallback ke regex.
+ */
+export async function parseOrderMessage(text) {
+  if (!text) return null;
+
+  // --- AI Parsing ---
+  try {
+    const prompt = `Kamu adalah parser pesanan bahan makanan. Ekstrak informasi dari pesan berikut.
+
+Pesan:
+${text}
+
+Kembalikan HANYA JSON (tanpa teks lain) sesuai format:
+{
+  "customerRaw": "<baris pertama asli>",
+  "items": [
+    { "productName": "<nama produk>", "qty": <angka>, "unit": "<satuan>" }
+  ]
+}
+
+Aturan:
+- "customerRaw" adalah baris pertama pesan apa adanya.
+- Setiap baris setelah baris pertama adalah item pesanan.
+- "unit" default "kg" jika tidak disebutkan.
+- "qty" harus angka (bukan string).
+- Abaikan baris yang tidak mengandung produk atau jumlah.`;
+
+    const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'Invoice App',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-001',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!res.ok) throw new Error(`OpenRouter HTTP ${res.status}`);
+
+    const data   = await res.json();
+    const raw    = data.choices?.[0]?.message?.content || '';
+    const parsed = JSON.parse(raw);
+
+    if (!parsed.customerRaw || !Array.isArray(parsed.items)) {
+      throw new Error('Invalid AI response structure');
+    }
+
+    const customerRaw = parsed.customerRaw.trim();
+    const allNums     = [...customerRaw.matchAll(/\d+/g)];
+    const sppgNumber  = allNums.length > 0 ? parseInt(allNums[allNums.length - 1][0], 10) : null;
+
+    const customerKeywords = customerRaw
+      .split(/\s+/)
+      .filter(w => w.length > 0)
+      .map(w => w.replace(/\d+$/, '').toLowerCase())
+      .filter(w => w.length > 0 && isNaN(w));
+
+    const items = parsed.items
+      .filter(it => it.productName && it.qty > 0)
+      .map(it => ({
+        productName: String(it.productName).trim(),
+        qty: Number(it.qty),
+        unit: String(it.unit || 'kg').toLowerCase().trim(),
+      }));
+
+    if (items.length === 0) throw new Error('AI returned 0 items');
+
+    console.log('[AI parse] success:', { customerRaw, sppgNumber, items });
+    return { customerRaw, customerKeywords, sppgNumber, items };
+
+  } catch (err) {
+    console.warn('[AI parse] failed, fallback ke regex:', err.message);
+    return parseOrderMessageFallback(text);
+  }
+}
+
+/** Fallback: parse pesanan dengan regex tanpa AI. */
+function parseOrderMessageFallback(text) {
   if (!text) return null;
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
   if (lines.length < 1) return null;
 
   const customerRaw = lines[0];
 
-  // Detect SPPG number from line 1 — ambil angka terakhir di baris 1
-  // Contoh: "PO SPPG SINDANGJAYA5" -> 5, "SPPG sindangjaya 3" -> 3
   const allNums = [...customerRaw.matchAll(/\d+/g)];
   const sppgNumber = allNums.length > 0 ? parseInt(allNums[allNums.length - 1][0], 10) : null;
 
-  // Extract keyword tokens — all words that are not pure numbers
-  // Also strip trailing digits from words (e.g., "SINDANGJAYA5" -> "sindangjaya")
   const customerKeywords = customerRaw
     .split(/\s+/)
     .filter(w => w.length > 0)
@@ -70,30 +155,23 @@ export function parseOrderMessage(text) {
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
-
-    // Remove leading dash/bullet if any
     let clean = line.replace(/^[-*•]\s*/, '').trim();
-    // Replace colon or equals with space (e.g., "Saos Tomat : 3jrg" -> "Saos Tomat   3jrg")
     clean = clean.replace(/\s*[:=]\s*/, ' ');
     if (!clean) continue;
 
-    // Split by whitespace
     const parts = clean.split(/\s+/);
     if (parts.length < 2) continue;
 
-    // The last token may be unit, second-to-last may be qty, or qty glued with unit ("5kg")
     let unit = 'kg';
     let qty = 0;
     let productParts = [];
 
-    // Check if last part is a pure unit
     if (parts.length >= 2 && UNIT_PATTERN.test(parts[parts.length - 1])) {
       unit = parts[parts.length - 1].toLowerCase();
       const qtyStr = parts[parts.length - 2];
       qty = parseFloat(qtyStr.replace(',', '.'));
       productParts = parts.slice(0, parts.length - 2);
     } else {
-      // Last part might be "5kg" or just "5"
       const lastPart = parts[parts.length - 1];
       const gluedMatch = lastPart.match(/^(\d+(?:[.,]\d+)?)(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|liter|lt|pcs|lusin|jrg|jrigen|jerigen|dirigen|botol|btl|kaleng|bag|kotak|slice|lbr|lembar|renteng|sisir|tandan|slop|karton|tray|biji)?$/i);
       if (gluedMatch) {
@@ -101,22 +179,18 @@ export function parseOrderMessage(text) {
         unit = gluedMatch[2] ? gluedMatch[2].toLowerCase() : 'kg';
         productParts = parts.slice(0, parts.length - 1);
       } else {
-        // No number found, skip
         continue;
       }
     }
 
     if (!qty || productParts.length === 0) continue;
 
-    items.push({
-      productName: productParts.join(' '),
-      qty,
-      unit,
-    });
+    items.push({ productName: productParts.join(' '), qty, unit });
   }
 
   return { customerRaw, customerKeywords, sppgNumber, items };
 }
+
 
 /**
  * Match customer by keywords extracted from order message.
