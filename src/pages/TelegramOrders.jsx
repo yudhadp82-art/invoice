@@ -258,7 +258,7 @@ export default function TelegramOrdersPage() {
                 </div>
                 <p style={{ fontWeight: 500, fontSize: 13, marginBottom: 6 }}>Item:</p>
                 {order.items.map((item, i) => (
-                  <div key={i} className="item-match">
+                  <div key={i} className={`item-match ${item.productId ? '' : 'unmatched-item'}`}>
                     <span><span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{i + 1}.</span>{item.productName} <span style={{ color: 'var(--text-muted)' }}>({item.qty} {item.unit})</span></span>
                     <span className={`match-tag ${item.productId ? '' : 'unmatched'}`}>
                       {item.productId ? `✓ ${item.matchedName}` : 

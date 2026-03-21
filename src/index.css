@@ -1010,6 +1010,13 @@ body {
 }
 
 .match-tag.unmatched {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.item-match.unmatched-item > span:first-child {
+  color: #ef4444;
+}
+.item-match.unmatched-item > span:first-child span {
+  color: rgba(239, 68, 68, 0.8) !important;
 }
