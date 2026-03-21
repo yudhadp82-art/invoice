@@ -59,6 +59,7 @@ export default function HPP() {
   const [form, setForm] = useState(emptyForm);
   const [expandedRow, setExpandedRow] = useState(null);
   const [purchaseItems, setPurchaseItems] = useState([]);
+  const [sisaPurchases, setSisaPurchases] = useState([]); // state baru
   const [openSubIndex, setOpenSubIndex] = useState(null);
   const [subQuery, setSubQuery] = useState('');
 
@@ -76,6 +77,7 @@ export default function HPP() {
         items.push({
           supplier: p.supplier,
           createdAt: p.createdAt,
+          purchaseId: p.id, // simpan ID
           ...it
         });
       });
@@ -156,9 +158,35 @@ export default function HPP() {
     setInvoices(allInvs);
   }
 
+  // Hitung sisa qty pembelian dengan mengabaikan HPP yang sedang diedit (excludeId)
+  function calculateSisa(excludeId) {
+    const usedMap = {};
+    reports.forEach(r => {
+      if (excludeId && r.id === excludeId) return;
+      (r.itemCosts || []).forEach(item => {
+        if (item.useSubItems) {
+          (item.subItems || []).forEach(b => {
+            if (b.purchaseId && b.nama) {
+              const key = `${b.purchaseId}-${b.nama}`;
+              usedMap[key] = (usedMap[key] || 0) + Number(b.qty || 0);
+            }
+          });
+        }
+      });
+    });
+
+    return purchaseItems.map(p => {
+      const key = `${p.purchaseId}-${p.productName}`;
+      const used = usedMap[key] || 0;
+      const sisaQty = Number(p.qty) - used;
+      return { ...p, sisaQty: sisaQty < 0 ? 0 : sisaQty };
+    });
+  }
+
   function openAdd() {
     setEditId(null);
     setForm(emptyForm);
+    setSisaPurchases(calculateSisa(null)); // Hitung instan
     setModalOpen(true);
   }
 
@@ -176,6 +204,7 @@ export default function HPP() {
       biayaLainnya: r.biayaLainnya || 0,
       catatan: r.catatan || '',
     });
+    setSisaPurchases(calculateSisa(r.id)); // Hitung instan
     setModalOpen(true);
   }
 
@@ -646,7 +675,7 @@ export default function HPP() {
                                       maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', 
                                       marginTop: 4 
                                     }}>
-                                      {purchaseItems
+                                      {sisaPurchases
                                         .filter(p => (p.productName || '').toLowerCase().includes(subQuery.toLowerCase()))
                                         .map((p, pi) => (
                                           <div
@@ -656,13 +685,14 @@ export default function HPP() {
                                             onClick={() => {
                                               updateSubItem(idx, si, 'nama', p.productName);
                                               updateSubItem(idx, si, 'harga', p.costPerUnit);
-                                              updateSubItem(idx, si, 'maxQty', p.qty);
+                                              updateSubItem(idx, si, 'maxQty', p.sisaQty); // max limit per sisa
+                                              updateSubItem(idx, si, 'purchaseId', p.purchaseId); // simpan link!
                                               setOpenSubIndex(null);
                                             }}
                                             onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.05)'}
                                             onMouseLeave={e => e.target.style.background = 'transparent'}
                                           >
-                                            {p.productName} - {p.supplier} (Rp {p.costPerUnit} / Qty: {p.qty})
+                                            {p.productName} - {p.supplier} (Rp {p.costPerUnit} / <strong style={{ color: '#34d399' }}>Sisa: {p.sisaQty}</strong>)
                                           </div>
                                         ))}
                                     </div>
