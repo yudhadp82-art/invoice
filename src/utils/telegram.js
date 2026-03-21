@@ -53,10 +53,10 @@ export function parseOrderMessage(text) {
 
   const customerRaw = lines[0];
 
-  // Detect SPPG number from line 1 (e.g., "PO SPPG SINDANGJAYA5" -> 5, "SPPG sindangjaya 3" -> 3)
-  // Match isolated digit OR digit directly attached to a word (e.g. "SINDANGJAYA5")
-  const sppgNumMatch = customerRaw.match(/(?:^|\s|[A-Za-z])(\d+)(?:\s|$)/);
-  const sppgNumber = sppgNumMatch ? parseInt(sppgNumMatch[1], 10) : null;
+  // Detect SPPG number from line 1 — ambil angka terakhir di baris 1
+  // Contoh: "PO SPPG SINDANGJAYA5" -> 5, "SPPG sindangjaya 3" -> 3
+  const allNums = [...customerRaw.matchAll(/\d+/g)];
+  const sppgNumber = allNums.length > 0 ? parseInt(allNums[allNums.length - 1][0], 10) : null;
 
   // Extract keyword tokens — all words that are not pure numbers
   // Also strip trailing digits from words (e.g., "SINDANGJAYA5" -> "sindangjaya")
