@@ -306,3 +306,150 @@ export function suggestProducts(productName, availableProducts) {
     .sort((a, b) => b.score - a.score)
     .map(s => s.product);
 }
+
+/**
+ * Mencocokkan dan memperbaiki nama item pesanan ke daftar produk menggunakan AI.
+ * Setelah selesai, kirim feedback ke Telegram berupa ringkasan koreksi.
+ *
+ * @param {Array}  items            - Item hasil parse pesan (productName, qty, unit)
+ * @param {Array}  availableProducts - Daftar produk dari database
+ * @param {string} chatId           - Chat ID Telegram untuk mengirim feedback
+ * @param {string} customerName     - Nama customer untuk header feedback
+ * @returns {Array} items yang sudah dilengkapi productId, matchedName, matchedUnit, originalName, aiConfidence
+ */
+export async function correctAndMatchItemsWithAI(items, availableProducts, chatId, customerName = '') {
+  if (!items?.length) return [];
+
+  const productNames = availableProducts.map(p => p.name);
+
+  try {
+    const prompt = `Kamu adalah asisten pencocokan produk bahan makanan dan bumbu dapur.
+
+Daftar produk yang tersedia (${productNames.length} produk):
+${productNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}
+
+Item pesanan dari pelanggan:
+${items.map((it, i) => `${i + 1}. "${it.productName}" qty: ${it.qty} ${it.unit}`).join('\n')}
+
+Untuk setiap item pesanan, temukan nama produk yang PALING COCOK dari daftar.
+Pertimbangkan: nama tidak lengkap, singkatan, typo ringan, urutan kata berbeda (mis. "merah bawang" = "bawang merah"), nama yang mirip.
+Jika ada nama yang sangat mirip, pilih yang paling spesifik.
+
+Kembalikan HANYA JSON berikut:
+{
+  "results": [
+    {
+      "originalName": "<nama asli di pesanan>",
+      "matchedName": "<nama persis dari daftar produk, atau null jika benar-benar tidak ada>",
+      "confidence": "exact|corrected|unmatched",
+      "reason": "<singkat kenapa dipilih, hanya jika corrected>"
+    }
+  ]
+}
+
+- "exact": nama di pesanan sudah sama persis atau sangat dekat dengan nama produk
+- "corrected": nama diperbaiki karena singkatan/typo/urutan kata berbeda
+- "unmatched": tidak ada produk yang cocok`;
+
+    const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'Invoice App',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-001',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!res.ok) throw new Error(`OpenRouter HTTP ${res.status}`);
+
+    const data    = await res.json();
+    const raw     = data.choices?.[0]?.message?.content || '';
+    const aiData  = JSON.parse(raw);
+    const results = aiData.results || [];
+
+    // Cocokkan hasil AI ke objek produk
+    const correctedItems = items.map((item, i) => {
+      const result        = results[i] || {};
+      const matchedName   = result.matchedName || null;
+      const confidence    = result.confidence  || 'unmatched';
+      const matchedProduct = matchedName
+        ? availableProducts.find(p => p.name.toLowerCase() === matchedName.toLowerCase())
+        : null;
+
+      return {
+        ...item,
+        originalName:  item.productName,
+        productName:   matchedProduct ? matchedProduct.name : item.productName,
+        productId:     matchedProduct ? matchedProduct.id   : null,
+        matchedName:   matchedProduct ? matchedProduct.name : null,
+        matchedUnit:   matchedProduct ? matchedProduct.unit : null,
+        aiConfidence:  confidence,
+        aiReason:      result.reason || null,
+      };
+    });
+
+    // --- Bangun pesan feedback ke Telegram ---
+    const exactCount     = correctedItems.filter(it => it.aiConfidence === 'exact').length;
+    const correctedCount = correctedItems.filter(it => it.aiConfidence === 'corrected').length;
+    const unmatchedCount = correctedItems.filter(it => it.aiConfidence === 'unmatched').length;
+
+    let feedbackLines = [];
+    feedbackLines.push(`📦 Pesanan ${customerName ? `*${customerName}*` : ''} diterima:`);
+    feedbackLines.push('');
+
+    correctedItems.forEach((it, i) => {
+      const unit = it.matchedUnit || it.unit;
+      const name = it.matchedName || it.productName;
+      const base = `${i + 1}. ${it.qty} ${unit} ${name}`;
+
+      if (it.aiConfidence === 'exact') {
+        feedbackLines.push(`${base} ✓`);
+      } else if (it.aiConfidence === 'corrected') {
+        feedbackLines.push(`${base} ✓`);
+        feedbackLines.push(`   _(koreksi dari: "${it.originalName}"${it.aiReason ? ` — ${it.aiReason}` : ''})_`);
+      } else {
+        feedbackLines.push(`${base} ❓ tidak ditemukan di daftar produk`);
+      }
+    });
+
+    if (correctedCount > 0 || unmatchedCount > 0) {
+      feedbackLines.push('');
+      if (correctedCount > 0) feedbackLines.push(`🔄 ${correctedCount} item dikoreksi otomatis`);
+      if (unmatchedCount > 0) feedbackLines.push(`⚠️ ${unmatchedCount} item tidak ditemukan, akan dikonfirmasi manual`);
+    }
+
+    const feedbackText = feedbackLines.join('\n');
+
+    if (chatId) {
+      await sendMessage(chatId, feedbackText);
+    }
+
+    console.log('[AI correction] done:', { exactCount, correctedCount, unmatchedCount });
+    return correctedItems;
+
+  } catch (err) {
+    console.warn('[AI correction] failed, fallback ke matchProduct:', err.message);
+
+    // Fallback: pakai regex matchProduct biasa
+    return items.map(item => {
+      const match = matchProduct(item.productName, availableProducts);
+      return {
+        ...item,
+        originalName: item.productName,
+        productName:  match ? match.name : item.productName,
+        productId:    match ? match.id   : null,
+        matchedName:  match ? match.name : null,
+        matchedUnit:  match ? match.unit : null,
+        aiConfidence: match ? 'exact' : 'unmatched',
+        aiReason:     null,
+      };
+    });
+  }
+}

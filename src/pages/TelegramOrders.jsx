@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiRefreshCw, FiCheck, FiFileText, FiTrash2, FiAlertCircle, FiEdit2, FiX, FiSave } from 'react-icons/fi';
 import { TelegramOrders, Customers, Products as ProductStorage } from '../utils/storage';
-import { checkBotStatus, fetchUpdates, parseOrderMessage, matchCustomer, matchProduct, sendMessage, suggestProducts } from '../utils/telegram';
+import { checkBotStatus, fetchUpdates, parseOrderMessage, matchCustomer, matchProduct, sendMessage, suggestProducts, correctAndMatchItemsWithAI } from '../utils/telegram';
 import { formatDateTime } from '../utils/formatter';
 
 export default function TelegramOrdersPage() {
@@ -67,22 +67,21 @@ export default function TelegramOrdersPage() {
 
         const scopedProducts = prods.filter(p => !p.customerId || (matchedCust && p.customerId === matchedCust.id));
 
-        const matchedItems = parsed.items.map(item => {
-          const match = matchProduct(item.productName, scopedProducts);
-          return {
-            ...item,
-            productId:   match ? match.id   : null,
-            matchedName: match ? match.name  : null,
-            matchedUnit: match ? match.unit  : null,
-          };
-        });
+        const customerName = matchedCust ? matchedCust.name : parsed.customerRaw;
+
+        const matchedItems = await correctAndMatchItemsWithAI(
+          parsed.items,
+          scopedProducts,
+          chatId,
+          customerName,
+        );
 
         await TelegramOrders.create({
           rawMessage:        text,
           telegramMessageId: msgId,
           telegramChatId:    chatId,
           customerRaw:       parsed.customerRaw,
-          customerName:      matchedCust ? matchedCust.name : parsed.customerRaw,
+          customerName:      customerName,
           matchedCustomerId: matchedCust ? matchedCust.id   : null,
           items:             matchedItems,
           status:            'baru',
