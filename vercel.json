@@ -3,6 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/tgapi/(.*)", "destination": "https://api.telegram.org/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
