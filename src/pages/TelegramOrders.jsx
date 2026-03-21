@@ -257,10 +257,13 @@ export default function TelegramOrdersPage() {
                   </div>
                 </div>
                 <p style={{ fontWeight: 500, fontSize: 13, marginBottom: 6 }}>Item:</p>
-                {order.items.map((item, i) => (
-                  <div key={i} className={`item-match ${item.productId ? '' : 'unmatched-item'}`}>
+                {order.items.map((item, i) => {
+                  const isExact = item.productId && item.productName.toLowerCase().trim() === item.matchedName.toLowerCase().trim();
+                  const needsAttention = !item.productId || !isExact;
+                  return (
+                  <div key={i} className={`item-match ${needsAttention ? 'unmatched-item' : ''}`}>
                     <span><span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{i + 1}.</span>{item.productName} <span style={{ color: 'var(--text-muted)' }}>({item.qty} {item.unit})</span></span>
-                    <span className={`match-tag ${item.productId ? '' : 'unmatched'}`}>
+                    <span className={`match-tag ${!needsAttention ? '' : 'unmatched'}`}>
                       {item.productId ? `✓ ${item.matchedName}` : 
                         (() => {
                           const scopedProducts = allProducts.filter(p => !p.customerId || (order.matchedCustomerId && p.customerId === order.matchedCustomerId));
@@ -271,7 +274,7 @@ export default function TelegramOrdersPage() {
                       }
                     </span>
                   </div>
-                ))}
+                )})}
               </div>
 
               {/* Card Footer */}
