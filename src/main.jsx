@@ -6,9 +6,9 @@ import { runSindangjayaSeeder } from './utils/seedSindangjaya.js'
 import { runSindangjaya3Seeder } from './utils/seedSindangjaya3.js'
 import { runResetStock } from './utils/resetStock.js'
 
-runSindangjayaSeeder()
-runSindangjaya3Seeder()
-runResetStock()
+// runSindangjayaSeeder()
+// runSindangjaya3Seeder()
+// runResetStock()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
