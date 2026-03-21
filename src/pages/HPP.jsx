@@ -187,6 +187,28 @@ export default function HPP() {
     });
   }
 
+  const autoLinkSubItems = (itemsList, currentSisa) => {
+    return itemsList.map(item => {
+      if (!item.useSubItems) return item;
+      const subItems = (item.subItems || []).map(b => {
+        if (b.purchaseId) return b; // Sudah terhubung
+        const matching = currentSisa
+          .filter(p => (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase())
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Terbaru dulu
+        if (matching.length > 0 && matching[0].sisaQty > 0) {
+          return {
+            ...b,
+            harga: matching[0].costPerUnit,
+            maxQty: matching[0].sisaQty,
+            purchaseId: matching[0].purchaseId
+          };
+        }
+        return b;
+      });
+      return { ...item, subItems };
+    });
+  };
+
   function openAdd() {
     setEditId(null);
     setForm(emptyForm);
@@ -196,19 +218,21 @@ export default function HPP() {
 
   function openEdit(r) {
     setEditId(r.id);
+    const sisa = calculateSisa(r.id);
+    const linkedItems = autoLinkSubItems(r.itemCosts || [], sisa);
     setForm({
       invoiceId: r.invoiceId || '',
       invoiceNumber: r.invoiceNumber || '',
       customerName: r.customerName || '',
       invoiceTotal: r.invoiceTotal || 0,
-      itemCosts: r.itemCosts || [],
+      itemCosts: linkedItems,
       ongkosKirimBahan: r.ongkosKirimBahan || 0,
       ongkosPengiriman: r.ongkosPengiriman || 0,
       biayaTenagaKerja: r.biayaTenagaKerja || 0,
       biayaLainnya: r.biayaLainnya || 0,
       catatan: r.catatan || '',
     });
-    setSisaPurchases(calculateSisa(r.id)); // Hitung instan
+    setSisaPurchases(sisa); // Hitung instan
     setModalOpen(true);
   }
 
@@ -218,14 +242,16 @@ export default function HPP() {
       setForm(f => ({ ...f, invoiceId, invoiceNumber: '', customerName: '', invoiceTotal: 0, itemCosts: [] }));
       return;
     }
+    const sisa = calculateSisa(null);
     const itemCosts = (inv.items || []).map(item => emptyItemCost(item));
+    const linkedItems = autoLinkSubItems(itemCosts, sisa);
     setForm(f => ({
       ...f,
       invoiceId,
       invoiceNumber: inv.invoiceNumber || '',
       customerName: inv.customerName || '',
       invoiceTotal: inv.grandTotal || 0,
-      itemCosts,
+      itemCosts: linkedItems,
     }));
   }
 
@@ -245,7 +271,10 @@ export default function HPP() {
       const item = { ...itemCosts[idx] };
       item.useSubItems = !item.useSubItems;
       if (item.useSubItems && item.subItems.length === 0) {
-        item.subItems = MIX_VEG_DEFAULTS.map(b => ({ ...b }));
+        const defaults = MIX_VEG_DEFAULTS.map(b => ({ ...b }));
+        const currentSisa = calculateSisa(editId);
+        const linked = autoLinkSubItems([{ useSubItems: true, subItems: defaults }], currentSisa);
+        item.subItems = linked[0].subItems;
       }
       itemCosts[idx] = item;
       return { ...f, itemCosts };
