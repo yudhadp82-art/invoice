@@ -149,18 +149,60 @@ export function exportPurchasesToExcel(purchases) {
  * Export HPP Reports to Excel
  */
 export function exportHppToExcel(reports) {
-  const columns = [
-    { key: 'createdAt', header: 'Tanggal', width: 15, format: (v) => v ? new Date(v).toLocaleDateString('id-ID') : '' },
-    { key: 'invoiceNumber', header: 'No. Invoice', width: 20 },
-    { key: 'customerName', header: 'Customer', width: 25 },
-    { key: 'invoiceTotal', header: 'Total Penjualan', width: 18, format: (v) => v || 0 },
-    { key: 'totalModalBarang', header: 'Modal Barang', width: 18, format: (v) => v || 0 },
-    { key: 'totalBiayaInvoice', header: 'Biaya Invoice', width: 18, format: (v) => v || 0 },
-    { key: 'totalHPP', header: 'Total HPP', width: 18, format: (v) => v || 0 },
-    { key: 'labaKotor', header: 'Laba Kotor', width: 18, format: (v) => v || 0 },
-    { key: 'margin', header: 'Margin (%)', width: 12, format: (v) => v ? `${v.toFixed(1)}%` : '0%' },
-  ];
-  exportToExcel(reports, 'laporan_hpp_export', 'Laporan HPP', columns);
+  const rows = [];
+  
+  reports.forEach(r => {
+    const items = r.itemCosts || [];
+    if (items.length === 0) {
+      // Baris kosong jika tidak ada item
+      rows.push({
+        'Tanggal': r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID') : '',
+        'No. Invoice': r.invoiceNumber,
+        'Customer': r.customerName,
+        'Produk': '-',
+        'Qty': 0,
+        'Satuan': '',
+        'Harga Jual/Unit': 0,
+        'Total Jual': 0,
+        'Modal/Unit': 0,
+        'Total Modal': 0,
+        'Laba Item': 0,
+        'Biaya Kirim Bahan': r.ongkosKirimBahan || 0,
+        'Biaya Pengiriman': r.ongkosPengiriman || 0,
+        'Biaya TK': r.biayaTenagaKerja || 0,
+        'Biaya Lain': r.biayaLainnya || 0,
+        'Total HPP': r.totalHPP || 0,
+        'Total Penjualan': r.invoiceTotal || 0,
+        'Laba Kotor': r.labaKotor || 0,
+      });
+    } else {
+      items.forEach((item, i) => {
+        const labaItem = (item.subtotalJual || 0) - (item.totalModal || 0);
+        rows.push({
+          'Tanggal': i === 0 && r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID') : '',
+          'No. Invoice': i === 0 ? r.invoiceNumber : '',
+          'Customer': i === 0 ? r.customerName : '',
+          'Produk': item.productName,
+          'Qty': item.qty,
+          'Satuan': item.unit || '',
+          'Harga Jual/Unit': item.hargaJual || 0,
+          'Total Jual': item.subtotalJual || 0,
+          'Modal/Unit': (item.totalModal || 0) / (item.qty || 1),
+          'Total Modal': item.totalModal || 0,
+          'Laba Item': labaItem,
+          'Biaya Kirim Bahan': i === 0 ? (r.ongkosKirimBahan || 0) : '',
+          'Biaya Pengiriman': i === 0 ? (r.ongkosPengiriman || 0) : '',
+          'Biaya TK': i === 0 ? (r.biayaTenagaKerja || 0) : '',
+          'Biaya Lain': i === 0 ? (r.biayaLainnya || 0) : '',
+          'Total HPP': i === 0 ? (r.totalHPP || 0) : '',
+          'Total Penjualan': i === 0 ? (r.invoiceTotal || 0) : '',
+          'Laba Kotor': i === 0 ? (r.labaKotor || 0) : '',
+        });
+      });
+    }
+  });
+
+  exportToExcel(rows, 'laporan_hpp_rincian_export', 'Rincian HPP');
 }
 
 /**

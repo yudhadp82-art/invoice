@@ -61,6 +61,8 @@ export default function HPP() {
   const [reports, setReports] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [printingId, setPrintingId] = useState(null);
@@ -422,8 +424,24 @@ export default function HPP() {
   const filtered = reports
     .filter(r => {
       const q = search.toLowerCase();
-      return (r.invoiceNumber || '').toLowerCase().includes(q) ||
+      const matchSearch = (r.invoiceNumber || '').toLowerCase().includes(q) ||
         (r.customerName || '').toLowerCase().includes(q);
+      
+      let matchDate = true;
+      if (r.createdAt) {
+        const rDate = new Date(r.createdAt);
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0,0,0,0);
+          matchDate = matchDate && rDate >= start;
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23,59,59,999);
+          matchDate = matchDate && rDate <= end;
+        }
+      }
+      return matchSearch && matchDate;
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -497,6 +515,12 @@ export default function HPP() {
         <div className="search-box">
           <FiSearch className="search-icon" />
           <input type="text" placeholder="Cari no. invoice atau pelanggan..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div className="flex gap-sm" style={{ alignItems: 'center', marginLeft: 'auto' }}>
+          <span style={{ fontSize: 13, color: '#94a3b8' }}>Periode:</span>
+          <input type="date" className="form-input" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 13 }} />
+          <span style={{ color: '#94a3b8' }}>–</span>
+          <input type="date" className="form-input" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 13 }} />
         </div>
       </div>
 
