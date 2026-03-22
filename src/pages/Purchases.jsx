@@ -272,7 +272,7 @@ export default function Purchases() {
                 <td><strong>{p.supplier || '-'}</strong></td>
                 <td>
                   {(p.items || []).map((item, i) => (
-                    <div key={i} className="text-sm">{item.productName} × {item.qty} {item.unit}</div>
+                    <div key={i} className="text-sm">{item.productName} × {item.qty} {item.unit} <span className="text-muted">(@ {formatCurrency(item.costPerUnit)})</span></div>
                   ))}
                 </td>
                 <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.totalCost)}</td>
