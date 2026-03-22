@@ -146,6 +146,24 @@ export function exportPurchasesToExcel(purchases) {
 }
 
 /**
+ * Export HPP Reports to Excel
+ */
+export function exportHppToExcel(reports) {
+  const columns = [
+    { key: 'createdAt', header: 'Tanggal', width: 15, format: (v) => v ? new Date(v).toLocaleDateString('id-ID') : '' },
+    { key: 'invoiceNumber', header: 'No. Invoice', width: 20 },
+    { key: 'customerName', header: 'Customer', width: 25 },
+    { key: 'invoiceTotal', header: 'Total Penjualan', width: 18, format: (v) => v || 0 },
+    { key: 'totalModalBarang', header: 'Modal Barang', width: 18, format: (v) => v || 0 },
+    { key: 'totalBiayaInvoice', header: 'Biaya Invoice', width: 18, format: (v) => v || 0 },
+    { key: 'totalHPP', header: 'Total HPP', width: 18, format: (v) => v || 0 },
+    { key: 'labaKotor', header: 'Laba Kotor', width: 18, format: (v) => v || 0 },
+    { key: 'margin', header: 'Margin (%)', width: 12, format: (v) => v ? `${v.toFixed(1)}%` : '0%' },
+  ];
+  exportToExcel(reports, 'laporan_hpp_export', 'Laporan HPP', columns);
+}
+
+/**
  * Export report data to Excel
  */
 export function exportReportToExcel(data, filename, sheetName) {

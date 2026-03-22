@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiDollarSign, FiTruck, FiPackage, FiUsers, FiAlertTriangle, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiDollarSign, FiTruck, FiPackage, FiUsers, FiAlertTriangle, FiChevronDown, FiChevronUp, FiDownload, FiPrinter } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
+import { exportHppToExcel } from '../utils/excel';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import HppPdfTemplate from '../components/HppPdfTemplate';
 
 // Bahan default untuk mix vegetable
 const MIX_VEG_DEFAULTS = [
@@ -59,6 +63,7 @@ export default function HPP() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [printingId, setPrintingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [expandedRow, setExpandedRow] = useState(null);
   const [purchaseItems, setPurchaseItems] = useState([]);
@@ -215,6 +220,28 @@ export default function HPP() {
       return { ...item, subItems };
     });
   };
+
+  async function handleExportPdf(r) {
+    if (!r) return;
+    setPrintingId(r.id);
+    
+    try {
+      await new Promise(res => setTimeout(res, 600)); // Allow render
+      const element = document.getElementById(`pdf-hpp-${r.id}`);
+      if (!element) throw new Error('Render element not found');
+      
+      const canvas = await html2canvas(element, { scale: 1, useCORS: true });
+      const img = canvas.toDataURL('image/jpeg', 0.6);
+      const doc = new jsPDF('p', 'mm', 'a4');
+      doc.addImage(img, 'JPEG', 0, 0, 210, 297);
+      doc.save(`HPP_${r.invoiceNumber}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mengekspor PDF.');
+    } finally {
+      setPrintingId(null);
+    }
+  }
 
   function openAdd() {
     setEditId(null);
@@ -420,9 +447,14 @@ export default function HPP() {
           <h1>HPP</h1>
           <p>Harga Pokok Penjualan – Rincian modal per item &amp; biaya invoice</p>
         </div>
-        <button className="btn btn-primary" onClick={openAdd}>
-          <FiPlus /> Tambah Laporan HPP
-        </button>
+        <div className="flex gap-sm">
+          <button className="btn btn-secondary" onClick={() => exportHppToExcel(filtered)}>
+            <FiDownload /> Export Excel
+          </button>
+          <button className="btn btn-primary" onClick={openAdd}>
+            <FiPlus /> Tambah Laporan HPP
+          </button>
+        </div>
       </div>
 
       {/* Warning banner jika ada yang rugi */}
@@ -523,6 +555,7 @@ export default function HPP() {
                   </td>
                   <td>
                     <div className="table-actions">
+                      <button className="btn btn-ghost btn-sm text-info" onClick={() => handleExportPdf(r)} disabled={!!printingId} title="Download PDF"><FiDownload /></button>
                       <button className="btn btn-ghost btn-sm" onClick={() => openEdit(r)}><FiEdit2 /></button>
                       <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(r.id)}><FiTrash2 /></button>
                     </div>
@@ -880,6 +913,10 @@ export default function HPP() {
           </div>
         </form>
       </Modal>
+      {printingId && (() => {
+        const report = reports.find(r => r.id === printingId);
+        return <HppPdfTemplate report={report} />;
+      })()}
     </div>
   );
 }
