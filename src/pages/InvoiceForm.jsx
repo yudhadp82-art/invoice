@@ -22,6 +22,7 @@ export default function InvoiceForm() {
     items: [],
     notes: '',
     paymentStatus: 'unpaid',
+    telegramChatId: '',
   });
 
   useEffect(() => {
@@ -42,6 +43,7 @@ export default function InvoiceForm() {
             items: invoice.items || [],
             notes: invoice.notes || '',
             paymentStatus: invoice.paymentStatus || 'unpaid',
+            telegramChatId: invoice.telegramChatId || '',
           });
         }
       } else if (telegramOrder) {
@@ -68,7 +70,8 @@ export default function InvoiceForm() {
           customerName: customer ? customer.name : telegramOrder.customerName,
           customerAddress: customer ? customer.address : '',
           items: items,
-          notes: `Pesan Telegram:\n${telegramOrder.rawMessage}`
+          notes: `Pesan Telegram:\n${telegramOrder.rawMessage}`,
+          telegramChatId: telegramOrder.telegramChatId || ''
         }));
       }
     }

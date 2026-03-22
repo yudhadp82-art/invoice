@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiSearch, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiCheck, FiClock, FiDownload, FiTruck } from 'react-icons/fi';
-import { Invoices as InvoiceStore } from '../utils/storage';
+import { FiPlus, FiSearch, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiCheck, FiClock, FiDownload, FiTruck, FiSend } from 'react-icons/fi';
+import { Invoices as InvoiceStore, DeliveryNotes as DNStore, TelegramOrders } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import { exportInvoicesToExcel } from '../utils/excel';
+import { sendDocument } from '../utils/telegram';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import CombinedPdfTemplates from '../components/CombinedPdfTemplates';
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
+  const [deliveryNotes, setDeliveryNotes] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [printId, setPrintId] = useState(null);
+  const [sendingId, setSendingId] = useState(null);
 
   useEffect(() => {
     reload();
@@ -17,7 +23,65 @@ export default function Invoices() {
     return () => window.removeEventListener('app-data-mutation', reload);
   }, []);
 
-  async function reload() { setInvoices(await InvoiceStore.getAll()); }
+  async function reload() { 
+    setInvoices(await InvoiceStore.getAll()); 
+    setDeliveryNotes(await DNStore.getAll());
+  }
+
+  async function handleSendTelegram(inv) {
+    if (!inv) return;
+    setSendingId(inv.id);
+
+    try {
+      const note = deliveryNotes.find(n => n.invoiceId === inv.id);
+      if (!note) {
+        alert('Surat Jalan untuk invoice ini tidak ditemukan. Silakan buat Surat Jalan terlebih dahulu.');
+        setSendingId(null);
+        return;
+      }
+
+      let chatId = inv.telegramChatId;
+      if (!chatId) {
+        const orders = await TelegramOrders.getAll();
+        const linkedOrder = orders.find(o => o.matchedCustomerId === inv.customerId);
+        if (linkedOrder) chatId = linkedOrder.telegramChatId;
+      }
+
+      if (!chatId) {
+        alert('Telegram Chat ID tidak ditemukan untuk customer ini. Pesanan asal harus berasal dari Telegram.');
+        setSendingId(null);
+        return;
+      }
+
+      await new Promise(r => setTimeout(r, 600)); // Allow render
+
+      const canvas1 = await html2canvas(document.getElementById('pdf-invoice-page'), { scale: 1.5, useCORS: true });
+      const img1 = canvas1.toDataURL('image/png');
+      
+      const doc = new jsPDF('p', 'mm', 'a4');
+      doc.addImage(img1, 'PNG', 0, 0, 210, 297);
+
+      doc.addPage();
+      const canvas2 = await html2canvas(document.getElementById('pdf-note-page'), { scale: 1.5, useCORS: true });
+      const img2 = canvas2.toDataURL('image/png');
+      doc.addImage(img2, 'PNG', 0, 0, 210, 297);
+
+      const blob = doc.output('blob');
+      const filename = `Invoice_${inv.invoiceNumber}.pdf`;
+
+      const res = await sendDocument(chatId, blob, filename);
+      if (res.ok) {
+        alert('PDF Berhasil dikirim ke Telegram');
+      } else {
+        alert('Gagal mengirim PDF ke Telegram. Cek bot log.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kesalahan saat membuat PDF.');
+    } finally {
+      setSendingId(null);
+    }
+  }
 
   async function handleDelete(id) {
     if (confirm('Hapus invoice ini?')) {
@@ -263,6 +327,9 @@ export default function Invoices() {
                     <button className="btn btn-ghost btn-sm" onClick={() => togglePaid(inv)} title={inv.paymentStatus === 'paid' ? 'Tandai belum bayar' : 'Tandai lunas'}>
                       {inv.paymentStatus === 'paid' ? <FiClock /> : <FiCheck />}
                     </button>
+                    <button className="btn btn-ghost btn-sm text-info" onClick={() => handleSendTelegram(inv)} disabled={!!sendingId} title="Kirim ke Telegram">
+                      <FiSend style={{ animation: sendingId === inv.id ? 'spin 1s linear infinite' : 'none' }} />
+                    </button>
                     <Link to={`/delivery-notes/new?invoiceId=${inv.id}`} className="btn btn-ghost btn-sm" title="Buat Surat Jalan"><FiTruck /></Link>
                     <button className="btn btn-ghost btn-sm" onClick={() => setPrintId(inv.id)} title="Print"><FiPrinter /></button>
                     <Link to={`/invoices/${inv.id}/edit`} className="btn btn-ghost btn-sm text-primary"><FiEdit2 /></Link>
@@ -274,6 +341,14 @@ export default function Invoices() {
           </tbody>
         </table>
       </div>
+      
+      {sendingId && (() => {
+        const inv = invoices.find(i => i.id === sendingId);
+        const note = deliveryNotes.find(n => n.invoiceId === sendingId);
+        return <CombinedPdfTemplates inv={inv} note={note} />;
+      })()}
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

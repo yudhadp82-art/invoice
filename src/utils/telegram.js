@@ -38,6 +38,23 @@ export async function sendMessage(chatId, text) {
   }
 }
 
+export async function sendDocument(chatId, blob, filename) {
+  try {
+    const formData = new FormData();
+    formData.append('chat_id', chatId);
+    formData.append('document', blob, filename);
+
+    const res = await fetch(`${BASE_URL}/sendDocument`, {
+      method: 'POST',
+      body: formData,
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Failed to send Telegram document:', err);
+    return { ok: false };
+  }
+}
+
 const UNIT_PATTERN = /^(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|liter|lt|pcs|lusin|jrg|jrigen|jerigen|dirigen|botol|btl|kaleng|bag|kotak|slice|lbr|lembar|renteng|sisir|tandan|slop|karton|tray|biji)$/i;
 
 /**
