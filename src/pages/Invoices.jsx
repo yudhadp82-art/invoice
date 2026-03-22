@@ -56,15 +56,15 @@ export default function Invoices() {
       await new Promise(r => setTimeout(r, 600)); // Allow render
 
       const canvas1 = await html2canvas(document.getElementById('pdf-invoice-page'), { scale: 1, useCORS: true });
-      const img1 = canvas1.toDataURL('image/png');
+      const img1 = canvas1.toDataURL('image/jpeg', 0.6);
       
       const doc = new jsPDF('p', 'mm', 'a4');
-      doc.addImage(img1, 'PNG', 0, 0, 210, 297);
+      doc.addImage(img1, 'JPEG', 0, 0, 210, 297);
 
       doc.addPage();
       const canvas2 = await html2canvas(document.getElementById('pdf-note-page'), { scale: 1, useCORS: true });
-      const img2 = canvas2.toDataURL('image/png');
-      doc.addImage(img2, 'PNG', 0, 0, 210, 297);
+      const img2 = canvas2.toDataURL('image/jpeg', 0.6);
+      doc.addImage(img2, 'JPEG', 0, 0, 210, 297);
 
       const blob = doc.output('blob');
       const filename = `Invoice_${inv.invoiceNumber}.pdf`;
