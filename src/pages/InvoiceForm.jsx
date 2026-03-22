@@ -138,12 +138,12 @@ export default function InvoiceForm() {
           item.purchaseCost = product.purchaseCost;
         }
       } else if (field === 'qty') {
-        item.qty = Number(value) || 0;
+        item.qty = value;
       } else if (field === 'unitPrice') {
         item.unitPrice = Number(value) || 0;
       }
 
-      item.subtotal = item.unitPrice * item.qty;
+      item.subtotal = item.unitPrice * (Number(item.qty) || 0);
       items[index] = item;
       return { ...f, items };
     });
@@ -155,7 +155,7 @@ export default function InvoiceForm() {
 
   const subtotal = form.items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
   const grandTotal = subtotal;
-  const totalCost = form.items.reduce((sum, item) => sum + ((item.purchaseCost || 0) * (item.qty || 0)), 0);
+  const totalCost = form.items.reduce((sum, item) => sum + ((item.purchaseCost || 0) * (Number(item.qty) || 0)), 0);
   const profit = grandTotal - totalCost;
   const profitMargin = grandTotal > 0 ? ((profit / grandTotal) * 100).toFixed(1) : 0;
 
@@ -167,10 +167,12 @@ export default function InvoiceForm() {
 
     const data = {
       ...form,
+      items: form.items.map(item => ({ ...item, qty: Number(item.qty) || 0 })),
       subtotal,
       taxAmount: 0, // Legacy support
       taxEnabled: false,
       grandTotal,
+      totalTotal: grandTotal, // keep it safe
       totalCost,
       profit,
     };
@@ -193,7 +195,7 @@ export default function InvoiceForm() {
           productId: item.productId,
           productName: item.productName,
           unit: item.unit,
-          qty: item.qty,
+          qty: Number(item.qty) || 0,
           notes: '',
         });
       });
@@ -326,7 +328,7 @@ export default function InvoiceForm() {
                     </select>
                   </td>
                   <td>
-                    <input name="qty_10" className="form-input" type="number" min="1" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} />
+                    <input name="qty_10" className="form-input" type="number" min="0" step="any" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} />
                   </td>
                   <td className="text-muted">{item.unit}</td>
                   <td>

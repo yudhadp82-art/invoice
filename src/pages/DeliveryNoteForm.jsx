@@ -136,7 +136,7 @@ export default function DeliveryNoteForm() {
           item.unit = product.unit;
         }
       } else if (field === 'qty') {
-        item.qty = Number(value) || 0;
+        item.qty = value;
       } else {
         item[field] = value;
       }
@@ -154,10 +154,11 @@ export default function DeliveryNoteForm() {
       alert('Pilih customer dan tambahkan minimal 1 item');
       return;
     }
+    const dataToSave = { ...form, items: form.items.map(i => ({...i, qty: Number(i.qty) || 0})) };
     if (isEdit) {
-      await DeliveryNotes.update(id, form);
+      await DeliveryNotes.update(id, dataToSave);
     } else {
-      await DeliveryNotes.create(form);
+      await DeliveryNotes.create(dataToSave);
     }
     navigate('/delivery-notes');
   }
@@ -248,7 +249,7 @@ export default function DeliveryNoteForm() {
                     </select>
                   </td>
                   <td>
-                    <input name="qty_14" className="form-input" type="number" min="1" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} />
+                    <input name="qty_14" className="form-input" type="number" min="0" step="any" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} />
                   </td>
                   <td className="text-muted">{item.unit}</td>
                   <td>

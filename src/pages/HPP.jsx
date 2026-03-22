@@ -343,6 +343,13 @@ export default function HPP() {
     // Build itemCosts with computed totals
     const itemCosts = form.itemCosts.map(item => ({
       ...item,
+      qty: Number(item.qty) || 0,
+      hargaModalSatuan: Number(item.hargaModalSatuan) || 0,
+      subItems: (item.subItems || []).map(b => ({
+        ...b,
+        qty: Number(b.qty) || 0,
+        harga: Number(b.harga) || 0
+      })),
       totalModal: calcItemModal(item),
     }));
 
@@ -668,7 +675,7 @@ export default function HPP() {
                                 min="0" 
                                 step="any"
                                 value={item.qty}
-                                onChange={e => updateItemCost(idx, 'qty', Number(e.target.value))}
+                                onChange={e => updateItemCost(idx, 'qty', e.target.value)}
                                 style={{ width: 80, textAlign: 'center' }}
                               />
                             </div>
@@ -737,13 +744,13 @@ export default function HPP() {
                                     type="number"
                                     placeholder="Qty"
                                     min="0"
-                                    step="0.1"
+                                    step="any"
                                     value={b.qty}
                                     onChange={e => {
-                                      let val = Number(e.target.value);
-                                      if (b.maxQty && val > b.maxQty) {
+                                      let val = e.target.value;
+                                      if (b.maxQty && Number(val) > b.maxQty) {
                                         alert(`Kapasitas maksimal adalah ${b.maxQty} (sesuai pembelian)`);
-                                        val = b.maxQty;
+                                        val = b.maxQty.toString();
                                       }
                                       updateSubItem(idx, si, 'qty', val);
                                     }}

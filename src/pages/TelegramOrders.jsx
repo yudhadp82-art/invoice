@@ -134,8 +134,9 @@ export default function TelegramOrdersPage() {
   async function saveEdit() {
     if (!editOrder) return;
     const { id, matchedCustomerId, customerName, items, status } = editOrder;
+    const parsedItems = items.map(i => ({ ...i, qty: Number(i.qty) || 0 }));
     // Remap productId/matchedName from selection
-    await TelegramOrders.update(id, { matchedCustomerId, customerName, items, status });
+    await TelegramOrders.update(id, { matchedCustomerId, customerName, items: parsedItems, status });
     await loadOrders();
     setEditOrder(null);
   }
@@ -159,7 +160,7 @@ export default function TelegramOrdersPage() {
         item.matchedName = p ? p.name : null;
         item.matchedUnit = p ? p.unit : null;
       } else if (field === 'qty') {
-        item.qty = Number(value);
+        item.qty = value;
       } else if (field === 'productName') {
         item.productName = value;
       }
@@ -374,7 +375,7 @@ export default function TelegramOrdersPage() {
                       className="form-input"
                       type="number"
                       min="0"
-                      step="0.5"
+                      step="any"
                       value={item.qty}
                       onChange={e => editItemChange(i, 'qty', e.target.value)}
                     />

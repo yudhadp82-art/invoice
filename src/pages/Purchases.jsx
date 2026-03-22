@@ -107,7 +107,7 @@ export default function Purchases() {
           item.costPerUnit = product.purchaseCost || 0;
         }
       } else if (field === 'qty') {
-        item.qty = Number(value) || 0;
+        item.qty = value;
       } else if (field === 'costPerUnit') {
         item.costPerUnit = Number(value) || 0;
       }
@@ -127,15 +127,15 @@ export default function Purchases() {
       return;
     }
 
-    const totalCost = form.items.reduce((sum, item) => sum + (item.costPerUnit * item.qty), 0);
-    await PurchaseStore.create({ ...form, totalCost });
+    const totalCost = form.items.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0);
+    await PurchaseStore.create({ ...form, items: form.items.map(i => ({...i, qty: Number(i.qty) || 0})), totalCost });
 
     // Update product stock and purchase cost
     for (const item of form.items) {
       const product = await ProductStore.getById(item.productId);
       if (product) {
         await ProductStore.update(item.productId, {
-          stock: (product.stock || 0) + item.qty,
+          stock: (product.stock || 0) + (Number(item.qty) || 0),
           purchaseCost: item.costPerUnit, // Update latest cost
         });
       }
@@ -334,12 +334,12 @@ export default function Purchases() {
                         )}
                       </td>
                       <td>
-                        <input name="qty_8" className="form-input" type="number" min="1" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} style={{ width: 80 }} />
+                        <input name="qty_8" className="form-input" type="number" min="0" step="any" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} style={{ width: 80 }} />
                       </td>
                       <td>
                         <input name="costPerUnit_10" className="form-input" type="number" min="0" value={item.costPerUnit} onChange={e => updateItem(i, 'costPerUnit', e.target.value)} style={{ width: 130 }} />
                       </td>
-                      <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(item.costPerUnit * item.qty)}</td>
+                      <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(item.costPerUnit * (Number(item.qty) || 0))}</td>
                       <td>
                         <button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => removeItem(i)}><FiTrash2 /></button>
                       </td>
@@ -351,7 +351,7 @@ export default function Purchases() {
 
             {form.items.length > 0 && (
               <div style={{ textAlign: 'right', marginTop: 12, fontSize: '16px', fontWeight: 700, color: '#818cf8' }}>
-                Total: {formatCurrency(form.items.reduce((sum, item) => sum + (item.costPerUnit * item.qty), 0))}
+                Total: {formatCurrency(form.items.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0))}
               </div>
             )}
 

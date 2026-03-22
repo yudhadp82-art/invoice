@@ -333,7 +333,7 @@ export default function Products() {
               </div>
               <div className="form-group">
                 <label className="form-label">Stok</label>
-                <input className="form-input" type="number" min="0" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="0" />
+                <input className="form-input" type="number" min="0" step="any" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="0" />
               </div>
             </div>
           </div>
