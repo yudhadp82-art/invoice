@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiShoppingCart, FiTrash2, FiDownload } from 'react-icons/fi';
 import Modal from '../components/Modal';
-import { Purchases as PurchaseStore, Products as ProductStore } from '../utils/storage';
+import { Purchases as PurchaseStore, Products as ProductStore, Invoices as InvoiceStore } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import { exportPurchasesToExcel } from '../utils/excel';
 
 export default function Purchases() {
   const [purchases, setPurchases] = useState([]);
   const [products, setProducts] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
     supplier: '',
+    invoiceId: '',
     items: [],
     notes: '',
   });
@@ -27,11 +29,54 @@ export default function Purchases() {
   async function reload() {
     setPurchases(await PurchaseStore.getAll());
     setProducts(await ProductStore.getAll());
+    const invs = await InvoiceStore.getAll();
+    setInvoices(invs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
   }
 
   function openAdd() {
-    setForm({ supplier: '', items: [], notes: '' });
+    const latestInvoice = invoices.length > 0 ? invoices[0] : null;
+    let initialItems = [];
+    if (latestInvoice && latestInvoice.items) {
+      initialItems = latestInvoice.items.map(item => ({
+        productId: item.productId,
+        productName: item.productName,
+        qty: item.qty,
+        costPerUnit: item.purchaseCost || 0,
+        unit: item.unit
+      }));
+    }
+
+    setForm({ 
+      supplier: '', 
+      invoiceId: latestInvoice ? latestInvoice.id : '',
+      items: initialItems, 
+      notes: latestInvoice ? `Pembelian untuk PO: ${latestInvoice.invoiceNumber}` : '' 
+    });
     setModalOpen(true);
+  }
+
+  function handleInvoiceChange(invoiceId) {
+    if (!invoiceId) {
+      setForm(f => ({ ...f, invoiceId: '', items: [], notes: '' }));
+      return;
+    }
+    const selected = invoices.find(i => i.id === invoiceId);
+    if (!selected) return;
+    
+    const initialItems = (selected.items || []).map(item => ({
+      productId: item.productId,
+      productName: item.productName,
+      qty: item.qty,
+      costPerUnit: item.purchaseCost || 0,
+      unit: item.unit
+    }));
+
+    setForm(f => ({
+      ...f,
+      invoiceId: invoiceId,
+      items: initialItems,
+      notes: `Pembelian untuk PO: ${selected.invoiceNumber}`
+    }));
   }
 
   function addItem() {
@@ -206,6 +251,17 @@ export default function Purchases() {
             {openIndex !== null && (
               <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90 }} onClick={() => setOpenIndex(null)} />
             )}
+            
+            <div className="form-group mb-md">
+              <label className="form-label">Referensi Invoice (PO)</label>
+              <select className="form-select" value={form.invoiceId || ''} onChange={e => handleInvoiceChange(e.target.value)}>
+                <option value="">-- Tanpa Referensi / Pilih PO --</option>
+                {invoices.map(inv => (
+                  <option key={inv.id} value={inv.id}>{inv.invoiceNumber} - {inv.customerName}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="form-group">
               <label className="form-label">Nama Supplier</label>
               <input name="supplier_4" className="form-input" value={form.supplier} onChange={e => setForm({...form, supplier: e.target.value})} placeholder="Nama supplier/toko" />
