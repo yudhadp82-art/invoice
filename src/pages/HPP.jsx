@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiDollarSign, FiTruck, FiPackage, FiUsers, FiAlertTriangle, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import Modal from '../components/Modal';
-import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore } from '../utils/storage';
+import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 
 // Bahan default untuk mix vegetable
@@ -19,7 +19,10 @@ function isMixVeg(name) {
   return n.includes('mix veg') || n.includes('sayur campuran') || n.includes('mixed veg');
 }
 
-function emptyItemCost(item) {
+function emptyItemCost(item, productsList = []) {
+  const prod = productsList.find(p => p.id === item.productId);
+  const hp = prod && prod.purchaseCost ? prod.purchaseCost : item.purchaseCost;
+
   return {
     productId: item.productId || '',
     productName: item.productName || '',
@@ -28,7 +31,7 @@ function emptyItemCost(item) {
     hargaJual: item.unitPrice || 0,
     subtotalJual: item.subtotal || 0,
     // biaya modal per item
-    hargaModalSatuan: item.purchaseCost || 0,
+    hargaModalSatuan: hp || 0,
     subItems: isMixVeg(item.productName)
       ? MIX_VEG_DEFAULTS.map(b => ({ ...b }))
       : [],
@@ -59,6 +62,7 @@ export default function HPP() {
   const [form, setForm] = useState(emptyForm);
   const [expandedRow, setExpandedRow] = useState(null);
   const [purchaseItems, setPurchaseItems] = useState([]);
+  const [products, setProducts] = useState([]);
   const [sisaPurchases, setSisaPurchases] = useState([]); // state baru
   const [openSubIndex, setOpenSubIndex] = useState(null);
   const [subQuery, setSubQuery] = useState('');
@@ -73,6 +77,8 @@ export default function HPP() {
     const allInvs = await InvoiceStore.getAll();
     let allReports = await HppReports.getAll();
     const allPurchases = await PurchaseStore.getAll();
+    const allProducts = await ProductStore.getAll();
+    setProducts(allProducts);
 
     // Flatten purchase items untuk mempermudah pencarian
     const items = [];
@@ -129,9 +135,10 @@ export default function HPP() {
                           : Number(existing.hargaModalSatuan) * Number(invIt.qty)
             };
           }
+          const newItem = emptyItemCost(invIt, allProducts);
           return {
-            ...emptyItemCost(invIt),
-            totalModal: Number(invIt.purchaseCost || 0) * Number(invIt.qty)
+            ...newItem,
+            totalModal: Number(newItem.hargaModalSatuan || 0) * Number(invIt.qty)
           };
         });
 
@@ -243,7 +250,7 @@ export default function HPP() {
       return;
     }
     const sisa = calculateSisa(null);
-    const itemCosts = (inv.items || []).map(item => emptyItemCost(item));
+    const itemCosts = (inv.items || []).map(item => emptyItemCost(item, products));
     const linkedItems = autoLinkSubItems(itemCosts, sisa);
     setForm(f => ({
       ...f,
