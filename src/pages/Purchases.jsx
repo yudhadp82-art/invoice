@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiShoppingCart, FiTrash2, FiDownload } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiShoppingCart, FiTrash2, FiDownload, FiEdit2 } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { Purchases as PurchaseStore, Products as ProductStore, Invoices as InvoiceStore } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
@@ -11,6 +11,7 @@ export default function Purchases() {
   const [invoices, setInvoices] = useState([]);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     supplier: '',
     invoiceId: '',
@@ -52,6 +53,18 @@ export default function Purchases() {
       items: initialItems, 
       notes: latestInvoice ? `Pembelian untuk PO: ${latestInvoice.invoiceNumber}` : '' 
     });
+    setEditingId(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(purchase) {
+    setForm({
+      supplier: purchase.supplier || '',
+      invoiceId: purchase.invoiceId || '',
+      items: (purchase.items || []).map(item => ({...item})),
+      notes: purchase.notes || ''
+    });
+    setEditingId(purchase.id);
     setModalOpen(true);
   }
 
@@ -128,10 +141,27 @@ export default function Purchases() {
     }
 
     const totalCost = form.items.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0);
-    await PurchaseStore.create({ ...form, items: form.items.map(i => ({...i, qty: Number(i.qty) || 0})), totalCost });
+    const itemData = form.items.map(i => ({...i, qty: Number(i.qty) || 0}));
+
+    if (editingId) {
+      const oldPurchase = purchases.find(p => p.id === editingId);
+      if (oldPurchase && oldPurchase.items) {
+        for (const oldItem of oldPurchase.items) {
+          const product = await ProductStore.getById(oldItem.productId);
+          if (product) {
+            await ProductStore.update(oldItem.productId, {
+              stock: (product.stock || 0) - (Number(oldItem.qty) || 0)
+            });
+          }
+        }
+      }
+      await PurchaseStore.update(editingId, { ...form, items: itemData, totalCost });
+    } else {
+      await PurchaseStore.create({ ...form, items: itemData, totalCost });
+    }
 
     // Update product stock and purchase cost
-    for (const item of form.items) {
+    for (const item of itemData) {
       const product = await ProductStore.getById(item.productId);
       if (product) {
         await ProductStore.update(item.productId, {
@@ -146,7 +176,18 @@ export default function Purchases() {
   }
 
   async function handleDelete(id) {
-    if (confirm('Hapus catatan pembelian ini?')) {
+    if (confirm('Hapus catatan pembelian ini? (Stok produk akan dikurangi otomatis)')) {
+      const oldPurchase = purchases.find(p => p.id === id);
+      if (oldPurchase && oldPurchase.items) {
+        for (const oldItem of oldPurchase.items) {
+          const product = await ProductStore.getById(oldItem.productId);
+          if (product) {
+            await ProductStore.update(oldItem.productId, {
+              stock: (product.stock || 0) - (Number(oldItem.qty) || 0)
+            });
+          }
+        }
+      }
       await PurchaseStore.delete(id);
       await reload();
     }
@@ -236,7 +277,10 @@ export default function Purchases() {
                 </td>
                 <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.totalCost)}</td>
                 <td>
-                  <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(p.id)}><FiTrash2 /></button>
+                  <div className="table-actions">
+                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}><FiEdit2 /></button>
+                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(p.id)}><FiTrash2 /></button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -245,7 +289,7 @@ export default function Purchases() {
       </div>
 
       {/* Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Catat Pembelian" size="lg">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? "Edit Pembelian" : "Catat Pembelian"} size="lg">
         <form onSubmit={handleSave}>
           <div className="modal-body" style={{ position: 'relative' }}>
             {openIndex !== null && (

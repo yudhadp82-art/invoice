@@ -47,26 +47,33 @@ export default function TelegramOrdersPage() {
     let newOffset  = offset;
     let addedCount = 0;
 
+    if (updates.length > 0) {
+      newOffset = Math.max(...updates.map(u => u.update_id));
+    }
+
     const allOrders = await TelegramOrders.getAll();
+    const processedChats = new Set();
+    const reversedUpdates = [...updates].reverse();
 
-    for (const update of updates) {
-      if (update.update_id > newOffset) newOffset = update.update_id;
-
+    for (const update of reversedUpdates) {
       if (update.message?.text) {
         const text   = update.message.text;
         const chatId = update.message.chat.id;
         const msgId  = update.message.message_id;
 
+        if (processedChats.has(chatId)) continue;
+
         const existing = allOrders.find(o => o.telegramMessageId === msgId);
-        if (existing) continue;
+        if (existing) {
+          processedChats.add(chatId);
+          continue;
+        }
 
         const parsed = await parseOrderMessage(text);
         if (!parsed || parsed.items.length === 0) continue;
 
         const matchedCust = matchCustomer(parsed.customerKeywords, custs, parsed.sppgNumber);
-
         const scopedProducts = prods.filter(p => !p.customerId || (matchedCust && p.customerId === matchedCust.id));
-
         const customerName = matchedCust ? matchedCust.name : parsed.customerRaw;
 
         const matchedItems = await correctAndMatchItemsWithAI(
@@ -87,6 +94,7 @@ export default function TelegramOrdersPage() {
           status:            'baru',
         });
         addedCount++;
+        processedChats.add(chatId);
       }
     }
 
