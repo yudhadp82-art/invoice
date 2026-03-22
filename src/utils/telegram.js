@@ -51,7 +51,7 @@ export async function sendDocument(chatId, blob, filename) {
     return await res.json();
   } catch (err) {
     console.error('Failed to send Telegram document:', err);
-    return { ok: false };
+    return { ok: false, description: err.message };
   }
 }
 

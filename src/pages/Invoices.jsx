@@ -55,14 +55,14 @@ export default function Invoices() {
 
       await new Promise(r => setTimeout(r, 600)); // Allow render
 
-      const canvas1 = await html2canvas(document.getElementById('pdf-invoice-page'), { scale: 1.5, useCORS: true });
+      const canvas1 = await html2canvas(document.getElementById('pdf-invoice-page'), { scale: 1, useCORS: true });
       const img1 = canvas1.toDataURL('image/png');
       
       const doc = new jsPDF('p', 'mm', 'a4');
       doc.addImage(img1, 'PNG', 0, 0, 210, 297);
 
       doc.addPage();
-      const canvas2 = await html2canvas(document.getElementById('pdf-note-page'), { scale: 1.5, useCORS: true });
+      const canvas2 = await html2canvas(document.getElementById('pdf-note-page'), { scale: 1, useCORS: true });
       const img2 = canvas2.toDataURL('image/png');
       doc.addImage(img2, 'PNG', 0, 0, 210, 297);
 
@@ -70,10 +70,12 @@ export default function Invoices() {
       const filename = `Invoice_${inv.invoiceNumber}.pdf`;
 
       const res = await sendDocument(chatId, blob, filename);
+      console.log('sendDocument Response:', res);
+      
       if (res.ok) {
         alert('PDF Berhasil dikirim ke Telegram');
       } else {
-        alert('Gagal mengirim PDF ke Telegram. Cek bot log.');
+        alert(`Gagal mengirim PDF ke Telegram: ${res.description || 'Unknown error'}`);
       }
     } catch (err) {
       console.error(err);
