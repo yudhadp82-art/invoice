@@ -10,7 +10,7 @@ import { runResetStock } from './utils/resetStock.js'
 // runSindangjayaSeeder()
 // runSindangjaya3Seeder()
 // runResetStock()
-runSindangjaya5Seeder()
+// runSindangjaya5Seeder()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

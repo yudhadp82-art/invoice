@@ -1,9 +1,297 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { FiPlus, FiTrash2, FiArrowLeft, FiSave } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiArrowLeft, FiSave, FiSearch } from 'react-icons/fi';
 import { Invoices, Customers, Products, DeliveryNotes } from '../utils/storage';
 import { formatCurrency, generateInvoiceNumber, generateDeliveryNoteNumber, getCustomerPrice } from '../utils/formatter';
 
+// -------------------------------------------------------
+// Searchable Product Selector Component
+// -------------------------------------------------------
+function ProductSearch({ value, products, onChange }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Sync display when external value changes (e.g. initial load)
+  useEffect(() => {
+    if (!focused) {
+      const prod = products.find(p => p.id === value);
+      setQuery(prod ? prod.name : '');
+    }
+  }, [value, products, focused]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handler(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+        setFocused(false);
+        // restore display name
+        const prod = products.find(p => p.id === value);
+        setQuery(prod ? prod.name : '');
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [value, products]);
+
+  const filtered = query.trim()
+    ? products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
+    : products;
+
+  function select(prod) {
+    if (!prod) return;
+    setQuery(prod.name);
+    setOpen(false);
+    setFocused(false);
+    setActiveIndex(-1);
+    onChange(prod.id);
+  }
+
+  function handleKeyDown(e) {
+    if (!open) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
+        setOpen(true);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIndex >= 0 && activeIndex < filtered.length) {
+        select(filtered[activeIndex]);
+      } else if (filtered.length > 0) {
+        select(filtered[0]);
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+      setFocused(false);
+      const prod = products.find(p => p.id === value);
+      setQuery(prod ? prod.name : '');
+    }
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <FiSearch style={{
+          position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+          color: 'var(--text-muted)', pointerEvents: 'none', fontSize: 14
+        }} />
+        <input
+          ref={inputRef}
+          className="form-input"
+          style={{ paddingLeft: 32 }}
+          type="text"
+          placeholder="Ketik nama produk..."
+          value={query}
+          autoComplete="off"
+          onFocus={() => { setFocused(true); setOpen(true); }}
+          onChange={e => { setQuery(e.target.value); setOpen(true); setActiveIndex(-1); }}
+          onKeyDown={handleKeyDown}
+        />
+      </div>
+      {open && filtered.length > 0 && (
+        <div style={{
+          position: 'absolute', zIndex: 1000, top: '100%', left: 0, right: 0,
+          background: 'var(--bg-card, #1e293b)',
+          border: '1px solid var(--border-color, #334155)',
+          borderRadius: 8,
+          maxHeight: 220,
+          overflowY: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+          marginTop: 2,
+        }}>
+          {filtered.map((p, idx) => (
+            <div
+              key={p.id}
+              onMouseDown={(e) => { e.preventDefault(); select(p); }}
+              style={{
+                padding: '8px 12px',
+                cursor: 'pointer',
+                fontSize: 13,
+                borderBottom: '1px solid var(--border-color, #334155)',
+                background: (value === p.id || activeIndex === idx) ? 'var(--primary-dim, rgba(99,102,241,0.15))' : 'transparent',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={() => setActiveIndex(idx)}
+              onMouseLeave={() => setActiveIndex(-1)}
+            >
+              <span style={{ fontWeight: 600 }}>{p.name}</span>
+              <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 11 }}>{p.unit}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {open && filtered.length === 0 && (
+        <div style={{
+          position: 'absolute', zIndex: 1000, top: '100%', left: 0, right: 0,
+          background: 'var(--bg-card, #1e293b)',
+          border: '1px solid var(--border-color, #334155)',
+          borderRadius: 8, padding: '10px 12px',
+          fontSize: 13, color: 'var(--text-muted)',
+          marginTop: 2,
+        }}>
+          Produk tidak ditemukan
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -------------------------------------------------------
+// Searchable Customer Selector Component
+// -------------------------------------------------------
+function CustomerSearch({ value, customers, onChange }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!focused) {
+      const cust = customers.find(c => c.id === value);
+      setQuery(cust ? `${cust.name} (${cust.company || '-'})` : '');
+    }
+  }, [value, customers, focused]);
+
+  useEffect(() => {
+    function handler(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+        setFocused(false);
+        const cust = customers.find(c => c.id === value);
+        setQuery(cust ? `${cust.name} (${cust.company || '-'})` : '');
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [value, customers]);
+
+  const filtered = query.trim()
+    ? customers.filter(c => 
+        c.name.toLowerCase().includes(query.toLowerCase()) || 
+        (c.company && c.company.toLowerCase().includes(query.toLowerCase()))
+      )
+    : customers;
+
+  function select(cust) {
+    if (!cust) return;
+    setQuery(`${cust.name} (${cust.company || '-'})`);
+    setOpen(false);
+    setFocused(false);
+    setActiveIndex(-1);
+    onChange(cust.id);
+  }
+
+  function handleKeyDown(e) {
+    if (!open) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
+        setOpen(true);
+      }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIndex >= 0 && activeIndex < filtered.length) {
+        select(filtered[activeIndex]);
+      } else if (filtered.length > 0) {
+        select(filtered[0]);
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+      setFocused(false);
+      const cust = customers.find(c => c.id === value);
+      setQuery(cust ? `${cust.name} (${cust.company || '-'})` : '');
+    }
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <FiSearch style={{
+          position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+          color: 'var(--text-muted)', pointerEvents: 'none', fontSize: 14
+        }} />
+        <input
+          className="form-input"
+          style={{ paddingLeft: 32 }}
+          type="text"
+          placeholder="Cari customer..."
+          value={query}
+          autoComplete="off"
+          onFocus={() => { setFocused(true); setOpen(true); }}
+          onChange={e => { setQuery(e.target.value); setOpen(true); setActiveIndex(-1); }}
+          onKeyDown={handleKeyDown}
+        />
+      </div>
+      {open && filtered.length > 0 && (
+        <div style={{
+          position: 'absolute', zIndex: 1000, top: '100%', left: 0, right: 0,
+          background: 'var(--bg-card, #1e293b)',
+          border: '1px solid var(--border-color, #334155)',
+          borderRadius: 8,
+          maxHeight: 250,
+          overflowY: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+          marginTop: 2,
+        }}>
+          {filtered.map((c, idx) => (
+            <div
+              key={c.id}
+              onMouseDown={(e) => { e.preventDefault(); select(c); }}
+              style={{
+                padding: '8px 12px',
+                cursor: 'pointer',
+                fontSize: 13,
+                borderBottom: '1px solid var(--border-color, #334155)',
+                background: (value === c.id || activeIndex === idx) ? 'var(--primary-dim, rgba(99,102,241,0.15))' : 'transparent',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={() => setActiveIndex(idx)}
+              onMouseLeave={() => setActiveIndex(-1)}
+            >
+              <div style={{ fontWeight: 600 }}>{c.name}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{c.company || 'Personal'} - {c.address}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {open && filtered.length === 0 && (
+        <div style={{
+          position: 'absolute', zIndex: 1000, top: '100%', left: 0, right: 0,
+          background: 'var(--bg-card, #1e293b)',
+          border: '1px solid var(--border-color, #334155)',
+          borderRadius: 8, padding: '10px 12px',
+          fontSize: 13, color: 'var(--text-muted)',
+          marginTop: 2,
+        }}>
+          Customer tidak ditemukan
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -------------------------------------------------------
+// Main InvoiceForm
+// -------------------------------------------------------
 export default function InvoiceForm() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -207,19 +495,16 @@ export default function InvoiceForm() {
         // Update existing note
         const note = existingNotes[0];
         
-        // Coba merge: jika ada item di delivery note yang TIDAK ada di noteItems hasil generate invoice, 
-        // kita KEMBALIKAN karena kemungkinan supir menambahkan manual (misal: packaging jerigen, gabus, es batu).
         const existingExtraItems = note.items.filter(exItem => 
           !noteItems.some(nItem => nItem.productName === exItem.productName)
         );
         
         const mergedItems = [...noteItems];
-        // Timpa qty untuk item hasil invoice yang sudah pernah disesuaikan qty/notesnya di DN (jika ada)
         mergedItems.forEach(mi => {
           const match = note.items.find(xi => xi.productName === mi.productName);
           if (match) {
-            mi.qty = match.qty; // retain driver manual adjustments
-            if (match.notes) mi.notes = match.notes; // retain driver manual notes
+            mi.qty = match.qty;
+            if (match.notes) mi.notes = match.notes;
           }
         });
         
@@ -251,6 +536,8 @@ export default function InvoiceForm() {
     navigate('/invoices');
   }
 
+  const availableProducts = products.filter(p => !p.customerId || p.customerId === form.customerId);
+
   return (
     <div className="animate-in">
       <div className="page-header page-header-actions">
@@ -272,10 +559,11 @@ export default function InvoiceForm() {
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">Customer</label>
-            <select name="customerId_2" className="form-select" value={form.customerId} onChange={e => handleCustomerChange(e.target.value)}>
-              <option value="">-- Pilih Customer --</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.company || '-'})</option>)}
-            </select>
+            <CustomerSearch 
+              value={form.customerId} 
+              customers={customers} 
+              onChange={handleCustomerChange} 
+            />
           </div>
           <div className="form-group">
             <label className="form-label">No. Invoice</label>
@@ -310,25 +598,24 @@ export default function InvoiceForm() {
             <thead>
               <tr>
                 <th style={{ width: '5%', textAlign: 'center' }}>No.</th>
-                <th style={{ width: '25%' }}>Produk</th>
+                <th style={{ width: '30%' }}>Produk</th>
                 <th style={{ width: '10%' }}>Qty</th>
                 <th style={{ width: '8%' }}>Satuan</th>
                 <th style={{ width: '20%' }}>Harga</th>
-                <th style={{ width: '22%', textAlign: 'right' }}>Subtotal</th>
-                <th style={{ width: '10%', textAlign: 'center' }}></th>
+                <th style={{ width: '20%', textAlign: 'right' }}>Subtotal</th>
+                <th style={{ width: '7%', textAlign: 'center' }}></th>
               </tr>
             </thead>
             <tbody>
-              {form.items.map((item, i) => {
-                const availableProducts = products.filter(p => !p.customerId || p.customerId === form.customerId);
-                return (
+              {form.items.map((item, i) => (
                 <tr key={i}>
                   <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)' }}>{i + 1}</td>
                   <td>
-                    <select name={`productId_${i}`} className="form-select" value={item.productId || ''} onChange={e => updateItem(i, 'productId', e.target.value)}>
-                      <option value="">-- Pilih Produk --</option>
-                      {availableProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+                    <ProductSearch
+                      value={item.productId || ''}
+                      products={availableProducts}
+                      onChange={productId => updateItem(i, 'productId', productId)}
+                    />
                   </td>
                   <td>
                     <input name="qty_10" className="form-input" type="number" min="0" step="any" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} />
@@ -342,7 +629,7 @@ export default function InvoiceForm() {
                     <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeItem(i)}><FiTrash2 /></button>
                   </td>
                 </tr>
-              )})}
+              ))}
             </tbody>
           </table>
         )}
