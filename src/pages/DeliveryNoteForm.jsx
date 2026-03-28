@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiArrowLeft, FiSave } from 'react-icons/fi';
 import { DeliveryNotes, Customers, Products, Invoices } from '../utils/storage';
-import { generateDeliveryNoteNumber } from '../utils/formatter';
+import { generateDeliveryNoteNumber, formatNumberInput } from '../utils/formatter';
 
 export default function DeliveryNoteForm() {
   const navigate = useNavigate();
@@ -265,7 +265,12 @@ export default function DeliveryNoteForm() {
                     </select>
                   </td>
                   <td>
-                    <input name="qty_14" className="form-input" type="number" min="0" step="any" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} />
+                    <input name="qty_14" className="form-input" type="text" value={formatNumberInput(item.qty)} onChange={e => {
+                      const val = e.target.value.replace(/,/g, '');
+                      if (/^\d*\.?\d*$/.test(val)) {
+                        updateItem(i, 'qty', val);
+                      }
+                    }} />
                   </td>
                   <td className="text-muted">{item.unit}</td>
                   <td>

@@ -122,3 +122,17 @@ export function getLast7Days() {
   }
   return days;
 }
+
+export function formatNumberInput(val) {
+  if (val === undefined || val === null || val === '') return '';
+  const str = val.toString().replace(/,/g, '');
+  const parts = str.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
+export function parseNumberInput(val) {
+  if (val === undefined || val === null || val === '') return 0;
+  const clean = val.toString().replace(/,/g, '');
+  return parseFloat(clean) || 0;
+}

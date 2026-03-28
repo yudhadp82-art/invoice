@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiArrowLeft, FiSave, FiSearch } from 'react-icons/fi';
 import { Invoices, Customers, Products, DeliveryNotes } from '../utils/storage';
-import { formatCurrency, generateInvoiceNumber, generateDeliveryNoteNumber, getCustomerPrice } from '../utils/formatter';
+import { formatCurrency, generateInvoiceNumber, generateDeliveryNoteNumber, getCustomerPrice, formatNumberInput, parseNumberInput } from '../utils/formatter';
 
 // -------------------------------------------------------
 // Searchable Product Selector Component
@@ -525,6 +525,9 @@ export default function InvoiceForm() {
           customerId: form.customerId,
           customerName: form.customerName,
           customerAddress: form.customerAddress,
+          date: form.date,
+          invoiceNumber: form.invoiceNumber,
+          noteNumber: generateDeliveryNoteNumber(form.date), // Sync the note number prefix
           items: [...mergedItems, ...existingExtraItems],
         });
       } else {
@@ -533,7 +536,8 @@ export default function InvoiceForm() {
           customerId: form.customerId,
           customerName: form.customerName,
           customerAddress: form.customerAddress,
-          noteNumber: generateDeliveryNoteNumber(),
+          date: form.date,
+          noteNumber: generateDeliveryNoteNumber(form.date),
           invoiceId: savedInvoice.id,
           invoiceNumber: savedInvoice.invoiceNumber,
           driver: '',
@@ -634,11 +638,21 @@ export default function InvoiceForm() {
                     />
                   </td>
                   <td>
-                    <input name="qty_10" className="form-input" type="number" min="0" step="any" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} />
+                    <input name="qty_10" className="form-input" type="text" value={formatNumberInput(item.qty)} onChange={e => {
+                      const val = e.target.value.replace(/,/g, '');
+                      if (/^\d*\.?\d*$/.test(val)) {
+                        updateItem(i, 'qty', val);
+                      }
+                    }} />
                   </td>
                   <td className="text-muted">{item.unit}</td>
                   <td>
-                    <input name="unitPrice_12" className="form-input" type="number" min="0" value={item.unitPrice} onChange={e => updateItem(i, 'unitPrice', e.target.value)} />
+                    <input name="unitPrice_12" className="form-input" type="text" value={formatNumberInput(item.unitPrice)} onChange={e => {
+                      const val = e.target.value.replace(/,/g, '');
+                      if (/^\d*$/.test(val)) {
+                        updateItem(i, 'unitPrice', val);
+                      }
+                    }} />
                   </td>
                   <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(item.subtotal)}</td>
                   <td style={{ textAlign: 'center' }}>

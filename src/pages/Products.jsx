@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiPackage, FiDownload, FiUpload, FiFileText, FiFilter } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { Products as ProductStore, Customers } from '../utils/storage';
-import { formatCurrency, calculateMargin } from '../utils/formatter';
+import { formatCurrency, calculateMargin, formatNumberInput } from '../utils/formatter';
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
 
 const emptyProduct = { name: '', sku: '', category: '', purchaseCost: '', sellPrice: '', stock: '', unit: 'kg', customerId: '' };
@@ -325,15 +325,30 @@ export default function Products() {
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Modal (Rp)</label>
-                <input className="form-input" type="number" required min="0" value={form.purchaseCost} onChange={e => setForm({...form, purchaseCost: e.target.value})} placeholder="0" />
+                <input className="form-input" type="text" required value={formatNumberInput(form.purchaseCost)} onChange={e => {
+                  const val = e.target.value.replace(/,/g, '');
+                  if (/^\d*$/.test(val)) {
+                    setForm({...form, purchaseCost: val});
+                  }
+                }} placeholder="0" />
               </div>
               <div className="form-group">
                 <label className="form-label">Harga Jual (Rp)</label>
-                <input className="form-input" type="number" required min="0" value={form.sellPrice} onChange={e => setForm({...form, sellPrice: e.target.value})} placeholder="0" />
+                <input className="form-input" type="text" required value={formatNumberInput(form.sellPrice)} onChange={e => {
+                  const val = e.target.value.replace(/,/g, '');
+                  if (/^\d*$/.test(val)) {
+                    setForm({...form, sellPrice: val});
+                  }
+                }} placeholder="0" />
               </div>
               <div className="form-group">
                 <label className="form-label">Stok</label>
-                <input className="form-input" type="number" min="0" step="any" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="0" />
+                <input className="form-input" type="text" value={formatNumberInput(form.stock)} onChange={e => {
+                  const val = e.target.value.replace(/,/g, '');
+                  if (/^\d*\.?\d*$/.test(val)) {
+                    setForm({...form, stock: val});
+                  }
+                }} placeholder="0" />
               </div>
             </div>
           </div>
