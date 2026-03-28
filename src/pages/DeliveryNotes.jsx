@@ -76,10 +76,8 @@ export default function DeliveryNotes() {
                   <td style={{ paddingBottom: 6 }}>Alamat</td>
                   <td style={{ paddingBottom: 6 }}>: {printNote.customerAddress || printNote.customerName}</td>
                 </tr>
-                <tr>
                   <td>Tanggal</td>
-                  <td>: {formatDateShort(printNote.createdAt)}</td>
-                </tr>
+                  <td>: {formatDateShort(printNote.date || printNote.createdAt)}</td>
               </tbody>
             </table>
           </div>
@@ -198,7 +196,7 @@ export default function DeliveryNotes() {
                 <td>{n.customerName}</td>
                 <td className="text-muted">{n.invoiceNumber || '-'}</td>
                 <td>{n.driver || '-'}</td>
-                <td className="text-muted">{formatDateShort(n.createdAt)}</td>
+                <td className="text-muted">{formatDateShort(n.date || n.createdAt)}</td>
                 <td>
                   <div className="table-actions">
                     <button className="btn btn-ghost btn-sm" onClick={() => setPrintId(n.id)} title="Print"><FiPrinter /></button>
