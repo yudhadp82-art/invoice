@@ -4,11 +4,13 @@ import { FiPlus, FiSearch, FiTruck, FiPrinter, FiEdit2, FiTrash2, FiDownload } f
 import { DeliveryNotes as DNStore } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import { exportDeliveryNotesToExcel } from '../utils/excel';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function DeliveryNotes() {
   const [notes, setNotes] = useState([]);
   const [search, setSearch] = useState('');
   const [printId, setPrintId] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
     reload();
@@ -18,10 +20,14 @@ export default function DeliveryNotes() {
   async function reload() { setNotes(await DNStore.getAll()); }
 
   async function handleDelete(id) {
-    if (confirm('Hapus surat jalan ini?')) {
-      await DNStore.delete(id);
-      await reload();
-    }
+    setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await DNStore.delete(deleteId);
+    setDeleteId(null);
+    await reload();
   }
 
   const filtered = notes
@@ -209,6 +215,13 @@ export default function DeliveryNotes() {
           </tbody>
         </table>
       </div>
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Surat Jalan"
+        message="Apakah Anda yakin ingin menghapus surat jalan ini?"
+      />
     </div>
   );
 }

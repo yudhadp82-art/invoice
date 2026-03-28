@@ -8,6 +8,7 @@ import { sendDocument } from '../utils/telegram';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import CombinedPdfTemplates from '../components/CombinedPdfTemplates';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
@@ -16,6 +17,7 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [printId, setPrintId] = useState(null);
   const [sendingId, setSendingId] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
     reload();
@@ -86,10 +88,14 @@ export default function Invoices() {
   }
 
   async function handleDelete(id) {
-    if (confirm('Hapus invoice ini?')) {
-      await InvoiceStore.delete(id);
-      await reload();
-    }
+    setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await InvoiceStore.delete(deleteId);
+    setDeleteId(null);
+    await reload();
   }
 
   async function togglePaid(inv) {
@@ -349,6 +355,14 @@ export default function Invoices() {
         const note = deliveryNotes.find(n => n.invoiceId === sendingId);
         return <CombinedPdfTemplates inv={inv} note={note} />;
       })()}
+
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Invoice"
+        message="Apakah Anda yakin ingin menghapus invoice ini? Data Surat Jalan terkait tidak akan terhapus otomatis."
+      />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>

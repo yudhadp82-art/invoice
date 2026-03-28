@@ -63,17 +63,24 @@ const UNIT_PATTERN = /^(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|li
  */
 function parseQuantity(str) {
   if (!str) return 0;
-  const clean = str.trim().replace(',', '.');
+  // Replace comma with dot for decimals, then split by whitespace
+  const parts = str.trim().replace(',', '.').split(/\s+/);
   
-  if (clean.includes('/')) {
-    const [num, den] = clean.split('/').map(Number);
-    if (!isNaN(num) && !isNaN(den) && den !== 0) {
-      return num / den;
+  let total = 0;
+  for (const part of parts) {
+    if (part.includes('/')) {
+      const [num, den] = part.split('/').map(Number);
+      if (!isNaN(num) && !isNaN(den) && den !== 0) {
+        total += num / den;
+      }
+    } else {
+      const val = parseFloat(part);
+      if (!isNaN(val)) {
+        total += val;
+      }
     }
   }
-  
-  const val = parseFloat(clean);
-  return isNaN(val) ? 0 : val;
+  return total;
 }
 
 /**
@@ -112,7 +119,10 @@ Aturan:
 - "customerRaw" adalah baris pertama pesan apa adanya.
 - Setiap baris setelah baris pertama adalah item pesanan.
 - "unit" default "kg" jika tidak disebutkan.
-- "qty" harus angka (bukan string). Jika input adalah pecahan (misal "1/2" atau "1/4"), konversikan ke desimal (0.5 atau 0.25).
+- "qty" harus angka (bukan string). Jika input adalah pecahan campuran (misal "1 1/2"), jumlahkan menjadi desimal (1.5).
+- Jika ada unit yang digabung dengan qty (misal "1kg"), pisahkan.
+- Abaikan kata-kata keterangan tambahan seperti "bagus", "segar", atau "titipan".
+- Konteks: SPPG sering digunakan sebagai singkatan customer (Koperasi Desa Merah Putih).
 - Abaikan baris yang tidak mengandung produk atau jumlah.`;
 
     const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
@@ -370,6 +380,7 @@ ${items.map((it, i) => `${i + 1}. "${it.productName}" qty: ${it.qty} ${it.unit}`
 
 Untuk setiap item pesanan, temukan nama produk yang PALING COCOK dari daftar.
 Pertimbangkan: nama tidak lengkap, singkatan, typo ringan, urutan kata berbeda (mis. "merah bawang" = "bawang merah"), nama yang mirip.
+Contoh singkatan lokal: "bamer" (bawang merah), "baput" (bawang putih), "cabe kriting" (cabai merah keriting), "jr" (jerigen).
 Jika ada nama yang sangat mirip, pilih yang paling spesifik.
 
 Kembalikan HANYA JSON berikut:

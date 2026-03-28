@@ -7,6 +7,7 @@ import { exportHppToExcel } from '../utils/excel';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import HppPdfTemplate from '../components/HppPdfTemplate';
+import ConfirmModal from '../components/ConfirmModal';
 
 // Bahan default untuk mix vegetable
 const MIX_VEG_DEFAULTS = [
@@ -73,6 +74,8 @@ export default function HPP() {
   const [sisaPurchases, setSisaPurchases] = useState([]); // state baru
   const [openSubIndex, setOpenSubIndex] = useState(null);
   const [subQuery, setSubQuery] = useState('');
+
+  const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
     reload();
@@ -415,10 +418,14 @@ export default function HPP() {
   }
 
   async function handleDelete(id) {
-    if (confirm('Hapus laporan HPP ini?')) {
-      await HppReports.delete(id);
-      await reload();
-    }
+    setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await HppReports.delete(deleteId);
+    setDeleteId(null);
+    await reload();
   }
 
   const filtered = reports
@@ -941,6 +948,14 @@ export default function HPP() {
         const report = reports.find(r => r.id === printingId);
         return <HppPdfTemplate report={report} />;
       })()}
+
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Laporan HPP"
+        message="Apakah Anda yakin ingin menghapus laporan HPP ini? Data ini tidak dapat dikembalikan."
+      />
     </div>
   );
 }

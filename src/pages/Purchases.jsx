@@ -4,6 +4,7 @@ import Modal from '../components/Modal';
 import { Purchases as PurchaseStore, Products as ProductStore, Invoices as InvoiceStore } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumberInput } from '../utils/formatter';
 import { exportPurchasesToExcel } from '../utils/excel';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Purchases() {
   const [purchases, setPurchases] = useState([]);
@@ -12,6 +13,7 @@ export default function Purchases() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState({
     supplier: '',
     invoiceId: '',
@@ -176,21 +178,26 @@ export default function Purchases() {
   }
 
   async function handleDelete(id) {
-    if (confirm('Hapus catatan pembelian ini? (Stok produk akan dikurangi otomatis)')) {
-      const oldPurchase = purchases.find(p => p.id === id);
-      if (oldPurchase && oldPurchase.items) {
-        for (const oldItem of oldPurchase.items) {
-          const product = await ProductStore.getById(oldItem.productId);
-          if (product) {
-            await ProductStore.update(oldItem.productId, {
-              stock: (product.stock || 0) - (Number(oldItem.qty) || 0)
-            });
-          }
+    setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    const id = deleteId;
+    const oldPurchase = purchases.find(p => p.id === id);
+    if (oldPurchase && oldPurchase.items) {
+      for (const oldItem of oldPurchase.items) {
+        const product = await ProductStore.getById(oldItem.productId);
+        if (product) {
+          await ProductStore.update(oldItem.productId, {
+            stock: (product.stock || 0) - (Number(oldItem.qty) || 0)
+          });
         }
       }
-      await PurchaseStore.delete(id);
-      await reload();
     }
+    await PurchaseStore.delete(id);
+    setDeleteId(null);
+    await reload();
   }
 
   const filtered = purchases
@@ -420,6 +427,14 @@ export default function Purchases() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Pembelian"
+        message="Apakah Anda yakin ingin menghapus catatan pembelian ini? Stok produk akan dikurangi secara otomatis."
+      />
     </div>
   );
 }

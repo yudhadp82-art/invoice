@@ -3,6 +3,7 @@ import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiBriefcase, FiDownload, FiUpload,
 import Modal from '../components/Modal';
 import { Suppliers as SupplierStore } from '../utils/storage';
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
+import ConfirmModal from '../components/ConfirmModal';
 
 const emptySupplier = { name: '', company: '', phone: '', email: '', address: '', notes: '' };
 
@@ -11,6 +12,7 @@ export default function Suppliers() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptySupplier);
 
   useEffect(() => {
@@ -52,10 +54,14 @@ export default function Suppliers() {
   }
 
   async function handleDelete(id) {
-    if (confirm('Hapus supplier ini?')) {
-      await SupplierStore.delete(id);
-      await reload();
-    }
+    setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await SupplierStore.delete(deleteId);
+    setDeleteId(null);
+    await reload();
   }
 
   function handleExport() {
@@ -217,6 +223,13 @@ export default function Suppliers() {
           </div>
         </form>
       </Modal>
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Supplier"
+        message="Apakah Anda yakin ingin menghapus supplier ini?"
+      />
     </div>
   );
 }

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiArrowLeft, FiSave } from 'react-icons/fi';
 import { DeliveryNotes, Customers, Products, Invoices } from '../utils/storage';
-import { generateDeliveryNoteNumber, formatNumberInput } from '../utils/formatter';
+import { generateDeliveryNoteNumber, formatNumberInput, getCustomerPrice } from '../utils/formatter';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function DeliveryNoteForm() {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ export default function DeliveryNoteForm() {
     items: [],
     notes: '',
   });
+  const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
     async function loadData() {
@@ -170,17 +172,84 @@ export default function DeliveryNoteForm() {
     setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== index) }));
   }
 
+  async function handleDelete() {
+    if (isEdit && id) setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await DeliveryNotes.delete(deleteId);
+    setDeleteId(null);
+    navigate('/delivery-notes');
+  }
+
   async function handleSave() {
     if (!form.customerName || form.items.length === 0) {
       alert('Pilih customer dan tambahkan minimal 1 item');
       return;
     }
+
     const dataToSave = { ...form, items: form.items.map(i => ({...i, qty: Number(i.qty) || 0})) };
+    let savedNote;
     if (isEdit) {
-      await DeliveryNotes.update(id, dataToSave);
+      savedNote = await DeliveryNotes.update(id, dataToSave);
     } else {
-      await DeliveryNotes.create(dataToSave);
+      savedNote = await DeliveryNotes.create(dataToSave);
     }
+
+    // === Reverse Sync with Invoice ===
+    if (form.invoiceId) {
+      const invoice = await Invoices.getById(form.invoiceId);
+      if (invoice) {
+        const customer = customers.find(c => c.id === invoice.customerId);
+        
+        // Match items and recalculate
+        const updatedInvoiceItems = form.items.map(dnItem => {
+          // Find existing item in invoice to get its price/cost
+          const existingInvItem = (invoice.items || []).find(ii => ii.productId === dnItem.productId);
+          
+          if (existingInvItem) {
+            const qty = Number(dnItem.qty) || 0;
+            return {
+              ...existingInvItem,
+              qty: qty,
+              subtotal: (existingInvItem.unitPrice || 0) * qty
+            };
+          } else {
+            // New item added from DN, need to fetch product info
+            const product = products.find(p => p.id === dnItem.productId);
+            const qty = Number(dnItem.qty) || 0;
+            const unitPrice = customer && product ? getCustomerPrice(product, customer) : (product ? product.sellPrice : 0);
+            return {
+              productId: dnItem.productId,
+              productName: dnItem.productName,
+              unit: dnItem.unit,
+              qty: qty,
+              unitPrice: unitPrice,
+              purchaseCost: product ? product.purchaseCost : 0,
+              subtotal: unitPrice * qty
+            };
+          }
+        });
+
+        const subtotal = updatedInvoiceItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+        const grandTotal = subtotal;
+        const totalCost = updatedInvoiceItems.reduce((sum, item) => sum + ((item.purchaseCost || 0) * (item.qty || 0)), 0);
+        const profit = grandTotal - totalCost;
+
+        await Invoices.update(invoice.id, {
+          ...invoice,
+          items: updatedInvoiceItems,
+          subtotal,
+          grandTotal,
+          totalTotal: grandTotal,
+          totalCost,
+          profit,
+        });
+      }
+    }
+    // =================================
+
     navigate('/delivery-notes');
   }
 
@@ -195,6 +264,11 @@ export default function DeliveryNoteForm() {
           <button className="btn btn-secondary" onClick={() => navigate('/delivery-notes')}>
             <FiArrowLeft /> Kembali
           </button>
+          {isEdit && (
+            <button className="btn btn-ghost text-danger" onClick={handleDelete}>
+              <FiTrash2 /> Hapus
+            </button>
+          )}
           <button className="btn btn-primary" onClick={handleSave}>
             <FiSave /> Simpan
           </button>
@@ -301,6 +375,13 @@ export default function DeliveryNoteForm() {
           <textarea name="notes_18" className="form-textarea" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Catatan pengiriman..." />
         </div>
       </div>
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Surat Jalan"
+        message="Apakah Anda yakin ingin menghapus surat jalan ini?"
+      />
     </div>
   );
 }

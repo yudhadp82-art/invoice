@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiArrowLeft, FiSave, FiSearch } from 'react-icons/fi';
 import { Invoices, Customers, Products, DeliveryNotes } from '../utils/storage';
 import { formatCurrency, generateInvoiceNumber, generateDeliveryNoteNumber, getCustomerPrice, formatNumberInput, parseNumberInput } from '../utils/formatter';
+import ConfirmModal from '../components/ConfirmModal';
 
 // -------------------------------------------------------
 // Searchable Product Selector Component
@@ -313,6 +314,7 @@ export default function InvoiceForm() {
     paymentStatus: 'unpaid',
     telegramChatId: '',
   });
+  const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
     async function loadData() {
@@ -359,6 +361,7 @@ export default function InvoiceForm() {
           customerId: telegramOrder.matchedCustomerId || '',
           customerName: customer ? customer.name : telegramOrder.customerName,
           customerAddress: customer ? customer.address : '',
+          date: telegramOrder.createdAt ? telegramOrder.createdAt.split('T')[0] : f.date, // Carry over the date
           items: items,
           notes: `Pesan Telegram:\n${telegramOrder.rawMessage}`,
           telegramChatId: telegramOrder.telegramChatId || ''
@@ -376,6 +379,17 @@ export default function InvoiceForm() {
       };
       return { ...f, ...updates };
     });
+  }
+
+  async function handleDelete() {
+    if (isEdit && id) setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await Invoices.delete(deleteId);
+    setDeleteId(null);
+    navigate('/invoices');
   }
 
   function handleCustomerChange(customerId) {
@@ -492,33 +506,29 @@ export default function InvoiceForm() {
       const allNotes = await DeliveryNotes.getAll();
       const existingNotes = allNotes.filter(n => n.invoiceId === savedInvoice.id);
       
-      let noteItems = [];
-      (form.items || []).forEach(item => {
-        noteItems.push({
-          productId: item.productId,
-          productName: item.productName,
-          unit: item.unit,
-          qty: Number(item.qty) || 0,
-          notes: '',
-        });
-      });
+      const invoiceItemsForDN = (form.items || []).map(item => ({
+        productId: item.productId,
+        productName: item.productName,
+        unit: item.unit,
+        qty: Number(item.qty) || 0,
+        notes: '', // Notes per item in DN (not in Invoice)
+      }));
 
       if (existingNotes.length > 0) {
         // Update existing note
         const note = existingNotes[0];
         
-        const existingExtraItems = note.items.filter(exItem => 
-          !noteItems.some(nItem => nItem.productName === exItem.productName)
-        );
-        
-        const mergedItems = [...noteItems];
-        mergedItems.forEach(mi => {
-          const match = note.items.find(xi => xi.productName === mi.productName);
-          if (match) {
-            mi.qty = match.qty;
-            if (match.notes) mi.notes = match.notes;
-          }
+        // Merge: Update existing items, add new ones, but keep notes from DN
+        const updatedDNItems = invoiceItemsForDN.map(invItem => {
+          const match = note.items.find(ni => ni.productId === invItem.productId);
+          return {
+            ...invItem,
+            notes: match ? (match.notes || '') : '', // Preserve existing DN item notes
+          };
         });
+
+        // Optional: Keep items that are in DN but NOT in Invoice? 
+        // User rule: Mirroring. So we replace.
         
         await DeliveryNotes.update(note.id, {
           ...note,
@@ -527,8 +537,7 @@ export default function InvoiceForm() {
           customerAddress: form.customerAddress,
           date: form.date,
           invoiceNumber: form.invoiceNumber,
-          noteNumber: generateDeliveryNoteNumber(form.date), // Sync the note number prefix
-          items: [...mergedItems, ...existingExtraItems],
+          items: updatedDNItems,
         });
       } else {
         // Create new note automatically
@@ -542,8 +551,8 @@ export default function InvoiceForm() {
           invoiceNumber: savedInvoice.invoiceNumber,
           driver: '',
           vehicleNumber: '',
-          items: noteItems,
-          notes: 'Auto-generated dari Invoice',
+          items: invoiceItemsForDN,
+          notes: 'Auto-generated from Invoice',
         });
       }
     }
@@ -565,6 +574,11 @@ export default function InvoiceForm() {
           <button className="btn btn-secondary" onClick={() => navigate('/invoices')}>
             <FiArrowLeft /> Kembali
           </button>
+          {isEdit && (
+            <button className="btn btn-ghost text-danger" onClick={handleDelete}>
+              <FiTrash2 /> Hapus
+            </button>
+          )}
           <button className="btn btn-primary" onClick={handleSave}>
             <FiSave /> Simpan
           </button>
@@ -699,6 +713,13 @@ export default function InvoiceForm() {
           </div>
         </div>
       </div>
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Invoice"
+        message="Apakah Anda yakin ingin menghapus invoice ini? Data Surat Jalan terkait tidak akan terhapus otomatis."
+      />
     </div>
   );
 }

@@ -28,9 +28,15 @@ export default function Layout() {
 
   useEffect(() => {
     const handleMutation = (mut) => {
-      setLatestMutation(mut);
+      setLatestMutation(prev => {
+        // If there's an active delete mutation, don't let updates override it immediately
+        if (prev && prev.action === 'delete' && mut.action === 'update') {
+          return prev;
+        }
+        return mut;
+      });
       const timer = setTimeout(() => {
-        setLatestMutation(prev => prev === mut ? null : prev);
+        setLatestMutation(null);
       }, 5000);
       return () => clearTimeout(timer);
     };

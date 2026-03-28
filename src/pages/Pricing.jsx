@@ -4,6 +4,7 @@ import Modal from '../components/Modal';
 import { PriceCategories as CategoryStore, Products as ProductStore } from '../utils/storage';
 import { formatCurrency } from '../utils/formatter';
 import { exportPricingToExcel, downloadPricingTemplate, triggerImportExcel } from '../utils/excel';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Pricing() {
   const [categories, setCategories] = useState([]);
@@ -14,6 +15,7 @@ export default function Pricing() {
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [editingCatId, setEditingCatId] = useState(null);
   const [catName, setCatName] = useState('');
+  const [deleteId, setDeleteId] = useState(null);
 
   // Pricing Modal State
   const [priceModalOpen, setPriceModalOpen] = useState(false);
@@ -56,10 +58,14 @@ export default function Pricing() {
   }
 
   async function handleDeleteCategory(id) {
-    if (confirm('Hapus kategori harga ini? Peringatan: Customer yang menggunakan kategori ini bisa jadi error.')) {
-      await CategoryStore.delete(id);
-      await reload();
-    }
+    setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await CategoryStore.delete(deleteId);
+    setDeleteId(null);
+    await reload();
   }
 
   // --- Pricing Handlers ---
@@ -294,6 +300,13 @@ export default function Pricing() {
           </form>
         </Modal>
       )}
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Kategori Harga"
+        message="Hapus kategori harga ini? Peringatan: Customer yang menggunakan kategori ini bisa jadi error."
+      />
     </div>
   );
 }

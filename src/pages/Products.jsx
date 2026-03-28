@@ -4,6 +4,7 @@ import Modal from '../components/Modal';
 import { Products as ProductStore, Customers } from '../utils/storage';
 import { formatCurrency, calculateMargin, formatNumberInput } from '../utils/formatter';
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
+import ConfirmModal from '../components/ConfirmModal';
 
 const emptyProduct = { name: '', sku: '', category: '', purchaseCost: '', sellPrice: '', stock: '', unit: 'kg', customerId: '' };
 
@@ -16,6 +17,7 @@ export default function Products() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importCustomerId, setImportCustomerId] = useState('');
   const [editingId, setEditingId] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyProduct);
   const [isCustomUnit, setIsCustomUnit] = useState(false);
 
@@ -78,10 +80,14 @@ export default function Products() {
   }
 
   async function handleDelete(id) {
-    if (confirm('Hapus produk ini?')) {
-      await ProductStore.delete(id);
-      await reload();
-    }
+    setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await ProductStore.delete(deleteId);
+    setDeleteId(null);
+    await reload();
   }
 
   function handleExport() {
@@ -403,6 +409,13 @@ export default function Products() {
         </div>
       </Modal>
 
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Produk"
+        message="Apakah Anda yakin ingin menghapus produk ini? Data transaksi yang menggunakan produk ini mungkin akan terpengaruh."
+      />
     </div>
   );
 }

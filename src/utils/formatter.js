@@ -137,14 +137,18 @@ export function getLast7Days() {
 
 export function formatNumberInput(val) {
   if (val === undefined || val === null || val === '') return '';
-  const str = val.toString().replace(/,/g, '');
+  // Convert to string and handle potential comma as decimal
+  const str = val.toString().replace(/\./g, '').replace(',', '.');
   const parts = str.split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return parts.join('.');
+  // Add dot as thousand separator
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  // Use comma as decimal separator if there's a decimal part
+  return parts.length > 1 ? `${parts[0]},${parts[1]}` : parts[0];
 }
 
 export function parseNumberInput(val) {
   if (val === undefined || val === null || val === '') return 0;
-  const clean = val.toString().replace(/,/g, '');
+  // Replace dot (thousand separator) with nothing and comma (decimal) with dot for parseFloat
+  const clean = val.toString().replace(/\./g, '').replace(',', '.');
   return parseFloat(clean) || 0;
 }

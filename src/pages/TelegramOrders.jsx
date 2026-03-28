@@ -4,6 +4,7 @@ import { FiRefreshCw, FiCheck, FiFileText, FiTrash2, FiAlertCircle, FiEdit2, FiX
 import { TelegramOrders, Customers, Products as ProductStorage } from '../utils/storage';
 import { checkBotStatus, fetchUpdates, parseOrderMessage, matchCustomer, matchProduct, sendMessage, suggestProducts, correctAndMatchItemsWithAI } from '../utils/telegram';
 import { formatDateTime } from '../utils/formatter';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function TelegramOrdersPage() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function TelegramOrdersPage() {
   const [allCustomers, setAllCustomers] = useState([]);
   const [allProducts, setAllProducts]   = useState([]);
   const [editOrder, setEditOrder] = useState(null); // order being edited in modal
+  const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -118,10 +120,14 @@ export default function TelegramOrdersPage() {
   }
 
   async function handleDelete(id) {
-    if (confirm('Hapus log pesanan ini?')) {
-      await TelegramOrders.delete(id);
-      await loadOrders();
-    }
+    setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await TelegramOrders.delete(deleteId);
+    setDeleteId(null);
+    await loadOrders();
   }
 
   function handleCreateInvoice(order) {
@@ -248,7 +254,21 @@ export default function TelegramOrdersPage() {
 
               {/* Card Body */}
               <div className="telegram-card-body">
-                <p className="text-muted" style={{ fontSize: 12, marginBottom: 8 }}>{formatDateTime(order.createdAt)}</p>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  marginBottom: 12, 
+                  fontSize: 13,
+                  padding: '6px 10px',
+                  background: 'rgba(255,255,255,0.03)',
+                  borderRadius: 6,
+                  border: '1px solid rgba(255,255,255,0.05)'
+                }}>
+                  <FiAlertCircle style={{ color: 'var(--primary)', fontSize: 14 }} />
+                  <span className="text-muted" style={{ fontWeight: 400 }}>Pesanan Masuk:</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{formatDateTime(order.createdAt)}</span>
+                </div>
                 <div style={{ background: 'rgba(0,0,0,0.15)', padding: '8px 10px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
                   <p style={{ fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 4 }}>Pesan Asli:</p>
                   <div style={{ fontFamily: 'inherit', color: 'var(--text-primary)', lineHeight: 1.5 }}>
@@ -403,6 +423,13 @@ export default function TelegramOrdersPage() {
         </div>
       )}
 
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Pesanan Telegram"
+        message="Apakah Anda yakin ingin menghapus log pesanan ini?"
+      />
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );

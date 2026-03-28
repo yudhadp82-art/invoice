@@ -3,6 +3,7 @@ import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUsers, FiDownload, FiUpload, FiF
 import Modal from '../components/Modal';
 import { Customers as CustomerStore, PriceCategories as CategoryStore } from '../utils/storage';
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
+import ConfirmModal from '../components/ConfirmModal';
 
 const emptyCustomer = { name: '', company: '', phone: '', email: '', address: '', priceCategoryId: 'cat-retail' };
 
@@ -12,6 +13,7 @@ export default function Customers() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyCustomer);
 
   useEffect(() => {
@@ -59,10 +61,14 @@ export default function Customers() {
   }
 
   async function handleDelete(id) {
-    if (confirm('Hapus customer ini?')) {
-      await CustomerStore.delete(id);
-      await reload();
-    }
+    setDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await CustomerStore.delete(deleteId);
+    setDeleteId(null);
+    await reload();
   }
 
   function handleExport() {
@@ -235,6 +241,13 @@ export default function Customers() {
           </div>
         </form>
       </Modal>
+      <ConfirmModal 
+        isOpen={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={confirmDelete}
+        title="Hapus Customer"
+        message="Apakah Anda yakin ingin menghapus customer ini?"
+      />
     </div>
   );
 }
