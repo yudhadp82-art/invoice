@@ -370,10 +370,10 @@ export default function InvoiceForm() {
   
   function handleDateChange(newDate) {
     setForm(f => {
-      const updates = { date: newDate };
-      if (!isEdit) {
-        updates.invoiceNumber = generateInvoiceNumber(newDate);
-      }
+      const updates = { 
+        date: newDate,
+        invoiceNumber: generateInvoiceNumber(newDate)
+      };
       return { ...f, ...updates };
     });
   }

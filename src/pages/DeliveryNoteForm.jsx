@@ -84,10 +84,10 @@ export default function DeliveryNoteForm() {
   
   function handleDateChange(newDate) {
     setForm(f => {
-      const updates = { date: newDate };
-      if (!isEdit) {
-        updates.noteNumber = generateDeliveryNoteNumber(newDate);
-      }
+      const updates = { 
+        date: newDate,
+        noteNumber: generateDeliveryNoteNumber(newDate)
+      };
       return { ...f, ...updates };
     });
   }

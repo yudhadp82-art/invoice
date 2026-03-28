@@ -46,7 +46,13 @@ export function formatDateTime(dateStr) {
 }
 
 export function generateInvoiceNumber(inputDate) {
-  const date = inputDate ? new Date(inputDate) : new Date();
+  let date;
+  if (inputDate && typeof inputDate === 'string') {
+    const [y, m, d] = inputDate.split('-').map(Number);
+    date = new Date(y, m - 1, d);
+  } else {
+    date = inputDate ? new Date(inputDate) : new Date();
+  }
   const DD = String(date.getDate()).padStart(2, '0');
   const MM = String(date.getMonth() + 1).padStart(2, '0');
   const YY = String(date.getFullYear()).slice(-2);
@@ -56,7 +62,13 @@ export function generateInvoiceNumber(inputDate) {
 }
 
 export function generateDeliveryNoteNumber(inputDate) {
-  const date = inputDate ? new Date(inputDate) : new Date();
+  let date;
+  if (inputDate && typeof inputDate === 'string') {
+    const [y, m, d] = inputDate.split('-').map(Number);
+    date = new Date(y, m - 1, d);
+  } else {
+    date = inputDate ? new Date(inputDate) : new Date();
+  }
   const DD = String(date.getDate()).padStart(2, '0');
   const MM = String(date.getMonth() + 1).padStart(2, '0');
   const YY = String(date.getFullYear()).slice(-2);
