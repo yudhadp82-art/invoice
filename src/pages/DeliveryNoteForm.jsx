@@ -58,6 +58,7 @@ export default function DeliveryNoteForm() {
           if (invoice) {
             setForm(f => ({
               ...f,
+              date: invoice.date || (invoice.createdAt ? invoice.createdAt.split('T')[0] : f.date),
               invoiceId: invoice.id,
               invoiceNumber: invoice.invoiceNumber,
               customerId: invoice.customerId,
@@ -71,6 +72,9 @@ export default function DeliveryNoteForm() {
                 notes: '',
               })),
             }));
+            if (!isEdit) {
+              setForm(f => ({ ...f, noteNumber: generateDeliveryNoteNumber(f.date) }));
+            }
           }
         }
       }
@@ -105,21 +109,26 @@ export default function DeliveryNoteForm() {
       setForm(f => ({ ...f, invoiceId: '', invoiceNumber: '' }));
       return;
     }
-    setForm(f => ({
-      ...f,
-      invoiceId,
-      invoiceNumber: invoice.invoiceNumber,
-      customerId: invoice.customerId,
-      customerName: invoice.customerName,
-      customerAddress: invoice.customerAddress || '',
-      items: (invoice.items || []).map(item => ({
-        productId: item.productId,
-        productName: item.productName,
-        unit: item.unit,
-        qty: item.qty,
-        notes: '',
-      })),
-    }));
+    setForm(f => {
+      const newDate = invoice.date || (invoice.createdAt ? invoice.createdAt.split('T')[0] : f.date);
+      return {
+        ...f,
+        date: newDate,
+        noteNumber: isEdit ? f.noteNumber : generateDeliveryNoteNumber(newDate),
+        invoiceId,
+        invoiceNumber: invoice.invoiceNumber,
+        customerId: invoice.customerId,
+        customerName: invoice.customerName,
+        customerAddress: invoice.customerAddress || '',
+        items: (invoice.items || []).map(item => ({
+          productId: item.productId,
+          productName: item.productName,
+          unit: item.unit,
+          qty: item.qty,
+          notes: '',
+        })),
+      };
+    });
   }
 
   function addItem() {
