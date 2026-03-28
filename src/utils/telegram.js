@@ -58,6 +58,25 @@ export async function sendDocument(chatId, blob, filename) {
 const UNIT_PATTERN = /^(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|liter|lt|pcs|lusin|jrg|jrigen|jerigen|dirigen|botol|btl|kaleng|bag|kotak|slice|lbr|lembar|renteng|sisir|tandan|slop|karton|tray|biji)$/i;
 
 /**
+ * Konversi string qty ke number, mendukung pecahan (misal "1/2", "1/4")
+ * dan desimal (misal "0.5", "0,25").
+ */
+function parseQuantity(str) {
+  if (!str) return 0;
+  const clean = str.trim().replace(',', '.');
+  
+  if (clean.includes('/')) {
+    const [num, den] = clean.split('/').map(Number);
+    if (!isNaN(num) && !isNaN(den) && den !== 0) {
+      return num / den;
+    }
+  }
+  
+  const val = parseFloat(clean);
+  return isNaN(val) ? 0 : val;
+}
+
+/**
  * Parse Telegram order message.
  * Baris 1: kode/nama customer (boleh campur teks+angka, e.g. "SPPG sindangjaya 5")
  *   → Token non-angka = keyword customer
@@ -93,7 +112,7 @@ Aturan:
 - "customerRaw" adalah baris pertama pesan apa adanya.
 - Setiap baris setelah baris pertama adalah item pesanan.
 - "unit" default "kg" jika tidak disebutkan.
-- "qty" harus angka (bukan string).
+- "qty" harus angka (bukan string). Jika input adalah pecahan (misal "1/2" atau "1/4"), konversikan ke desimal (0.5 atau 0.25).
 - Abaikan baris yang tidak mengandung produk atau jumlah.`;
 
     const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
@@ -186,13 +205,14 @@ function parseOrderMessageFallback(text) {
     if (parts.length >= 2 && UNIT_PATTERN.test(parts[parts.length - 1])) {
       unit = parts[parts.length - 1].toLowerCase();
       const qtyStr = parts[parts.length - 2];
-      qty = parseFloat(qtyStr.replace(',', '.'));
+      qty = parseQuantity(qtyStr);
       productParts = parts.slice(0, parts.length - 2);
     } else {
       const lastPart = parts[parts.length - 1];
-      const gluedMatch = lastPart.match(/^(\d+(?:[.,]\d+)?)(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|liter|lt|pcs|lusin|jrg|jrigen|jerigen|dirigen|botol|btl|kaleng|bag|kotak|slice|lbr|lembar|renteng|sisir|tandan|slop|karton|tray|biji)?$/i);
+      // Regex yang mendukung pecahan: \d+/\d+ atau angka desimal biasa
+      const gluedMatch = lastPart.match(/^(\d+\/\d+|\d+(?:[.,]\d+)?)(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|liter|lt|pcs|lusin|jrg|jrigen|jerigen|dirigen|botol|btl|kaleng|bag|kotak|slice|lbr|lembar|renteng|sisir|tandan|slop|karton|tray|biji)?$/i);
       if (gluedMatch) {
-        qty = parseFloat(gluedMatch[1].replace(',', '.'));
+        qty = parseQuantity(gluedMatch[1]);
         unit = gluedMatch[2] ? gluedMatch[2].toLowerCase() : 'kg';
         productParts = parts.slice(0, parts.length - 1);
       } else {
