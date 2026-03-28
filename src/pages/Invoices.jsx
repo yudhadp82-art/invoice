@@ -148,7 +148,7 @@ export default function Invoices() {
                 </tr>
                 <tr>
                   <td>Tanggal</td>
-                  <td>: {formatDateShort(printInvoice.createdAt)}</td>
+                  <td>: {formatDateShort(printInvoice.date || printInvoice.createdAt)}</td>
                 </tr>
               </tbody>
             </table>
@@ -317,7 +317,7 @@ export default function Invoices() {
               <tr key={inv.id}>
                 <td><strong>{inv.invoiceNumber}</strong></td>
                 <td>{inv.customerName}</td>
-                <td className="text-muted">{formatDateShort(inv.createdAt)}</td>
+                <td className="text-muted">{formatDateShort(inv.date || inv.createdAt)}</td>
                 <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(inv.grandTotal)}</td>
                 <td>
                   <span className={`badge ${inv.paymentStatus === 'paid' ? 'badge-success' : inv.paymentStatus === 'partial' ? 'badge-warning' : 'badge-danger'}`}>

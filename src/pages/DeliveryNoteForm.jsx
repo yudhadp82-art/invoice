@@ -14,6 +14,7 @@ export default function DeliveryNoteForm() {
   const [products, setProducts] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [form, setForm] = useState({
+    date: new Date().toISOString().split('T')[0],
     customerId: '',
     customerName: '',
     customerAddress: '',
@@ -37,6 +38,7 @@ export default function DeliveryNoteForm() {
         const note = await DeliveryNotes.getById(id);
         if (note) {
           setForm({
+            date: note.date || (note.createdAt ? note.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
             customerId: note.customerId || '',
             customerName: note.customerName || '',
             customerAddress: note.customerAddress || '',
@@ -194,6 +196,10 @@ export default function DeliveryNoteForm() {
           <div className="form-group">
             <label className="form-label">No. Surat Jalan</label>
             <input name="noteNumber_4" className="form-input" value={form.noteNumber} onChange={e => setForm({...form, noteNumber: e.target.value})} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Tanggal Surat Jalan</label>
+            <input type="date" name="noteDate" className="form-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
           </div>
         </div>
         <div className="form-row">

@@ -26,7 +26,7 @@ export default function CombinedPdfTemplates({ inv, note }) {
           <table>
             <tbody>
               <tr><td style={{ width: 60, paddingBottom: 2 }}>Invoice</td><td>: {inv.invoiceNumber}</td></tr>
-              <tr><td>Tanggal</td><td>: {formatDateShort(inv.createdAt)}</td></tr>
+              <tr><td>Tanggal</td><td>: {formatDateShort(inv.date || inv.createdAt)}</td></tr>
             </tbody>
           </table>
           <div style={{ background: '#e5e7eb', padding: '2px 30px', fontWeight: 'bold', fontSize: 11, textTransform: 'lowercase' }}>invoice</div>
@@ -113,7 +113,7 @@ export default function CombinedPdfTemplates({ inv, note }) {
             <tbody>
               <tr><td style={{ width: 60 }}>No</td><td>: {note.noteNumber}</td></tr>
               <tr><td>Alamat</td><td>: {note.customerAddress || note.customerName}</td></tr>
-              <tr><td>Tanggal</td><td>: {formatDateShort(note.createdAt)}</td></tr>
+              <tr><td>Tanggal</td><td>: {formatDateShort(note.date || note.createdAt)}</td></tr>
             </tbody>
           </table>
         </div>

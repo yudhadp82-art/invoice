@@ -303,6 +303,7 @@ export default function InvoiceForm() {
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({
+    date: new Date().toISOString().split('T')[0],
     customerId: '',
     customerName: '',
     customerAddress: '',
@@ -324,6 +325,7 @@ export default function InvoiceForm() {
         const invoice = await Invoices.getById(id);
         if (invoice) {
           setForm({
+            date: invoice.date || (invoice.createdAt ? invoice.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
             customerId: invoice.customerId || '',
             customerName: invoice.customerName || '',
             customerAddress: invoice.customerAddress || '',
@@ -564,6 +566,10 @@ export default function InvoiceForm() {
               customers={customers} 
               onChange={handleCustomerChange} 
             />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Tanggal Invoice</label>
+            <input type="date" name="invoiceDate" className="form-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
           </div>
           <div className="form-group">
             <label className="form-label">No. Invoice</label>
