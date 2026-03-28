@@ -45,16 +45,14 @@ export function formatDateTime(dateStr) {
   }).format(date);
 }
 
-export function generateInvoiceNumber() {
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+export function generateInvoiceNumber(inputDate) {
+  const dateStr = (inputDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
   const seq = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
   return `INV-${dateStr}-${seq}`;
 }
 
-export function generateDeliveryNoteNumber() {
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+export function generateDeliveryNoteNumber(inputDate) {
+  const dateStr = (inputDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
   const seq = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
   return `SJ-${dateStr}-${seq}`;
 }

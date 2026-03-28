@@ -367,6 +367,16 @@ export default function InvoiceForm() {
     }
     loadData();
   }, [id, telegramOrder]);
+  
+  function handleDateChange(newDate) {
+    setForm(f => {
+      const updates = { date: newDate };
+      if (!isEdit) {
+        updates.invoiceNumber = generateInvoiceNumber(newDate);
+      }
+      return { ...f, ...updates };
+    });
+  }
 
   function handleCustomerChange(customerId) {
     const customer = customers.find(c => c.id === customerId);
@@ -569,7 +579,7 @@ export default function InvoiceForm() {
           </div>
           <div className="form-group">
             <label className="form-label">Tanggal Invoice</label>
-            <input type="date" name="invoiceDate" className="form-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+            <input type="date" name="invoiceDate" className="form-input" value={form.date} onChange={e => handleDateChange(e.target.value)} />
           </div>
           <div className="form-group">
             <label className="form-label">No. Invoice</label>

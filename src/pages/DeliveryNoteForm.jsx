@@ -77,6 +77,16 @@ export default function DeliveryNoteForm() {
     }
     loadData();
   }, [id, searchParams]);
+  
+  function handleDateChange(newDate) {
+    setForm(f => {
+      const updates = { date: newDate };
+      if (!isEdit) {
+        updates.noteNumber = generateDeliveryNoteNumber(newDate);
+      }
+      return { ...f, ...updates };
+    });
+  }
 
   function handleCustomerChange(customerId) {
     const customer = customers.find(c => c.id === customerId);
@@ -199,7 +209,7 @@ export default function DeliveryNoteForm() {
           </div>
           <div className="form-group">
             <label className="form-label">Tanggal Surat Jalan</label>
-            <input type="date" name="noteDate" className="form-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+            <input type="date" name="noteDate" className="form-input" value={form.date} onChange={e => handleDateChange(e.target.value)} />
           </div>
         </div>
         <div className="form-row">
