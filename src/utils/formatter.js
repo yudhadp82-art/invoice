@@ -46,13 +46,21 @@ export function formatDateTime(dateStr) {
 }
 
 export function generateInvoiceNumber(inputDate) {
-  const dateStr = (inputDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+  const date = inputDate ? new Date(inputDate) : new Date();
+  const DD = String(date.getDate()).padStart(2, '0');
+  const MM = String(date.getMonth() + 1).padStart(2, '0');
+  const YY = String(date.getFullYear()).slice(-2);
+  const dateStr = `${DD}-${MM}-${YY}`;
   const seq = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
   return `INV-${dateStr}-${seq}`;
 }
 
 export function generateDeliveryNoteNumber(inputDate) {
-  const dateStr = (inputDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+  const date = inputDate ? new Date(inputDate) : new Date();
+  const DD = String(date.getDate()).padStart(2, '0');
+  const MM = String(date.getMonth() + 1).padStart(2, '0');
+  const YY = String(date.getFullYear()).slice(-2);
+  const dateStr = `${DD}-${MM}-${YY}`;
   const seq = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
   return `SJ-${dateStr}-${seq}`;
 }
