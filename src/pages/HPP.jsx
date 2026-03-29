@@ -235,8 +235,8 @@ export default function HPP() {
       const element = document.getElementById(`pdf-hpp-${r.id}`);
       if (!element) throw new Error('Render element not found');
       
-      const canvas = await html2canvas(element, { scale: 1, useCORS: true });
-      const img = canvas.toDataURL('image/jpeg', 0.6);
+      const canvas = await html2canvas(element, { scale: 3, useCORS: true });
+      const img = canvas.toDataURL('image/jpeg', 0.8);
       const doc = new jsPDF('p', 'mm', 'a4');
       doc.addImage(img, 'JPEG', 0, 0, 210, 297);
       doc.save(`HPP_${r.invoiceNumber}.pdf`);
