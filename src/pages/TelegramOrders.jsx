@@ -421,16 +421,6 @@ export default function TelegramOrdersPage() {
                   <p style={{ fontWeight: 600 }}>Item Pesanan</p>
                   <button className="btn btn-secondary btn-sm" onClick={addEditItem}>+ Tambah</button>
                 </div>
-                {/* Header row */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 2fr 1fr 1fr 1fr auto', gap: 8, padding: '4px 8px', marginBottom: 4 }}>
-                  <span />
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nama di Pesan</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Produk</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Qty</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Satuan</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Harga (Rp)</span>
-                  <span />
-                </div>
                 {editOrder.items.map((item, i) => {
                   const isExact = item.productId && item.productName.toLowerCase().trim() === (item.matchedName || '').toLowerCase().trim();
                   const needsAttention = !item.productId || !isExact;
@@ -439,88 +429,108 @@ export default function TelegramOrdersPage() {
                   const autoPrice = resolvePrice(prod, editOrder.matchedCustomerId);
                   const isPriceCustom = item.price !== '' && item.price !== autoPrice;
                   return (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 2fr 1fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center', background: needsAttention ? 'rgba(239,68,68,0.1)' : 'transparent', padding: '6px 8px', borderRadius: '8px', margin: '0 -8px' }}>
-                    <span style={{ fontSize: 13, color: needsAttention ? '#ef4444' : 'var(--text-muted)', fontWeight: 500, textAlign: 'right' }}>{i + 1}.</span>
-                    {/* Original name (read-only reference) */}
-                    <input
-                      className="form-input"
-                      placeholder="Nama di pesan"
-                      value={item.productName}
-                      onChange={e => editItemChange(i, 'productName', e.target.value)}
-                    />
-                    {/* Product match */}
-                    <select
-                      className="form-select"
-                      value={item.productId || ''}
-                      onChange={e => editItemChange(i, 'productId', e.target.value)}
-                    >
-                      <option value="">-- Pilih Produk --</option>
-                      {(() => {
-                        const scopedProducts = allProducts.filter(p => !p.customerId || p.customerId === (editOrder.matchedCustomerId || 'never-match-if-empty'));
-                        const suggestions = suggestProducts(item.productName, scopedProducts);
-                        const others = scopedProducts.filter(p => !suggestions.find(s => s.id === p.id));
-                        return (
-                          <>
-                            {suggestions.length > 0 && (
-                              <optgroup label="Saran Pendekatan">
-                                {suggestions.slice(0, 5).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                              </optgroup>
-                            )}
-                            <optgroup label="Semua Produk">
-                              {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                            </optgroup>
-                          </>
-                        );
-                      })()}
-                    </select>
-                    {/* Qty */}
-                    <input
-                      className="form-input"
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={item.qty}
-                      onChange={e => editItemChange(i, 'qty', e.target.value)}
-                    />
-                    {/* Unit select */}
-                    <select
-                      className="form-select"
-                      value={item.unit || item.matchedUnit || 'kg'}
-                      onChange={e => editItemChange(i, 'unit', e.target.value)}
-                      style={{ fontSize: 13 }}
-                    >
-                      {/* Ensure current value always appears even if not in list */}
-                      {(item.unit || item.matchedUnit) && !UNIT_OPTIONS.includes(item.unit || item.matchedUnit) && (
-                        <option value={item.unit || item.matchedUnit}>{item.unit || item.matchedUnit}</option>
-                      )}
-                      {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                    {/* Price */}
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        className="form-input"
-                        type="number"
-                        min="0"
-                        step="any"
-                        placeholder="Auto"
-                        value={item.price ?? ''}
-                        onChange={e => editItemChange(i, 'price', e.target.value === '' ? '' : Number(e.target.value))}
-                        style={{
-                          borderColor: isPriceCustom ? 'var(--accent-warning)' : undefined,
-                          paddingRight: 28,
-                        }}
-                        title={isPriceCustom ? 'Harga diubah manual' : (autoPrice ? `Harga otomatis: Rp ${formatNumber(autoPrice)}` : 'Belum ada harga')}
-                      />
-                      {isPriceCustom && (
-                        <button
-                          title="Reset ke harga otomatis"
-                          onClick={() => editItemChange(i, 'price', autoPrice)}
-                          style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-warning)', fontSize: 13, padding: 0, lineHeight: 1 }}
-                        >↺</button>
-                      )}
+                  <div key={i} style={{
+                    background: needsAttention ? 'rgba(239,68,68,0.07)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${needsAttention ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.07)'}`,
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    marginBottom: 8,
+                  }}>
+                    {/* Row 1: No. + Nama di Pesan + Produk */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 1fr', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, color: needsAttention ? '#ef4444' : 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>{i + 1}</span>
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Nama di Pesan</div>
+                        <input
+                          className="form-input"
+                          placeholder="Nama di pesan"
+                          value={item.productName}
+                          onChange={e => editItemChange(i, 'productName', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Produk</div>
+                        <select
+                          className="form-select"
+                          value={item.productId || ''}
+                          onChange={e => editItemChange(i, 'productId', e.target.value)}
+                        >
+                          <option value="">-- Pilih Produk --</option>
+                          {(() => {
+                            const scopedProducts = allProducts.filter(p => !p.customerId || p.customerId === (editOrder.matchedCustomerId || 'never-match-if-empty'));
+                            const suggestions = suggestProducts(item.productName, scopedProducts);
+                            const others = scopedProducts.filter(p => !suggestions.find(s => s.id === p.id));
+                            return (
+                              <>
+                                {suggestions.length > 0 && (
+                                  <optgroup label="Saran Pendekatan">
+                                    {suggestions.slice(0, 5).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                  </optgroup>
+                                )}
+                                <optgroup label="Semua Produk">
+                                  {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </optgroup>
+                              </>
+                            );
+                          })()}
+                        </select>
+                      </div>
                     </div>
-                    {/* Remove */}
-                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeEditItem(i)}><FiTrash2 /></button>
+                    {/* Row 2: Qty + Satuan + Harga + Hapus */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '24px 100px 120px 1fr 36px', gap: 8, alignItems: 'flex-end' }}>
+                      <span />
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Qty</div>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={item.qty}
+                          onChange={e => editItemChange(i, 'qty', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Satuan</div>
+                        <select
+                          className="form-select"
+                          value={item.unit || item.matchedUnit || 'kg'}
+                          onChange={e => editItemChange(i, 'unit', e.target.value)}
+                          style={{ fontSize: 13 }}
+                        >
+                          {(item.unit || item.matchedUnit) && !UNIT_OPTIONS.includes(item.unit || item.matchedUnit) && (
+                            <option value={item.unit || item.matchedUnit}>{item.unit || item.matchedUnit}</option>
+                          )}
+                          {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>
+                          Harga (Rp) {isPriceCustom && <span style={{ color: 'var(--accent-warning)', fontWeight: 400 }}>— diubah manual</span>}
+                        </div>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            className="form-input"
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="Auto"
+                            value={item.price ?? ''}
+                            onChange={e => editItemChange(i, 'price', e.target.value === '' ? '' : Number(e.target.value))}
+                            style={{ borderColor: isPriceCustom ? 'var(--accent-warning)' : undefined, paddingRight: isPriceCustom ? 28 : undefined }}
+                            title={isPriceCustom ? 'Harga diubah manual' : (autoPrice ? `Harga otomatis: Rp ${formatNumber(autoPrice)}` : 'Belum ada harga')}
+                          />
+                          {isPriceCustom && (
+                            <button
+                              title="Reset ke harga otomatis"
+                              onClick={() => editItemChange(i, 'price', autoPrice)}
+                              style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-warning)', fontSize: 14, padding: 0, lineHeight: 1 }}
+                            >↺</button>
+                          )}
+                        </div>
+                      </div>
+                      <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeEditItem(i)} style={{ alignSelf: 'flex-end', marginBottom: 1 }}><FiTrash2 /></button>
+                    </div>
                   </div>
                 )})}
                 {/* Price category info */}
