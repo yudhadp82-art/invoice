@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { FiDollarSign, FiFileText, FiTruck, FiTrendingUp, FiArrowUpRight, FiArrowDownRight } from 'react-icons/fi';
 import { Invoices, DeliveryNotes, Purchases, Products } from '../utils/storage';
-import { formatCurrency, formatDateShort, isToday, isThisMonth, getLast7Days, calculateMargin } from '../utils/formatter';
+import { formatCurrency, formatDateShort, isToday, isThisMonth, getLast7Days, formatNumber } from '../utils/formatter';
 
 const CHART_COLORS = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -41,24 +41,18 @@ export default function Dashboard() {
   const todayRevenue = todayInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
   const monthRevenue = monthInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
-  const todayCOGS = todayInvoices.reduce((sum, inv) => {
-    return sum + (inv.items || []).reduce((s, item) => s + ((item.purchaseCost || 0) * (item.qty || 0)), 0);
-  }, 0);
-  const todayProfit = todayRevenue - todayCOGS;
-
-  const monthCOGS = monthInvoices.reduce((sum, inv) => {
-    return sum + (inv.items || []).reduce((s, item) => s + ((item.purchaseCost || 0) * (item.qty || 0)), 0);
-  }, 0);
-  const monthProfit = monthRevenue - monthCOGS;
-  const monthMargin = monthRevenue > 0 ? ((monthProfit / monthRevenue) * 100).toFixed(1) : 0;
+  const monthPurchases = purchases.filter(p => isThisMonth(p.createdAt));
+  const monthTotalPurchases = monthPurchases.reduce((sum, p) => sum + (p.totalCost || 0), 0);
+  
+  const todayPurchases = purchases.filter(p => isToday(p.createdAt));
+  const todayTotalPurchases = todayPurchases.reduce((sum, p) => sum + (p.totalCost || 0), 0);
 
   // 7-day revenue chart
   const last7 = getLast7Days();
   const revenueData = last7.map(day => {
     const dayInvoices = invoices.filter(inv => inv.createdAt && inv.createdAt.slice(0, 10) === day.date);
     const revenue = dayInvoices.reduce((s, inv) => s + (inv.grandTotal || 0), 0);
-    const cogs = dayInvoices.reduce((s, inv) => s + (inv.items || []).reduce((ss, it) => ss + ((it.purchaseCost || 0) * (it.qty || 0)), 0), 0);
-    return { name: day.label, Revenue: revenue, Profit: revenue - cogs };
+    return { name: day.label, Revenue: revenue };
   });
 
   // Top products
@@ -73,19 +67,6 @@ export default function Dashboard() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([name, value]) => ({ name: name.length > 15 ? name.slice(0, 15) + '...' : name, value }));
-
-  // Profit margin by product category
-  const categoryMargins = {};
-  products.forEach(p => {
-    const cat = p.category || 'Lainnya';
-    if (!categoryMargins[cat]) categoryMargins[cat] = { revenue: 0, cost: 0 };
-    categoryMargins[cat].revenue += p.sellPrice || 0;
-    categoryMargins[cat].cost += p.purchaseCost || 0;
-  });
-  const marginData = Object.entries(categoryMargins).map(([name, data]) => ({
-    name,
-    value: Math.round(data.revenue - data.cost),
-  }));
 
   // Recent activity
   const recentInvoices = [...invoices].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
@@ -112,10 +93,10 @@ export default function Dashboard() {
         <div className="stat-card green">
           <div className="stat-card-header">
             <div className="stat-card-icon"><FiTrendingUp /></div>
-            <span className="stat-card-trend up">{monthMargin}%</span>
+            <span className="stat-card-trend">Aktual</span>
           </div>
-          <div className="stat-card-value">{formatCurrency(monthProfit)}</div>
-          <div className="stat-card-label">Profit Bulan Ini</div>
+          <div className="stat-card-value">{formatCurrency(monthTotalPurchases)}</div>
+          <div className="stat-card-label">Pembelian Bulan Ini</div>
         </div>
 
         <div className="stat-card cyan">
@@ -143,18 +124,14 @@ export default function Dashboard() {
         </div>
         <div className="stats-grid" style={{ marginBottom: 0 }}>
           <div style={{ padding: '12px', background: 'rgba(99,102,241,0.08)', borderRadius: '12px' }}>
-            <div className="text-sm text-muted">Pendapatan</div>
+            <div className="text-sm text-muted">Total Penjualan</div>
             <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{formatCurrency(todayRevenue)}</div>
           </div>
-          <div style={{ padding: '12px', background: 'rgba(239,68,68,0.08)', borderRadius: '12px' }}>
-            <div className="text-sm text-muted">Modal (COGS)</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{formatCurrency(todayCOGS)}</div>
-          </div>
-          <div style={{ padding: '12px', background: 'rgba(16,185,129,0.08)', borderRadius: '12px' }}>
-            <div className="text-sm text-muted">Profit</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 700, color: todayProfit >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(todayProfit)}</div>
-          </div>
           <div style={{ padding: '12px', background: 'rgba(245,158,11,0.08)', borderRadius: '12px' }}>
+            <div className="text-sm text-muted">Total Pembelian</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{formatCurrency(todayTotalPurchases)}</div>
+          </div>
+          <div style={{ padding: '12px', background: 'rgba(6,182,212,0.08)', borderRadius: '12px' }}>
             <div className="text-sm text-muted">Jumlah Invoice</div>
             <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{todayInvoices.length}</div>
           </div>
@@ -165,7 +142,7 @@ export default function Dashboard() {
       <div className="charts-grid">
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title">Revenue & Profit (7 Hari)</h3>
+            <h3 className="card-title">Trend Revenue (7 Hari)</h3>
           </div>
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={revenueData}>
@@ -174,17 +151,12 @@ export default function Dashboard() {
                   <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
               <YAxis stroke="#64748b" fontSize={12} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(0)}jt` : v >= 1000 ? `${(v/1000).toFixed(0)}rb` : v} />
               <Tooltip content={<CustomTooltip />} />
               <Area type="monotone" dataKey="Revenue" stroke="#6366f1" fillOpacity={1} fill="url(#colorRevenue)" strokeWidth={2} name="Revenue" />
-              <Area type="monotone" dataKey="Profit" stroke="#10b981" fillOpacity={1} fill="url(#colorProfit)" strokeWidth={2} name="Profit" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -214,70 +186,39 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Profit Margin by Category */}
-      <div className="charts-grid">
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Margin per Kategori Produk</h3>
-          </div>
-          {marginData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={marginData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={3}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  labelLine={false}
-                >
-                  {marginData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="empty-state"><p className="text-muted">Belum ada data</p></div>
-          )}
+      <div className="card" style={{ marginTop: '24px' }}>
+        <div className="card-header">
+          <h3 className="card-title">Aktivitas Terbaru</h3>
         </div>
-
-        {/* Recent Activity */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Aktivitas Terbaru</h3>
+        {recentInvoices.length === 0 && recentDN.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">📋</div>
+            <p className="text-muted">Belum ada aktivitas</p>
           </div>
-          {recentInvoices.length === 0 && recentDN.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">📋</div>
-              <p className="text-muted">Belum ada aktivitas</p>
-            </div>
-          ) : (
-            <div>
-              {recentInvoices.map(inv => (
-                <div key={inv.id} className="activity-item">
-                  <div className="activity-icon invoice"><FiFileText /></div>
-                  <div className="activity-details">
-                    <strong>{inv.invoiceNumber}</strong>
-                    <span>{inv.customerName} · {formatDateShort(inv.createdAt)}</span>
-                  </div>
-                  <div className="activity-amount">{formatCurrency(inv.grandTotal)}</div>
+        ) : (
+          <div>
+            {recentInvoices.map(inv => (
+              <div key={inv.id} className="activity-item">
+                <div className="activity-icon invoice"><FiFileText /></div>
+                <div className="activity-details">
+                  <strong>{inv.invoiceNumber}</strong>
+                  <span>{inv.customerName} · {formatDateShort(inv.createdAt)}</span>
                 </div>
-              ))}
-              {recentDN.map(dn => (
-                <div key={dn.id} className="activity-item">
-                  <div className="activity-icon delivery"><FiTruck /></div>
-                  <div className="activity-details">
-                    <strong>{dn.noteNumber}</strong>
-                    <span>{dn.customerName} · {formatDateShort(dn.createdAt)}</span>
-                  </div>
+                <div className="activity-amount">{formatCurrency(inv.grandTotal)}</div>
+              </div>
+            ))}
+            {recentDN.map(dn => (
+              <div key={dn.id} className="activity-item">
+                <div className="activity-icon delivery"><FiTruck /></div>
+                <div className="activity-details">
+                  <strong>{dn.dnNumber}</strong>
+                  <span>{dn.customerName} · {formatDateShort(dn.createdAt)}</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <div className="activity-amount badge badge-cyan">Surat Jalan</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
