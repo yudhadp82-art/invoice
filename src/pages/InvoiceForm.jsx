@@ -456,6 +456,8 @@ export default function InvoiceForm() {
         }
       } else if (field === 'qty') {
         item.qty = value;
+      } else if (field === 'unit') {
+        item.unit = value;
       } else if (field === 'unitPrice') {
         item.unitPrice = Number(value) || 0;
       }
@@ -659,7 +661,16 @@ export default function InvoiceForm() {
                       }
                     }} />
                   </td>
-                  <td className="text-muted">{item.unit}</td>
+                  <td>
+                    <input
+                      className="form-input"
+                      style={{ minWidth: 60, textAlign: 'center' }}
+                      type="text"
+                      value={item.unit || ''}
+                      onChange={e => updateItem(i, 'unit', e.target.value)}
+                      placeholder="satuan"
+                    />
+                  </td>
                   <td>
                     <input name="unitPrice_12" className="form-input" type="text" value={formatNumberInput(item.unitPrice)} onChange={e => {
                       const val = e.target.value.replace(/\./g, '').replace(',', '.');
