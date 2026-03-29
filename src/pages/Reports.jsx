@@ -267,14 +267,6 @@ export default function Reports() {
               <div className="stat-card-value">{formatCurrency(totalPurchases)}</div>
               <div className="stat-card-label">Total Pembelian ({periodLabels[period]})</div>
             </div>
-            <div className="stat-card purple">
-              <div className="stat-card-value">{formatCurrency(totalCOGS)}</div>
-              <div className="stat-card-label">COGS (Harga Pokok Penjualan)</div>
-            </div>
-            <div className="stat-card green">
-              <div className="stat-card-value">{formatCurrency(grossProfit)}</div>
-              <div className="stat-card-label">Gross Profit</div>
-            </div>
           </div>
 
            {filteredPurchases.length === 0 ? (
