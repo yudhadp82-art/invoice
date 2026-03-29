@@ -277,79 +277,89 @@ export default function Reports() {
             </div>
           </div>
 
-          {/* Purchase by Product */}
-          <div className="card mb-lg">
-            <div className="card-header">
-              <h3 className="card-title">Rincian Modal per Produk</h3>
+           {filteredPurchases.length === 0 ? (
+            <div className="card" style={{ padding: '40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+              <div style={{ fontSize: '48px' }}>🛒</div>
+              <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Belum Ada Data Pembelian</h3>
+              <p style={{ margin: 0, color: 'var(--text-muted)', maxWidth: '400px' }}>
+                Tidak ada data pembelian yang ditemukan untuk periode ini. Silakan pilih periode lain atau tambahkan data pembelian baru.
+              </p>
             </div>
-            <div className="table-container" style={{ border: 'none' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Produk</th>
-                    <th>Kategori</th>
-                    <th style={{ textAlign: 'right' }}>Modal/Unit</th>
-                    <th style={{ textAlign: 'right' }}>Harga Jual</th>
-                    <th style={{ textAlign: 'right' }}>Stok</th>
-                    <th style={{ textAlign: 'right' }}>Nilai Stok (Modal)</th>
-                    <th style={{ textAlign: 'right' }}>Nilai Stok (Jual)</th>
-                    <th style={{ textAlign: 'right' }}>Potensi Profit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map((p, i) => (
-                    <tr key={i}>
-                      <td><strong>{p.name}</strong></td>
-                      <td><span className="badge badge-purple">{p.category}</span></td>
-                      <td className="text-right">{formatCurrency(p.purchaseCost)}</td>
-                      <td className="text-right">{formatCurrency(p.sellPrice)}</td>
-                      <td className="text-right">{formatNumber(p.stock)}</td>
-                      <td className="text-right text-warning" style={{ fontWeight: 600 }}>{formatCurrency(p.purchaseCost * p.stock)}</td>
-                      <td className="text-right">{formatCurrency(p.sellPrice * p.stock)}</td>
-                      <td className="text-right text-success" style={{ fontWeight: 600 }}>{formatCurrency((p.sellPrice - p.purchaseCost) * p.stock)}</td>
-                    </tr>
-                  ))}
-                  <tr style={{ background: 'rgba(99,102,241,0.05)' }}>
-                    <td colSpan={5}><strong>TOTAL</strong></td>
-                    <td className="text-right" style={{ fontWeight: 700 }}>{formatCurrency(products.reduce((s, p) => s + p.purchaseCost * p.stock, 0))}</td>
-                    <td className="text-right" style={{ fontWeight: 700 }}>{formatCurrency(products.reduce((s, p) => s + p.sellPrice * p.stock, 0))}</td>
-                    <td className="text-right text-success" style={{ fontWeight: 700 }}>{formatCurrency(products.reduce((s, p) => s + (p.sellPrice - p.purchaseCost) * p.stock, 0))}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          ) : (
+            <>
+              {/* Purchase by Product */}
+              <div className="card mb-lg">
+                <div className="card-header">
+                  <h3 className="card-title">Rincian Modal per Produk</h3>
+                </div>
+                <div className="table-container" style={{ border: 'none' }}>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Produk</th>
+                        <th>Kategori</th>
+                        <th style={{ textAlign: 'right' }}>Modal/Unit</th>
+                        <th style={{ textAlign: 'right' }}>Harga Jual</th>
+                        <th style={{ textAlign: 'right' }}>Stok</th>
+                        <th style={{ textAlign: 'right' }}>Nilai Stok (Modal)</th>
+                        <th style={{ textAlign: 'right' }}>Nilai Stok (Jual)</th>
+                        <th style={{ textAlign: 'right' }}>Potensi Profit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map((p, i) => (
+                        <tr key={i}>
+                          <td><strong>{p.name}</strong></td>
+                          <td><span className="badge badge-purple">{p.category}</span></td>
+                          <td className="text-right">{formatCurrency(p.purchaseCost)}</td>
+                          <td className="text-right">{formatCurrency(p.sellPrice)}</td>
+                          <td className="text-right">{formatNumber(p.stock)}</td>
+                          <td className="text-right text-warning" style={{ fontWeight: 600 }}>{formatCurrency(p.purchaseCost * p.stock)}</td>
+                          <td className="text-right">{formatCurrency(p.sellPrice * p.stock)}</td>
+                          <td className="text-right text-success" style={{ fontWeight: 600 }}>{formatCurrency((p.sellPrice - p.purchaseCost) * p.stock)}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ background: 'rgba(99,102,241,0.05)' }}>
+                        <td colSpan={5}><strong>TOTAL</strong></td>
+                        <td className="text-right" style={{ fontWeight: 700 }}>{formatCurrency(products.reduce((s, p) => s + p.purchaseCost * p.stock, 0))}</td>
+                        <td className="text-right" style={{ fontWeight: 700 }}>{formatCurrency(products.reduce((s, p) => s + p.sellPrice * p.stock, 0))}</td>
+                        <td className="text-right text-success" style={{ fontWeight: 700 }}>{formatCurrency(products.reduce((s, p) => s + (p.sellPrice - p.purchaseCost) * p.stock, 0))}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-          {/* Recent Purchases */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Histori Pembelian Terakhir</h3>
-            </div>
-            <div className="table-container" style={{ border: 'none' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Tanggal</th>
-                    <th>Supplier</th>
-                    <th>Items</th>
-                    <th style={{ textAlign: 'right' }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredPurchases.length === 0 ? (
-                    <tr><td colSpan={4} className="text-center text-muted">Belum ada data</td></tr>
-                  ) : filteredPurchases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10).map((p, i) => (
-                    <tr key={i}>
-                      <td>{formatDateShort(p.createdAt)}</td>
-                      <td><strong>{p.supplier || '-'}</strong></td>
-                      <td className="text-sm">{(p.items || []).map(it => `${it.productName} ×${formatNumber(it.qty)}`).join(', ')}</td>
-                      <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.totalCost)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+              {/* Recent Purchases */}
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">Histori Pembelian Terakhir</h3>
+                </div>
+                <div className="table-container" style={{ border: 'none' }}>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Tanggal</th>
+                        <th>Supplier</th>
+                        <th>Items</th>
+                        <th style={{ textAlign: 'right' }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPurchases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10).map((p, i) => (
+                        <tr key={i}>
+                          <td>{formatDateShort(p.createdAt)}</td>
+                          <td><strong>{p.supplier || '-'}</strong></td>
+                          <td className="text-sm">{(p.items || []).map(it => `${it.productName} ×${formatNumber(it.qty)}`).join(', ')}</td>
+                          <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.totalCost)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
