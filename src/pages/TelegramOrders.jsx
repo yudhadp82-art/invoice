@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiRefreshCw, FiCheck, FiFileText, FiTrash2, FiAlertCircle, FiEdit2, FiX, FiSave } from 'react-icons/fi';
-import { TelegramOrders, Customers, Products as ProductStorage } from '../utils/storage';
+import { TelegramOrders, Customers, Products as ProductStorage, PriceCategories } from '../utils/storage';
 import { checkBotStatus, fetchUpdates, parseOrderMessage, matchCustomer, matchProduct, sendMessage, suggestProducts, correctAndMatchItemsWithAI } from '../utils/telegram';
 import { formatDateTime, formatNumber } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
@@ -13,6 +13,7 @@ export default function TelegramOrdersPage() {
   const [loading, setLoading]   = useState(false);
   const [allCustomers, setAllCustomers] = useState([]);
   const [allProducts, setAllProducts]   = useState([]);
+  const [allPriceCategories, setAllPriceCategories] = useState([]);
   const [editOrder, setEditOrder] = useState(null); // order being edited in modal
   const [deleteId, setDeleteId] = useState(null);
 
@@ -20,13 +21,26 @@ export default function TelegramOrdersPage() {
     async function init() {
       const custs = await Customers.getAll();
       const prods = await ProductStorage.getAll();
+      const priceCats = await PriceCategories.getAll();
       setAllCustomers(custs);
       setAllProducts(prods);
+      setAllPriceCategories(priceCats);
       await loadOrders();
       await loadBotStatus();
     }
     init();
   }, []);
+
+  // Helper: resolve price for a product given a customer
+  function resolvePrice(product, customerId) {
+    if (!product) return '';
+    const customer = allCustomers.find(c => c.id === customerId);
+    const priceCatId = customer?.priceCategoryId;
+    if (priceCatId && product.categoryPrices && product.categoryPrices[priceCatId] != null) {
+      return product.categoryPrices[priceCatId];
+    }
+    return product.sellPrice ?? '';
+  }
 
   async function loadOrders() {
     const list = await TelegramOrders.getAll();
@@ -161,6 +175,12 @@ export default function TelegramOrdersPage() {
       ...e,
       matchedCustomerId: custId,
       customerName: c ? c.name : e.customerRaw || '',
+      // Recalculate prices for all existing items based on new customer
+      items: e.items.map(item => {
+        if (!item.productId) return item;
+        const prod = allProducts.find(p => p.id === item.productId);
+        return { ...item, price: resolvePrice(prod, custId) };
+      }),
     }));
   }
 
@@ -173,10 +193,14 @@ export default function TelegramOrdersPage() {
         item.productId   = value;
         item.matchedName = p ? p.name : null;
         item.matchedUnit = p ? p.unit : null;
+        // Auto-fill price based on customer's price category
+        item.price = resolvePrice(p, e.matchedCustomerId);
       } else if (field === 'qty') {
         item.qty = value;
       } else if (field === 'productName') {
         item.productName = value;
+      } else if (field === 'price') {
+        item.price = value;
       }
       items[index] = item;
       return { ...e, items };
@@ -186,7 +210,7 @@ export default function TelegramOrdersPage() {
   function addEditItem() {
     setEditOrder(e => ({
       ...e,
-      items: [...e.items, { productName: '', qty: 1, unit: 'kg', productId: null, matchedName: null, matchedUnit: null }],
+      items: [...e.items, { productName: '', qty: 1, unit: 'kg', productId: null, matchedName: null, matchedUnit: null, price: '' }],
     }));
   }
 
@@ -360,11 +384,25 @@ export default function TelegramOrdersPage() {
                   <p style={{ fontWeight: 600 }}>Item Pesanan</p>
                   <button className="btn btn-secondary btn-sm" onClick={addEditItem}>+ Tambah</button>
                 </div>
+                {/* Header row */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 2fr 1fr 1fr 1fr auto', gap: 8, padding: '4px 8px', marginBottom: 4 }}>
+                  <span />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nama di Pesan</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Produk</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Qty</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Satuan</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Harga (Rp)</span>
+                  <span />
+                </div>
                 {editOrder.items.map((item, i) => {
                   const isExact = item.productId && item.productName.toLowerCase().trim() === (item.matchedName || '').toLowerCase().trim();
                   const needsAttention = !item.productId || !isExact;
+                  // Detect if price was auto-filled vs custom
+                  const prod = allProducts.find(p => p.id === item.productId);
+                  const autoPrice = resolvePrice(prod, editOrder.matchedCustomerId);
+                  const isPriceCustom = item.price !== '' && item.price !== autoPrice;
                   return (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 2fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center', background: needsAttention ? 'rgba(239,68,68,0.1)' : 'transparent', padding: '6px 8px', borderRadius: '8px', margin: '0 -8px' }}>
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 2fr 1fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center', background: needsAttention ? 'rgba(239,68,68,0.1)' : 'transparent', padding: '6px 8px', borderRadius: '8px', margin: '0 -8px' }}>
                     <span style={{ fontSize: 13, color: needsAttention ? '#ef4444' : 'var(--text-muted)', fontWeight: 500, textAlign: 'right' }}>{i + 1}.</span>
                     {/* Original name (read-only reference) */}
                     <input
@@ -409,10 +447,45 @@ export default function TelegramOrdersPage() {
                     />
                     {/* Unit display */}
                     <span className="text-muted" style={{ fontSize: 13 }}>{item.matchedUnit || item.unit}</span>
+                    {/* Price */}
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="Auto"
+                        value={item.price ?? ''}
+                        onChange={e => editItemChange(i, 'price', e.target.value === '' ? '' : Number(e.target.value))}
+                        style={{
+                          borderColor: isPriceCustom ? 'var(--accent-warning)' : undefined,
+                          paddingRight: 28,
+                        }}
+                        title={isPriceCustom ? 'Harga diubah manual' : (autoPrice ? `Harga otomatis: Rp ${formatNumber(autoPrice)}` : 'Belum ada harga')}
+                      />
+                      {isPriceCustom && (
+                        <button
+                          title="Reset ke harga otomatis"
+                          onClick={() => editItemChange(i, 'price', autoPrice)}
+                          style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-warning)', fontSize: 13, padding: 0, lineHeight: 1 }}
+                        >↺</button>
+                      )}
+                    </div>
                     {/* Remove */}
                     <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeEditItem(i)}><FiTrash2 /></button>
                   </div>
                 )})}
+                {/* Price category info */}
+                {editOrder.matchedCustomerId && (() => {
+                  const cust = allCustomers.find(c => c.id === editOrder.matchedCustomerId);
+                  const cat = cust?.priceCategoryId ? allPriceCategories.find(pc => pc.id === cust.priceCategoryId) : null;
+                  return cat ? (
+                    <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', padding: '4px 8px' }}>
+                      <span style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', padding: '2px 8px', borderRadius: 12, fontWeight: 600 }}>{cat.name}</span>
+                      <span>Harga otomatis berdasarkan kategori harga customer ini</span>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             </div>
             <div className="modal-footer">
