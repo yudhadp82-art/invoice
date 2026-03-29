@@ -139,8 +139,11 @@ export function getLast7Days() {
 
 export function formatNumberInput(val) {
   if (val === undefined || val === null || val === '') return '';
-  // Convert to string and handle potential comma as decimal
-  const str = val.toString().replace(/\./g, '').replace(',', '.');
+  // Convert to string and ensure dot is used as decimal internally if a comma was passed accidentally
+  let str = val.toString();
+  if (str.includes(',') && !str.includes('.')) {
+    str = str.replace(',', '.');
+  }
   const parts = str.split('.');
   // Add dot as thousand separator
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
