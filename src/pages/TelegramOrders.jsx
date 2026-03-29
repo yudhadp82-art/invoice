@@ -204,6 +204,18 @@ export default function TelegramOrdersPage() {
     }));
   }
 
+  const UNIT_OPTIONS = [
+    'kg', 'gram', 'ons', 'kwintal', 'ton',
+    'liter', 'ml',
+    'pcs', 'buah', 'biji', 'unit',
+    'pak', 'pack', 'karton', 'dus', 'box', 'koli',
+    'ikat', 'sisir', 'tandan', 'janjang',
+    'lusin', 'kodi', 'gross',
+    'meter', 'cm', 'roll',
+    'botol', 'kaleng', 'sachet', 'pouch',
+    'porsi', 'set',
+  ];
+
   function editItemChange(index, field, value) {
     setEditOrder(e => {
       const items = [...e.items];
@@ -213,10 +225,15 @@ export default function TelegramOrdersPage() {
         item.productId   = value;
         item.matchedName = p ? p.name : null;
         item.matchedUnit = p ? p.unit : null;
+        // Auto-fill unit from product
+        if (p?.unit) item.unit = p.unit;
         // Auto-fill price based on customer's price category
         item.price = resolvePrice(p, e.matchedCustomerId);
       } else if (field === 'qty') {
         item.qty = value;
+      } else if (field === 'unit') {
+        item.unit = value;
+        item.matchedUnit = value;
       } else if (field === 'productName') {
         item.productName = value;
       } else if (field === 'price') {
@@ -465,8 +482,19 @@ export default function TelegramOrdersPage() {
                       value={item.qty}
                       onChange={e => editItemChange(i, 'qty', e.target.value)}
                     />
-                    {/* Unit display */}
-                    <span className="text-muted" style={{ fontSize: 13 }}>{item.matchedUnit || item.unit}</span>
+                    {/* Unit select */}
+                    <select
+                      className="form-select"
+                      value={item.unit || item.matchedUnit || 'kg'}
+                      onChange={e => editItemChange(i, 'unit', e.target.value)}
+                      style={{ fontSize: 13 }}
+                    >
+                      {/* Ensure current value always appears even if not in list */}
+                      {(item.unit || item.matchedUnit) && !UNIT_OPTIONS.includes(item.unit || item.matchedUnit) && (
+                        <option value={item.unit || item.matchedUnit}>{item.unit || item.matchedUnit}</option>
+                      )}
+                      {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
                     {/* Price */}
                     <div style={{ position: 'relative' }}>
                       <input
