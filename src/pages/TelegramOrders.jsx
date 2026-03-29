@@ -393,7 +393,7 @@ export default function TelegramOrdersPage() {
       {/* ===== Edit Modal ===== */}
       {editOrder && (
         <div className="modal-overlay" onClick={closeEdit}>
-          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+          <div className="modal modal-xl" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Edit Pesanan</h2>
               <button className="btn btn-ghost btn-sm" onClick={closeEdit}><FiX /></button>
@@ -437,7 +437,7 @@ export default function TelegramOrdersPage() {
                     marginBottom: 8,
                   }}>
                     {/* Row 1: No. + Nama di Pesan + Produk */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 1fr', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 2fr', gap: 10, alignItems: 'center', marginBottom: 8 }}>
                       <span style={{ fontSize: 13, color: needsAttention ? '#ef4444' : 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>{i + 1}</span>
                       <div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Nama di Pesan</div>
@@ -477,7 +477,7 @@ export default function TelegramOrdersPage() {
                       </div>
                     </div>
                     {/* Row 2: Qty + Satuan + Harga + Hapus */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '24px 100px 120px 1fr 36px', gap: 8, alignItems: 'flex-end' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 1fr 1fr 36px', gap: 10, alignItems: 'flex-end' }}>
                       <span />
                       <div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Qty</div>
