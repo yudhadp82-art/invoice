@@ -1,13 +1,17 @@
 import React from 'react';
 import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 
-export default function CombinedPdfTemplates({ inv, note }) {
-  if (!inv || !note) return null;
+export default function CombinedPdfTemplates({ inv, note, forPrint = false }) {
+  if (!inv) return null;
+
+  const containerStyle = forPrint 
+    ? { width: '800px', margin: '0 auto', background: 'white', color: 'black' }
+    : { position: 'absolute', top: -20000, left: -20000, width: '794px', background: 'white', color: 'black' };
 
   return (
-    <div id="combined-pdf-render" style={{ position: 'absolute', top: -20000, left: -20000, width: '794px', background: 'white', color: 'black' }}>
+    <div id="combined-pdf-render" style={containerStyle}>
       {/* ==================== PAGE 1: INVOICE ==================== */}
-      <div id="pdf-invoice-page" style={{ padding: '20px 40px', height: '1123px', boxSizing: 'border-box', fontFamily: '"Arial", sans-serif', position: 'relative' }}>
+      <div id="pdf-invoice-page" style={{ padding: '20px 40px', height: '1123px', boxSizing: 'border-box', fontFamily: '"Arial", sans-serif', position: 'relative', pageBreakAfter: 'always' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid #ccc', paddingBottom: 6, marginBottom: 10 }}>
           <div style={{ width: 55, height: 55, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginRight: 15 }}>
@@ -95,65 +99,73 @@ export default function CombinedPdfTemplates({ inv, note }) {
       </div>
 
       {/* ==================== PAGE 2: DELIVERY NOTE ==================== */}
-      <div id="pdf-note-page" style={{ padding: '20px 40px', height: '1123px', boxSizing: 'border-box', fontFamily: '"Arial", sans-serif', position: 'relative' }}>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', borderBottom: '2px solid #ccc', paddingBottom: 6, marginBottom: 10 }}>
-          <div style={{ position: 'absolute', left: 0, top: 0, fontSize: 10, fontWeight: 'bold' }}>SJ</div>
-          <div style={{ width: 55, height: 55, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: 30, marginRight: 15 }}>
-            <img src="/logo-kdmp.png" alt="(Logo)" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+      {note ? (
+        <div id="pdf-note-page" style={{ padding: '20px 40px', height: '1123px', boxSizing: 'border-box', fontFamily: '"Arial", sans-serif', position: 'relative' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', borderBottom: '2px solid #ccc', paddingBottom: 6, marginBottom: 10 }}>
+            <div style={{ position: 'absolute', left: 0, top: 0, fontSize: 10, fontWeight: 'bold' }}>SJ</div>
+            <div style={{ width: 55, height: 55, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: 30, marginRight: 15 }}>
+              <img src="/logo-kdmp.png" alt="(Logo)" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+            </div>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase' }}>KOPERASI DESA MERAH PUTIH</h2>
+              <h3 style={{ margin: 0, fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase' }}>SINDANGJAYA KECAMATAN CIPANAS</h3>
+            </div>
           </div>
-          <div style={{ flex: 1, textAlign: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase' }}>KOPERASI DESA MERAH PUTIH</h2>
-            <h3 style={{ margin: 0, fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase' }}>SINDANGJAYA KECAMATAN CIPANAS</h3>
-          </div>
-        </div>
 
-        <div style={{ marginBottom: 10 }}>
-          <h4 style={{ margin: '0 0 5px 0', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase' }}>surat jalan</h4>
-          <table style={{ fontSize: 10, marginLeft: 15 }}>
+          <div style={{ marginBottom: 10 }}>
+            <h4 style={{ margin: '0 0 5px 0', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase' }}>surat jalan</h4>
+            <table style={{ fontSize: 10, marginLeft: 15 }}>
+              <tbody>
+                <tr><td style={{ width: 60 }}>No</td><td>: {note.noteNumber}</td></tr>
+                <tr><td>Alamat</td><td>: {note.customerAddress || note.customerName}</td></tr>
+                <tr><td>Tanggal</td><td>: {formatDateShort(note.date || note.createdAt)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Item Table */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10, fontSize: 10 }}>
+            <thead>
+              <tr>
+                <th style={{ border: '1px solid black', padding: '3px', width: '5%' }}>No</th>
+                <th style={{ border: '1px solid black', padding: '3px', width: '40%' }}>Jenis Sayuran</th>
+                <th style={{ border: '1px solid black', padding: '3px', width: '10%' }}>Jumlah</th>
+                <th style={{ border: '1px solid black', padding: '3px', width: '10%' }}>Satuan</th>
+                <th style={{ border: '1px solid black', padding: '3px', width: '25%' }}>Keterangan</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr><td style={{ width: 60 }}>No</td><td>: {note.noteNumber}</td></tr>
-              <tr><td>Alamat</td><td>: {note.customerAddress || note.customerName}</td></tr>
-              <tr><td>Tanggal</td><td>: {formatDateShort(note.date || note.createdAt)}</td></tr>
+              {(note.items || []).map((item, i) => (
+                <tr key={i}>
+                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{i + 1}</td>
+                  <td style={{ border: '1px solid black', padding: '3px' }}>{item.productName}</td>
+                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{formatNumber(item.qty)}</td>
+                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.unit}</td>
+                  <td style={{ border: '1px solid black', padding: '3px' }}>{item.notes || ''}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
-        </div>
 
-        {/* Item Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10, fontSize: 10 }}>
-          <thead>
-            <tr>
-              <th style={{ border: '1px solid black', padding: '3px', width: '5%' }}>No</th>
-              <th style={{ border: '1px solid black', padding: '3px', width: '40%' }}>Jenis Sayuran</th>
-              <th style={{ border: '1px solid black', padding: '3px', width: '10%' }}>Jumlah</th>
-              <th style={{ border: '1px solid black', padding: '3px', width: '10%' }}>Satuan</th>
-              <th style={{ border: '1px solid black', padding: '3px', width: '25%' }}>Keterangan</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(note.items || []).map((item, i) => (
-              <tr key={i}>
-                <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{i + 1}</td>
-                <td style={{ border: '1px solid black', padding: '3px' }}>{item.productName}</td>
-                <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{formatNumber(item.qty)}</td>
-                <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.unit}</td>
-                <td style={{ border: '1px solid black', padding: '3px' }}>{item.notes || ''}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Signatures */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 20 }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ marginBottom: 30 }}>Pengirim</div>
-            <div>( Ujang Rukmana )</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ marginBottom: 30 }}>Penerima</div>
-            <div>(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div>
+          {/* Signatures */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 20 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ marginBottom: 30 }}>Pengirim</div>
+              <div>( Ujang Rukmana )</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ marginBottom: 30 }}>Penerima</div>
+              <div>(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : forPrint && (
+        <div style={{ padding: '80px 40px', textAlign: 'center', height: '1123px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#64748b', background: '#f8fafc', boxSizing: 'border-box' }}>
+          <div style={{ fontSize: 40, marginBottom: 20 }}>📦</div>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: 18, color: '#475569' }}>Surat Jalan Belum Dibuat</h3>
+          <p style={{ fontSize: 14, maxWidth: '400px', lineHeight: 1.5 }}>Harap membuat Surat Jalan untuk Invoices ini terlebih dahulu agar halaman kedua dapat ditampilkan dan dicetak otomatis.</p>
+        </div>
+      )}
     </div>
   );
 }

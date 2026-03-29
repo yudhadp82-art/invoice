@@ -129,152 +129,17 @@ export default function Invoices() {
   const printInvoice = printId ? invoices.find(i => i.id === printId) : null;
 
   if (printInvoice) {
+    const note = deliveryNotes.find(n => n.invoiceId === printInvoice.id);
     return (
-      <div className="print-view" id="print-invoice">
-        <div className="no-print" style={{ marginBottom: 20 }}>
-          <button className="btn btn-primary" onClick={() => window.print()} style={{ marginRight: 10 }}>
+      <div className="print-view">
+        <div className="no-print" style={{ marginBottom: 20, display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <button className="btn btn-primary" onClick={() => window.print()}>
             <FiPrinter /> Print / Download PDF
           </button>
           <button className="btn btn-secondary" onClick={() => setPrintId(null)}>Kembali</button>
         </div>
         
-        {/* PRINTABLE AREA */}
-        <div style={{ background: 'white', color: 'black', padding: '0px 20px', fontFamily: '"Arial", sans-serif', maxWidth: '800px', margin: '0 auto' }}>
-          
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid #ccc', paddingBottom: 6, marginBottom: 10 }}>
-            {/* Logo KDMP */}
-            <div style={{ width: 55, height: 55, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginRight: 15 }}>
-              {/* Jika logo-kdmp.png belum ada, akan muncul alt text ini */}
-              <img src="/logo-kdmp.png" alt="(Logo)" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-            </div>
-            
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase' }}>KOPERASI DESA MERAH PUTIH</h2>
-              <h3 style={{ margin: 0, fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase' }}>SINDANGJAYA KECAMATAN CIPANAS</h3>
-              <p style={{ margin: '1px 0', fontSize: 9, fontWeight: 'bold' }}>NOMOR AHU-0025573.AH.01.29.TAHUN 2025</p>
-              <p style={{ margin: 0, fontSize: 9, color: '#555' }}>Jl. Pakalongan No. 06 Desa Sindangjaya, Kecamatan Cipanas, Kabupaten Cianjur, Provinsi Jawa Barat, Indonesia, 43253.</p>
-            </div>
-          </div>
-
-          {/* Invoice & Date Info */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-            <table style={{ fontSize: 11 }}>
-              <tbody>
-                <tr>
-                  <td style={{ width: 80, paddingBottom: 2 }}>Invoice</td>
-                  <td style={{ paddingBottom: 2 }}>: {printInvoice.invoiceNumber}</td>
-                </tr>
-                <tr>
-                  <td>Tanggal</td>
-                  <td>: {formatDateShort(printInvoice.date || printInvoice.createdAt)}</td>
-                </tr>
-              </tbody>
-            </table>
-            
-            <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 6 }}>
-              <div style={{ background: '#e5e7eb', padding: '2px 40px', fontWeight: 'bold', fontSize: 12, textTransform: 'lowercase' }}>
-                invoice
-              </div>
-            </div>
-          </div>
-
-          {/* Customer Info */}
-          <div style={{ marginBottom: 10, fontSize: 11 }}>
-            <div>Pelanggan</div>
-            <table style={{ marginTop: 2 }}>
-              <tbody>
-                <tr>
-                  <td style={{ width: 60, paddingBottom: 2 }}>Nama</td>
-                  <td style={{ paddingBottom: 2 }}>: {printInvoice.customerName}</td>
-                </tr>
-                <tr>
-                  <td style={{ paddingBottom: 2 }}>Alamat</td>
-                  <td style={{ paddingBottom: 2 }}>: {printInvoice.customerAddress || '-'}</td>
-                </tr>
-                <tr>
-                  <td>Telp</td>
-                  <td>: -</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Items Table */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 5, fontSize: 11 }}>
-            <thead>
-              <tr>
-                <th style={{ border: '1px solid black', padding: '3px', textAlign: 'center', background: '#f5f5f5', width: '5%' }}>No.</th>
-                <th style={{ border: '1px solid black', padding: '3px', textAlign: 'center', background: '#f5f5f5', width: '35%' }}>item</th>
-                <th style={{ border: '1px solid black', padding: '3px', textAlign: 'center', background: '#f5f5f5', width: '10%' }}>qty</th>
-                <th style={{ border: '1px solid black', padding: '3px', textAlign: 'center', background: '#f5f5f5', width: '10%' }}>unit</th>
-                <th style={{ border: '1px solid black', padding: '3px', textAlign: 'center', background: '#f5f5f5', width: '20%' }}>Harga Satuan<br/>(Rp)</th>
-                <th style={{ border: '1px solid black', padding: '3px', textAlign: 'center', background: '#f5f5f5', width: '20%' }}>Jumlah</th>
-              </tr>
-            </thead>
-            <tbody>
-              {printInvoice.items.length === 0 && (
-                <tr>
-                  <td colSpan="6" style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>Kosong</td>
-                </tr>
-              )}
-              {printInvoice.items.map((item, i) => (
-                <tr key={i}>
-                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{i + 1}</td>
-                  <td style={{ border: '1px solid black', padding: '3px' }}>{item.productName}</td>
-                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{formatNumber(item.qty)}</td>
-                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.unit}</td>
-                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'right' }}>{formatCurrency(item.unitPrice)}</td>
-                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'right' }}>{formatCurrency(item.subtotal)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Grand Total Row */}
-          <div style={{ display: 'flex', width: '100%', fontSize: 11, marginBottom: 15 }}>
-            <div style={{ flex: 1, textAlign: 'center', paddingRight: 20 }}>
-              total
-            </div>
-            <div style={{ width: '20%', borderRight: '1px solid black', borderLeft: '1px solid black', borderBottom: '1px solid black', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
-              {formatCurrency(printInvoice.grandTotal)}
-            </div>
-          </div>
-
-          {/* Signatures */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 10 }}>
-            <div style={{ width: '60%' }}>
-              <table style={{ fontSize: 9 }}>
-                <tbody>
-                  <tr>
-                    <td style={{ paddingBottom: 8, width: 120 }}>NAMA BANK</td>
-                    <td style={{ paddingBottom: 8 }}>: BRI</td>
-                  </tr>
-                  <tr>
-                    <td style={{ paddingBottom: 8 }}>CABANG UNIT</td>
-                    <td style={{ paddingBottom: 8 }}>: CIPANAS</td>
-                  </tr>
-                  <tr>
-                    <td style={{ paddingBottom: 8 }}>NOMOR AKUN BANK</td>
-                    <td style={{ paddingBottom: 8, fontWeight: 'bold' }}>: 3453 - 01 - 000012 - 56 - 6</td>
-                  </tr>
-                  <tr>
-                    <td style={{ paddingBottom: 8 }}>ATAS NAMA</td>
-                    <td style={{ paddingBottom: 8 }}>: KOPERASI DESA MERAH PUTIH SINDANGJAYA</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ width: '40%', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ marginBottom: 30 }}>Mengetahui</div>
-              <div style={{ fontWeight: 'bold' }}>Ujang Rukmana</div>
-              <div>ketua</div>
-              <div>KDMP Sindangjaya kec.Cipanas</div>
-            </div>
-          </div>
-
-        </div>
+        <CombinedPdfTemplates inv={printInvoice} note={note} forPrint={true} />
       </div>
     );
   }
