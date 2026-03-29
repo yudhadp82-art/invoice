@@ -267,7 +267,7 @@ export default function TelegramOrdersPage() {
                 }}>
                   <FiAlertCircle style={{ color: 'var(--primary)', fontSize: 14 }} />
                   <span className="text-muted" style={{ fontWeight: 400 }}>Pesanan Masuk:</span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{formatDateTime(order.createdAt)}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--accent-danger)' }}>{formatDateTime(order.createdAt)}</span>
                 </div>
                 <div style={{ background: 'rgba(0,0,0,0.15)', padding: '8px 10px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
                   <p style={{ fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 4 }}>Pesan Asli:</p>

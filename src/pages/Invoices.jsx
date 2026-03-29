@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiSearch, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiCheck, FiClock, FiDownload, FiTruck, FiSend } from 'react-icons/fi';
-import { Invoices as InvoiceStore, DeliveryNotes as DNStore, TelegramOrders } from '../utils/storage';
+import { Invoices as InvoiceStore, DeliveryNotes as DNStore, TelegramOrders, HppReports } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import { exportInvoicesToExcel } from '../utils/excel';
 import { sendDocument } from '../utils/telegram';
@@ -93,6 +93,13 @@ export default function Invoices() {
 
   async function confirmDelete() {
     if (!deleteId) return;
+    
+    // Hapus HPP terkait jika ada
+    const hpp = await HppReports.getByInvoiceId(deleteId);
+    if (hpp) {
+      await HppReports.delete(hpp.id);
+    }
+    
     await InvoiceStore.delete(deleteId);
     setDeleteId(null);
     await reload();
@@ -361,7 +368,7 @@ export default function Invoices() {
         onClose={() => setDeleteId(null)} 
         onConfirm={confirmDelete}
         title="Hapus Invoice"
-        message="Apakah Anda yakin ingin menghapus invoice ini? Data Surat Jalan terkait tidak akan terhapus otomatis."
+        message="Apakah Anda yakin ingin menghapus invoice ini? Laporan HPP terkait akan ikut terhapus, namun data Surat Jalan tetap dipertahankan."
       />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
