@@ -150,10 +150,30 @@ export default function TelegramOrdersPage() {
 
   // ---- Edit Modal ----
   function openEdit(order) {
-    // Deep clone + enrich items with selector options
+    // Deep clone + auto-fill price from product's categoryPrices based on customer's priceCategoryId
+    const customer = allCustomers.find(c => c.id === order.matchedCustomerId);
+    const priceCatId = customer?.priceCategoryId;
+
+    const enrichedItems = order.items.map(it => {
+      // If item already has a saved price, keep it (user previously set it)
+      if (it.price != null && it.price !== '') return { ...it };
+
+      // Otherwise resolve from product's categoryPrices
+      const prod = allProducts.find(p => p.id === it.productId);
+      let autoPrice = '';
+      if (prod) {
+        if (priceCatId && prod.categoryPrices && prod.categoryPrices[priceCatId] != null) {
+          autoPrice = prod.categoryPrices[priceCatId];
+        } else if (prod.sellPrice != null) {
+          autoPrice = prod.sellPrice;
+        }
+      }
+      return { ...it, price: autoPrice };
+    });
+
     setEditOrder({
       ...order,
-      items: order.items.map(it => ({ ...it })),
+      items: enrichedItems,
     });
   }
 
