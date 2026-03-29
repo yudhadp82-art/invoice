@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiSearch, FiTruck, FiPrinter, FiEdit2, FiTrash2, FiDownload } from 'react-icons/fi';
 import { DeliveryNotes as DNStore } from '../utils/storage';
-import { formatCurrency, formatDateShort } from '../utils/formatter';
+import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 import { exportDeliveryNotesToExcel } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -119,7 +119,7 @@ export default function DeliveryNotes() {
                 <tr key={i}>
                   <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{i + 1}</td>
                   <td style={{ border: '1px solid black', padding: '3px' }}>{item.productName}</td>
-                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.qty}</td>
+                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{formatNumber(item.qty)}</td>
                   <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.unit}</td>
                   <td style={{ border: '1px solid black', padding: '3px' }}></td>
                   <td style={{ border: '1px solid black', padding: '3px' }}></td>

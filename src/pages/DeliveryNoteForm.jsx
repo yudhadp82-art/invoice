@@ -349,8 +349,8 @@ export default function DeliveryNoteForm() {
                   </td>
                   <td>
                     <input name="qty_14" className="form-input" type="text" value={formatNumberInput(item.qty)} onChange={e => {
-                      const val = e.target.value.replace(/,/g, '');
-                      if (/^\d*\.?\d*$/.test(val)) {
+                      const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                      if (/^\d*\.?\d*$/.test(val) || val === '') {
                         updateItem(i, 'qty', val);
                       }
                     }} />

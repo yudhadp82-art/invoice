@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency, formatDateShort } from '../utils/formatter';
+import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 
 export default function CombinedPdfTemplates({ inv, note }) {
   if (!inv || !note) return null;
@@ -60,7 +60,7 @@ export default function CombinedPdfTemplates({ inv, note }) {
               <tr key={i}>
                 <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{i + 1}</td>
                 <td style={{ border: '1px solid black', padding: '3px' }}>{item.productName}</td>
-                <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.qty}</td>
+                <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{formatNumber(item.qty)}</td>
                 <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.unit}</td>
                 <td style={{ border: '1px solid black', padding: '3px', textAlign: 'right' }}>{formatCurrency(item.unitPrice)}</td>
                 <td style={{ border: '1px solid black', padding: '3px', textAlign: 'right' }}>{formatCurrency(item.subtotal)}</td>
@@ -132,9 +132,9 @@ export default function CombinedPdfTemplates({ inv, note }) {
           <tbody>
             {(note.items || []).map((item, i) => (
               <tr key={i}>
-                <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{i+1}</td>
+                <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{i + 1}</td>
                 <td style={{ border: '1px solid black', padding: '3px' }}>{item.productName}</td>
-                <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.qty}</td>
+                <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{formatNumber(item.qty)}</td>
                 <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.unit}</td>
                 <td style={{ border: '1px solid black', padding: '3px' }}>{item.notes || ''}</td>
               </tr>

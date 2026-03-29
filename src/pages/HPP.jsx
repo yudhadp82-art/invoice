@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiDollarSign, FiTruck, FiPackage, FiUsers, FiAlertTriangle, FiChevronDown, FiChevronUp, FiDownload, FiPrinter } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore } from '../utils/storage';
-import { formatCurrency, formatDateShort } from '../utils/formatter';
+import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 import { exportHppToExcel } from '../utils/excel';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -615,7 +615,7 @@ export default function HPP() {
                               <>
                                 <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                   <td style={{ padding: '5px 8px', fontWeight: 600 }}>{item.productName}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'center' }}>{item.qty} {item.unit}</td>
+                                  <td style={{ padding: '5px 8px', textAlign: 'center' }}>{formatNumber(item.qty)} {item.unit}</td>
                                   <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(item.hargaJual)}</td>
                                   <td style={{ padding: '5px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(item.totalModal)}</td>
                                   <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(item.subtotalJual)}</td>
@@ -628,7 +628,7 @@ export default function HPP() {
                                 {item.useSubItems && (item.subItems || []).map((b, si) => (
                                   <tr key={`${idx}-${si}`} style={{ background: 'rgba(255,255,255,0.015)' }}>
                                     <td style={{ padding: '3px 8px 3px 24px', color: '#64748b' }}>↳ {b.nama}</td>
-                                    <td style={{ padding: '3px 8px', textAlign: 'center', color: '#64748b' }}>{b.qty}</td>
+                                    <td style={{ padding: '3px 8px', textAlign: 'center', color: '#64748b' }}>{formatNumber(b.qty)}</td>
                                     <td style={{ padding: '3px 8px', textAlign: 'right', color: '#64748b' }}>{formatCurrency(b.harga)}</td>
                                     <td style={{ padding: '3px 8px', textAlign: 'right', color: '#64748b' }}>{formatCurrency(b.qty * b.harga)}</td>
                                     <td colSpan={2}></td>
@@ -713,7 +713,7 @@ export default function HPP() {
                       {/* Item header */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                         <span style={{ fontWeight: 700, fontSize: 13, flex: 1 }}>{item.productName}</span>
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>{item.qty} {item.unit}</span>
+                        <span style={{ fontSize: 12, color: '#94a3b8' }}>{formatNumber(item.qty)} {item.unit}</span>
                         <span style={{ fontSize: 12 }}>Jual: <strong style={{ color: '#818cf8' }}>{formatCurrency(item.subtotalJual)}</strong></span>
                         <span style={{ fontSize: 12 }}>Modal: <strong style={{ color: '#fbbf24' }}>{formatCurrency(modalItem)}</strong></span>
                         <span style={{ fontSize: 12, fontWeight: 700, color: labaItem >= 0 ? '#34d399' : '#f87171' }}>
@@ -812,18 +812,18 @@ export default function HPP() {
                                 <div style={{ flex: 1 }}>
                                   <input
                                     className="form-input"
-                                    type="number"
+                                    type="text"
                                     placeholder="Qty"
-                                    min="0"
-                                    step="any"
-                                    value={b.qty}
+                                    value={formatNumberInput(b.qty)}
                                     onChange={e => {
-                                      let val = e.target.value;
-                                      if (b.maxQty && Number(val) > b.maxQty) {
-                                        alert(`Kapasitas maksimal adalah ${b.maxQty} (sesuai pembelian)`);
-                                        val = b.maxQty.toString();
+                                      let val = e.target.value.replace(/\./g, '').replace(',', '.');
+                                      if (/^\d*\.?\d*$/.test(val) || val === '') {
+                                        if (b.maxQty && Number(val) > b.maxQty) {
+                                          alert(`Kapasitas maksimal adalah ${b.maxQty} (sesuai pembelian)`);
+                                          val = b.maxQty.toString();
+                                        }
+                                        updateSubItem(idx, si, 'qty', val);
                                       }
-                                      updateSubItem(idx, si, 'qty', val);
                                     }}
                                   />
                                   {(() => {
@@ -841,11 +841,15 @@ export default function HPP() {
                                 <span style={{ color: '#64748b', fontSize: 12 }}>×</span>
                                 <input
                                   className="form-input"
-                                  type="number"
+                                  type="text"
                                   placeholder="Harga/kg"
-                                  min="0"
-                                  value={b.harga}
-                                  onChange={e => updateSubItem(idx, si, 'harga', Number(e.target.value))}
+                                  value={formatNumberInput(b.harga)}
+                                  onChange={e => {
+                                    const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                                    if (/^\d*\.?\d*$/.test(val) || val === '') {
+                                      updateSubItem(idx, si, 'harga', val);
+                                    }
+                                  }}
                                   style={{ flex: 2 }}
                                 />
                                 <span style={{ fontSize: 12, color: '#64748b', minWidth: 90, textAlign: 'right' }}>{formatCurrency(b.qty * b.harga)}</span>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiShoppingCart, FiTrash2, FiDownload, FiEdit2 } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { Purchases as PurchaseStore, Products as ProductStore, Invoices as InvoiceStore } from '../utils/storage';
-import { formatCurrency, formatDateShort, formatNumberInput } from '../utils/formatter';
+import { formatCurrency, formatDateShort, formatNumber, formatNumberInput } from '../utils/formatter';
 import { exportPurchasesToExcel } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -279,7 +279,7 @@ export default function Purchases() {
                 <td><strong>{p.supplier || '-'}</strong></td>
                 <td>
                   {(p.items || []).map((item, i) => (
-                    <div key={i} className="text-sm">{item.productName} × {item.qty} {item.unit} <span className="text-muted">(@ {formatCurrency(item.costPerUnit)})</span></div>
+                    <div key={i} className="text-sm">{item.productName} × {formatNumber(item.qty)} {item.unit} <span className="text-muted">(@ {formatCurrency(item.costPerUnit)})</span></div>
                   ))}
                 </td>
                 <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.totalCost)}</td>
@@ -386,16 +386,16 @@ export default function Purchases() {
                       </td>
                       <td>
                         <input name="qty_8" className="form-input" type="text" value={formatNumberInput(item.qty)} onChange={e => {
-                          const val = e.target.value.replace(/,/g, '');
-                          if (/^\d*\.?\d*$/.test(val)) {
+                          const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                          if (/^\d*\.?\d*$/.test(val) || val === '') {
                             updateItem(i, 'qty', val);
                           }
                         }} style={{ width: 80 }} />
                       </td>
                       <td>
                         <input name="costPerUnit_10" className="form-input" type="text" value={formatNumberInput(item.costPerUnit)} onChange={e => {
-                          const val = e.target.value.replace(/,/g, '');
-                          if (/^\d*$/.test(val)) {
+                          const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                          if (/^\d*\.?\d*$/.test(val) || val === '') {
                             updateItem(i, 'costPerUnit', val);
                           }
                         }} style={{ width: 130 }} />

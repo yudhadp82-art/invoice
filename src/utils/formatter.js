@@ -10,7 +10,9 @@ export function formatCurrency(amount) {
 }
 
 export function formatNumber(num) {
-  return new Intl.NumberFormat('id-ID').format(num || 0);
+  return new Intl.NumberFormat('id-ID', {
+    maximumFractionDigits: 5
+  }).format(num || 0);
 }
 
 export function formatDate(dateStr) {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { FiTrendingUp, FiDollarSign, FiBarChart2, FiCalendar } from 'react-icons/fi';
 import { Invoices, Products, Purchases } from '../utils/storage';
-import { formatCurrency, formatDateShort, calculateMargin, isToday, isThisWeek, isThisMonth } from '../utils/formatter';
+import { formatCurrency, formatDateShort, formatNumber, calculateMargin, isToday, isThisWeek, isThisMonth } from '../utils/formatter';
 
 const COLORS = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
 
@@ -249,7 +249,7 @@ export default function Reports() {
                           {p.margin.toFixed(1)}%
                         </span>
                       </td>
-                      <td className="text-right">{p.stock}</td>
+                      <td className="text-right">{formatNumber(p.stock)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -303,7 +303,7 @@ export default function Reports() {
                       <td><span className="badge badge-purple">{p.category}</span></td>
                       <td className="text-right">{formatCurrency(p.purchaseCost)}</td>
                       <td className="text-right">{formatCurrency(p.sellPrice)}</td>
-                      <td className="text-right">{p.stock}</td>
+                      <td className="text-right">{formatNumber(p.stock)}</td>
                       <td className="text-right text-warning" style={{ fontWeight: 600 }}>{formatCurrency(p.purchaseCost * p.stock)}</td>
                       <td className="text-right">{formatCurrency(p.sellPrice * p.stock)}</td>
                       <td className="text-right text-success" style={{ fontWeight: 600 }}>{formatCurrency((p.sellPrice - p.purchaseCost) * p.stock)}</td>
@@ -342,7 +342,7 @@ export default function Reports() {
                     <tr key={i}>
                       <td>{formatDateShort(p.createdAt)}</td>
                       <td><strong>{p.supplier || '-'}</strong></td>
-                      <td className="text-sm">{(p.items || []).map(it => `${it.productName} ×${it.qty}`).join(', ')}</td>
+                      <td className="text-sm">{(p.items || []).map(it => `${it.productName} ×${formatNumber(it.qty)}`).join(', ')}</td>
                       <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.totalCost)}</td>
                     </tr>
                   ))}

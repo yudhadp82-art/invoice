@@ -653,8 +653,8 @@ export default function InvoiceForm() {
                   </td>
                   <td>
                     <input name="qty_10" className="form-input" type="text" value={formatNumberInput(item.qty)} onChange={e => {
-                      const val = e.target.value.replace(/,/g, '');
-                      if (/^\d*\.?\d*$/.test(val)) {
+                      const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                      if (/^\d*\.?\d*$/.test(val) || val === '') {
                         updateItem(i, 'qty', val);
                       }
                     }} />
@@ -662,8 +662,8 @@ export default function InvoiceForm() {
                   <td className="text-muted">{item.unit}</td>
                   <td>
                     <input name="unitPrice_12" className="form-input" type="text" value={formatNumberInput(item.unitPrice)} onChange={e => {
-                      const val = e.target.value.replace(/,/g, '');
-                      if (/^\d*$/.test(val)) {
+                      const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                      if (/^\d*\.?\d*$/.test(val) || val === '') {
                         updateItem(i, 'unitPrice', val);
                       }
                     }} />

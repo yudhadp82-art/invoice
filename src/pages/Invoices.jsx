@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiSearch, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiCheck, FiClock, FiDownload, FiTruck, FiSend } from 'react-icons/fi';
 import { Invoices as InvoiceStore, DeliveryNotes as DNStore, TelegramOrders, HppReports } from '../utils/storage';
-import { formatCurrency, formatDateShort } from '../utils/formatter';
+import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 import { exportInvoicesToExcel } from '../utils/excel';
 import { sendDocument } from '../utils/telegram';
 import { jsPDF } from 'jspdf';
@@ -216,7 +216,7 @@ export default function Invoices() {
                 <tr key={i}>
                   <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{i + 1}</td>
                   <td style={{ border: '1px solid black', padding: '3px' }}>{item.productName}</td>
-                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.qty}</td>
+                  <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{formatNumber(item.qty)}</td>
                   <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center' }}>{item.unit}</td>
                   <td style={{ border: '1px solid black', padding: '3px', textAlign: 'right' }}>{formatCurrency(item.unitPrice)}</td>
                   <td style={{ border: '1px solid black', padding: '3px', textAlign: 'right' }}>{formatCurrency(item.subtotal)}</td>

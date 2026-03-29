@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiRefreshCw, FiCheck, FiFileText, FiTrash2, FiAlertCircle, FiEdit2, FiX, FiSave } from 'react-icons/fi';
 import { TelegramOrders, Customers, Products as ProductStorage } from '../utils/storage';
 import { checkBotStatus, fetchUpdates, parseOrderMessage, matchCustomer, matchProduct, sendMessage, suggestProducts, correctAndMatchItemsWithAI } from '../utils/telegram';
-import { formatDateTime } from '../utils/formatter';
+import { formatDateTime, formatNumber } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function TelegramOrdersPage() {
@@ -290,7 +290,7 @@ export default function TelegramOrdersPage() {
                   const needsAttention = !item.productId || !isExact;
                   return (
                   <div key={i} className={`item-match ${needsAttention ? 'unmatched-item' : ''}`}>
-                    <span><span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{i + 1}.</span>{item.productName} <span style={{ color: 'var(--text-muted)' }}>({item.qty} {item.unit})</span></span>
+                    <span><span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{i + 1}.</span>{item.productName} <span style={{ color: 'var(--text-muted)' }}>({formatNumber(item.qty)} {item.unit})</span></span>
                     <span className={`match-tag ${!needsAttention ? '' : 'unmatched'}`}>
                       {item.productId ? `✓ ${item.matchedName}` : 
                         (() => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency, formatDateShort } from '../utils/formatter';
+import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 
 export default function HppPdfTemplate({ report }) {
   if (!report) return null;
@@ -58,7 +58,7 @@ export default function HppPdfTemplate({ report }) {
               <React.Fragment key={i}>
                 <tr>
                   <td style={{ border: '1px solid black', padding: '4px', fontWeight: 'bold' }}>{item.productName}</td>
-                  <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>{item.qty} {item.unit}</td>
+                  <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>{formatNumber(item.qty)} {item.unit}</td>
                   <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>{formatCurrency(item.hargaJual)}</td>
                   <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>{formatCurrency(item.subtotalJual)}</td>
                   <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>{formatCurrency(item.totalModal)}</td>
@@ -67,7 +67,7 @@ export default function HppPdfTemplate({ report }) {
                 {item.useSubItems && (item.subItems || []).map((b, si) => (
                   <tr key={`${i}-${si}`} style={{ background: '#fafafa' }}>
                     <td style={{ border: '1px solid black', padding: '3px 4px 3px 20px', fontSize: 9, color: '#555' }}>↳ {b.nama}</td>
-                    <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center', fontSize: 9 }}>{b.qty}</td>
+                    <td style={{ border: '1px solid black', padding: '3px', textAlign: 'center', fontSize: 9 }}>{formatNumber(b.qty)}</td>
                     <td style={{ border: '1px solid black', padding: '3px', textAlign: 'right', fontSize: 9 }}>{formatCurrency(b.harga)}</td>
                     <td colSpan={2} style={{ border: '1px solid black' }}></td>
                     <td style={{ border: '1px solid black', padding: '3px', textAlign: 'right', fontSize: 9 }}>{formatCurrency(b.qty * b.harga)}</td>
