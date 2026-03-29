@@ -84,9 +84,9 @@ export default function CombinedPdfTemplates({ inv, note, forPrint = false }) {
           <div>
             <table>
               <tbody>
-                <tr><td style={{ paddingBottom: 4 }}>NAMA BANK</td><td>: BRI</td></tr>
-                <tr><td style={{ paddingBottom: 4 }}>NOMOR AKUN</td><td style={{ fontWeight: 'bold' }}>: 3453 - 01 - 000012 - 56 - 6</td></tr>
-                <tr><td>ATAS NAMA</td><td>: KDMP SINDANGJAYA</td></tr>
+                <tr><td style={{ paddingBottom: 4 }}>NAMA BANK</td><td>: Mandiri</td></tr>
+                <tr><td style={{ paddingBottom: 4 }}>NOMOR AKUN</td><td style={{ fontWeight: 'bold' }}>: 182-00-2709321-0</td></tr>
+                <tr><td>ATAS NAMA</td><td>: KOPERASI DESA MERAH PUTIH SINDANGJAYA</td></tr>
               </tbody>
             </table>
           </div>
