@@ -429,31 +429,39 @@ export default function TelegramOrdersPage() {
                   const autoPrice = resolvePrice(prod, editOrder.matchedCustomerId);
                   const isPriceCustom = item.price !== '' && item.price !== autoPrice;
                   return (
-                  <div key={i} style={{
-                    background: needsAttention ? 'rgba(239,68,68,0.07)' : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${needsAttention ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.07)'}`,
-                    borderRadius: 10,
-                    padding: '10px 12px',
-                    marginBottom: 8,
-                  }}>
-                    {/* Row 1: No. + Nama di Pesan + Produk */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 2fr', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-                      <span style={{ fontSize: 13, color: needsAttention ? '#ef4444' : 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>{i + 1}</span>
+                    <div key={i} style={{
+                      display: 'grid',
+                      gridTemplateColumns: '24px 1fr 1.5fr 80px 100px 140px 36px',
+                      gap: 8,
+                      alignItems: 'flex-end',
+                      background: needsAttention ? 'rgba(239,68,68,0.07)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${needsAttention ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.07)'}`,
+                      borderRadius: 10,
+                      padding: '12px',
+                      marginBottom: 8,
+                    }}>
+                      {/* Item index */}
+                      <span style={{ fontSize: 13, color: needsAttention ? '#ef4444' : 'var(--text-muted)', fontWeight: 600, textAlign: 'center', marginBottom: 12 }}>{i + 1}</span>
+
+                      
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Nama di Pesan</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Nama di Pesan</div>
                         <input
                           className="form-input"
                           placeholder="Nama di pesan"
                           value={item.productName}
                           onChange={e => editItemChange(i, 'productName', e.target.value)}
+                          style={{ fontSize: 13 }}
                         />
                       </div>
+
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Produk</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Produk</div>
                         <select
                           className="form-select"
                           value={item.productId || ''}
                           onChange={e => editItemChange(i, 'productId', e.target.value)}
+                          style={{ fontSize: 13 }}
                         >
                           <option value="">-- Pilih Produk --</option>
                           {(() => {
@@ -475,12 +483,9 @@ export default function TelegramOrdersPage() {
                           })()}
                         </select>
                       </div>
-                    </div>
-                    {/* Row 2: Qty + Satuan + Harga + Hapus */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 1fr 1fr 36px', gap: 10, alignItems: 'flex-end' }}>
-                      <span />
+
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Qty</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Qty</div>
                         <input
                           className="form-input"
                           type="number"
@@ -488,10 +493,12 @@ export default function TelegramOrdersPage() {
                           step="any"
                           value={item.qty}
                           onChange={e => editItemChange(i, 'qty', e.target.value)}
+                          style={{ fontSize: 13 }}
                         />
                       </div>
+
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Satuan</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Satuan</div>
                         <select
                           className="form-select"
                           value={item.unit || item.matchedUnit || 'kg'}
@@ -504,9 +511,10 @@ export default function TelegramOrdersPage() {
                           {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
                         </select>
                       </div>
+
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>
-                          Harga (Rp) {isPriceCustom && <span style={{ color: 'var(--accent-warning)', fontWeight: 400 }}>— diubah manual</span>}
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          Harga (Rp) {isPriceCustom && <span style={{ color: 'var(--accent-warning)', fontWeight: 400 }}>*</span>}
                         </div>
                         <div style={{ position: 'relative' }}>
                           <input
@@ -517,21 +525,33 @@ export default function TelegramOrdersPage() {
                             placeholder="Auto"
                             value={item.price ?? ''}
                             onChange={e => editItemChange(i, 'price', e.target.value === '' ? '' : Number(e.target.value))}
-                            style={{ borderColor: isPriceCustom ? 'var(--accent-warning)' : undefined, paddingRight: isPriceCustom ? 28 : undefined }}
+                            style={{ 
+                              borderColor: isPriceCustom ? 'var(--accent-warning)' : undefined, 
+                              paddingRight: isPriceCustom ? 24 : 10,
+                              fontSize: 13 
+                            }}
                             title={isPriceCustom ? 'Harga diubah manual' : (autoPrice ? `Harga otomatis: Rp ${formatNumber(autoPrice)}` : 'Belum ada harga')}
                           />
                           {isPriceCustom && (
                             <button
                               title="Reset ke harga otomatis"
                               onClick={() => editItemChange(i, 'price', autoPrice)}
-                              style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-warning)', fontSize: 14, padding: 0, lineHeight: 1 }}
+                              style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-warning)', fontSize: 12, padding: 0, lineHeight: 1 }}
                             >↺</button>
                           )}
                         </div>
                       </div>
-                      <button className="btn btn-ghost btn-sm text-danger" onClick={() => removeEditItem(i)} style={{ alignSelf: 'flex-end', marginBottom: 1 }}><FiTrash2 /></button>
+
+                      <button 
+                        className="btn btn-ghost btn-sm text-danger" 
+                        onClick={() => removeEditItem(i)} 
+                        style={{ marginBottom: 2 }}
+                        title="Hapus"
+                      >
+                        <FiTrash2 />
+                      </button>
                     </div>
-                  </div>
+
                 )})}
                 {/* Price category info */}
                 {editOrder.matchedCustomerId && (() => {
