@@ -393,7 +393,7 @@ export default function TelegramOrdersPage() {
       {/* ===== Edit Modal ===== */}
       {editOrder && (
         <div className="modal-overlay" onClick={closeEdit}>
-          <div className="modal modal-xl" onClick={e => e.stopPropagation()}>
+          <div className="modal modal-xl" onClick={e => e.stopPropagation()} style={{ maxWidth: 'calc(100vw - 300px)', width: '100%' }}>
             <div className="modal-header">
               <h2>Edit Pesanan</h2>
               <button className="btn btn-ghost btn-sm" onClick={closeEdit}><FiX /></button>
