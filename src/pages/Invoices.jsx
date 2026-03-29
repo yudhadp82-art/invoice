@@ -99,6 +99,12 @@ export default function Invoices() {
     if (hpp) {
       await HppReports.delete(hpp.id);
     }
+
+    // Hapus Surat Jalan terkait jika ada
+    const note = deliveryNotes.find(n => n.invoiceId === deleteId);
+    if (note) {
+      await DNStore.delete(note.id);
+    }
     
     await InvoiceStore.delete(deleteId);
     setDeleteId(null);
@@ -368,7 +374,7 @@ export default function Invoices() {
         onClose={() => setDeleteId(null)} 
         onConfirm={confirmDelete}
         title="Hapus Invoice"
-        message="Apakah Anda yakin ingin menghapus invoice ini? Laporan HPP terkait akan ikut terhapus, namun data Surat Jalan tetap dipertahankan."
+        message="Apakah Anda yakin ingin menghapus invoice ini? Laporan HPP dan Surat Jalan terkait akan ikut terhapus otomatis."
       />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
