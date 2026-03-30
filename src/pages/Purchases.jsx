@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiShoppingCart, FiTrash2, FiDownload, FiEdit2 } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiShoppingCart, FiTrash2, FiDownload, FiEdit2, FiFolder, FiGrid } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { Purchases as PurchaseStore, Products as ProductStore, Invoices as InvoiceStore } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumber, formatNumberInput } from '../utils/formatter';
@@ -11,6 +11,7 @@ export default function Purchases() {
   const [products, setProducts] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [search, setSearch] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState('All');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -30,11 +31,38 @@ export default function Purchases() {
   }, []);
 
   async function reload() {
-    setPurchases(await PurchaseStore.getAll());
-    setProducts(await ProductStore.getAll());
+    const ps = await PurchaseStore.getAll();
     const invs = await InvoiceStore.getAll();
+    const prods = await ProductStore.getAll();
+    
     setInvoices(invs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    setProducts(prods);
+    setPurchases(ps);
   }
+
+  function getCustomerName(invoiceId) {
+    if (!invoiceId) return 'Stok / Umum';
+    const inv = invoices.find(i => i.id === invoiceId);
+    return inv ? inv.customerName : 'Pelanggan Tidak Dikenal';
+  }
+
+  // Get unique customers (Folders)
+  const customers = Array.from(new Set(purchases.map(p => getCustomerName(p.invoiceId))));
+  
+  const filtered = purchases
+    .filter(p => {
+      const q = search.toLowerCase();
+      const matchesSearch = (p.supplier || '').toLowerCase().includes(q) ||
+        (p.items || []).some(item => (item.productName || '').toLowerCase().includes(q));
+      
+      const customer = getCustomerName(p.invoiceId);
+      const matchesFolder = selectedFolder === 'All' || customer === selectedFolder;
+      
+      return matchesSearch && matchesFolder;
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const totalSpent = filtered.reduce((sum, p) => sum + (p.totalCost || 0), 0);
 
   function openAdd() {
     const latestInvoice = invoices.length > 0 ? invoices[0] : null;
@@ -162,23 +190,18 @@ export default function Purchases() {
       await PurchaseStore.create({ ...form, items: itemData, totalCost });
     }
 
-    // Update product stock and purchase cost
     for (const item of itemData) {
       const product = await ProductStore.getById(item.productId);
       if (product) {
         await ProductStore.update(item.productId, {
           stock: (product.stock || 0) + (Number(item.qty) || 0),
-          purchaseCost: item.costPerUnit, // Update latest cost
+          purchaseCost: item.costPerUnit,
         });
       }
     }
 
     setModalOpen(false);
     await reload();
-  }
-
-  async function handleDelete(id) {
-    setDeleteId(id);
   }
 
   async function confirmDelete() {
@@ -200,25 +223,15 @@ export default function Purchases() {
     await reload();
   }
 
-  const filtered = purchases
-    .filter(p => {
-      const q = search.toLowerCase();
-      return (p.supplier || '').toLowerCase().includes(q) ||
-        (p.items || []).some(item => (item.productName || '').toLowerCase().includes(q));
-    })
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-  const totalSpent = purchases.reduce((sum, p) => sum + (p.totalCost || 0), 0);
-
   return (
     <div className="animate-in">
       <div className="page-header page-header-actions">
         <div>
           <h1>Pembelian</h1>
-          <p>Catat pembelian & restock barang</p>
+          <p>Catat pembelian &amp; restock barang</p>
         </div>
         <div className="flex gap-sm">
-          <button className="btn btn-secondary" onClick={() => exportPurchasesToExcel(purchases)}>
+          <button className="btn btn-secondary" onClick={() => exportPurchasesToExcel(filtered)}>
             <FiDownload /> Export Excel
           </button>
           <button className="btn btn-primary" onClick={openAdd}>
@@ -227,75 +240,195 @@ export default function Purchases() {
         </div>
       </div>
 
-      {/* Summary */}
       <div className="stats-grid">
         <div className="stat-card orange">
           <div className="stat-card-header">
             <div className="stat-card-icon"><FiShoppingCart /></div>
           </div>
-          <div className="stat-card-value">{purchases.length}</div>
-          <div className="stat-card-label">Total Transaksi Pembelian</div>
+          <div className="stat-card-value">{filtered.length}</div>
+          <div className="stat-card-label">Jumlah Transaksi {selectedFolder !== 'All' ? `(${selectedFolder})` : ''}</div>
         </div>
         <div className="stat-card purple">
           <div className="stat-card-header">
             <div className="stat-card-icon">💰</div>
           </div>
           <div className="stat-card-value">{formatCurrency(totalSpent)}</div>
-          <div className="stat-card-label">Total Pengeluaran</div>
+          <div className="stat-card-label">Total Pengeluaran {selectedFolder !== 'All' ? `(${selectedFolder})` : ''}</div>
         </div>
       </div>
 
-      <div className="toolbar">
-        <div className="search-box">
-          <FiSearch className="search-icon" />
-          <input name="input_1_2" type="text" placeholder="Cari pembelian..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-      </div>
-
-      <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Tanggal</th>
-              <th>Supplier</th>
-              <th>Items</th>
-              <th style={{ textAlign: 'right' }}>Total</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={5}>
-                  <div className="empty-state">
-                    <div className="empty-state-icon"><FiShoppingCart /></div>
-                    <h3>Belum ada catatan pembelian</h3>
-                  </div>
-                </td>
-              </tr>
-            ) : filtered.map(p => (
-              <tr key={p.id}>
-                <td className="text-muted">{formatDateShort(p.createdAt)}</td>
-                <td><strong>{p.supplier || '-'}</strong></td>
-                <td>
-                  {(p.items || []).map((item, i) => (
-                    <div key={i} className="text-sm">{item.productName} × {formatNumber(item.qty)} {item.unit} <span className="text-muted">(@ {formatCurrency(item.costPerUnit)})</span></div>
-                  ))}
-                </td>
-                <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.totalCost)}</td>
-                <td>
-                  <div className="table-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}><FiEdit2 /></button>
-                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(p.id)}><FiTrash2 /></button>
-                  </div>
-                </td>
-              </tr>
+      <div className="folders-layout">
+        {/* Sidebar Folder */}
+        <aside className="folders-sidebar">
+          <div className="folders-header">
+            <FiFolder /> <span>Folders Pelanggan</span>
+          </div>
+          <div className="folders-list">
+            <button 
+              className={`folder-item ${selectedFolder === 'All' ? 'active' : ''}`} 
+              onClick={() => setSelectedFolder('All')}
+            >
+              <FiGrid className="icon" /> <span>Semua Pembelian</span>
+            </button>
+            <button 
+              className={`folder-item ${selectedFolder === 'Stok / Umum' ? 'active' : ''}`} 
+              onClick={() => setSelectedFolder('Stok / Umum')}
+            >
+              <FiFolder className="icon" /> <span>Stok / Umum</span>
+            </button>
+            {customers.filter(c => c !== 'Stok / Umum').sort().map(c => (
+              <button 
+                key={c}
+                className={`folder-item ${selectedFolder === c ? 'active' : ''}`} 
+                onClick={() => setSelectedFolder(c)}
+              >
+                <FiFolder className="icon" /> <span>{c}</span>
+              </button>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </aside>
+
+        {/* Content Area */}
+        <div className="folders-content">
+          <div className="toolbar">
+            <div className="search-box">
+              <FiSearch className="search-icon" />
+              <input name="input_1_2" type="text" placeholder={`Cari di folder ${selectedFolder}...`} value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Supplier</th>
+                  <th>Items</th>
+                  <th style={{ textAlign: 'right' }}>Total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <div className="empty-state">
+                        <div className="empty-state-icon"><FiShoppingCart /></div>
+                        <h3>Belum ada pembelian di folder ini</h3>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.map(p => (
+                  <tr key={p.id}>
+                    <td className="text-muted text-sm">{formatDateShort(p.createdAt)}</td>
+                    <td>
+                      <strong>{p.supplier || '-'}</strong>
+                      {selectedFolder === 'All' && (
+                        <div className="text-xs text-muted mt-xs flex-center gap-xs">
+                          <FiFolder size={10} /> {getCustomerName(p.invoiceId)}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      {(p.items || []).map((item, i) => (
+                        <div key={i} className="text-sm">{item.productName} × {formatNumber(item.qty)} {item.unit}</div>
+                      ))}
+                    </td>
+                    <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.totalCost)}</td>
+                    <td>
+                      <div className="table-actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}><FiEdit2 /></button>
+                        <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(p.id)}><FiTrash2 /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      {/* Modal */}
+      <style>{`
+        .folders-layout {
+          display: grid;
+          grid-template-columns: 240px 1fr;
+          gap: 20px;
+          margin-top: 20px;
+        }
+        .folders-sidebar {
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          height: fit-content;
+          overflow: hidden;
+        }
+        .folders-header {
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.02);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-weight: 600;
+          color: #818cf8;
+        }
+        .folders-list {
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .folder-item {
+          width: 100%;
+          text-align: left;
+          padding: 10px 12px;
+          border-radius: 8px;
+          border: none;
+          background: transparent;
+          color: #94a3b8;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-size: 14px;
+        }
+        .folder-item:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: white;
+        }
+        .folder-item.active {
+          background: rgba(129, 140, 248, 0.15);
+          color: #818cf8;
+          font-weight: 500;
+        }
+        .folder-item .icon {
+          flex-shrink: 0;
+        }
+        .folder-item span {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        @media (max-width: 1024px) {
+          .folders-layout {
+            grid-template-columns: 1fr;
+          }
+          .folders-sidebar {
+            display: flex;
+            overflow-x: auto;
+            flex-direction: row;
+          }
+          .folders-list {
+            flex-direction: row;
+          }
+          .folders-header {
+            display: none;
+          }
+        }
+      `}</style>
+
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? "Edit Pembelian" : "Catat Pembelian"} size="lg">
         <form onSubmit={handleSave}>
           <div className="modal-body" style={{ position: 'relative' }}>
@@ -375,8 +508,6 @@ export default function Purchases() {
                                     setOpenIndex(null);
                                     setSearchQuery('');
                                   }}
-                                  onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.05)'}
-                                  onMouseLeave={e => e.target.style.background = 'transparent'}
                                 >
                                   {p.name}
                                 </div>
