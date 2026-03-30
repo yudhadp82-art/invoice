@@ -11,6 +11,7 @@ export default function DeliveryNotes() {
   const [search, setSearch] = useState('');
   const [printId, setPrintId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [customerFilter, setCustomerFilter] = useState('all');
 
   useEffect(() => {
     reload();
@@ -54,9 +55,13 @@ export default function DeliveryNotes() {
   const filtered = notes
     .filter(n => {
       const q = search.toLowerCase();
-      return (n.noteNumber || '').toLowerCase().includes(q) || (n.customerName || '').toLowerCase().includes(q);
+      const matchesSearch = (n.noteNumber || '').toLowerCase().includes(q) || (n.customerName || '').toLowerCase().includes(q);
+      const matchesCustomer = customerFilter === 'all' || n.customerName === customerFilter;
+      return matchesSearch && matchesCustomer;
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const uniqueCustomers = [...new Set(notes.map(n => n.customerName))].filter(Boolean).sort();
 
   const printNote = printId ? notes.find(n => n.id === printId) : null;
 
@@ -193,6 +198,40 @@ export default function DeliveryNotes() {
           <FiSearch className="search-icon" />
           <input name="input_1_2" type="text" placeholder="Cari surat jalan..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+      </div>
+
+      <div className="tabs-container" style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }}>
+        <button 
+          className={`btn ${customerFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setCustomerFilter('all')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          Semua Customer
+        </button>
+        {uniqueCustomers.map(customer => {
+          const isHighlighted = customer === 'SPPG SINDANGJAYA 5' || customer === 'SPPG SINDANGJAYA 2';
+          
+          let btnClass = 'btn-secondary';
+          if (customerFilter === customer) {
+            btnClass = isHighlighted ? 'btn-success' : 'btn-primary';
+          }
+          
+          let btnStyle = { whiteSpace: 'nowrap' };
+          if (!btnClass.includes('btn-success') && !btnClass.includes('btn-primary') && isHighlighted) {
+            btnStyle = { ...btnStyle, borderColor: 'var(--accent-success)', color: 'var(--accent-success)' };
+          }
+
+          return (
+            <button 
+              key={customer}
+              className={`btn ${btnClass}`}
+              onClick={() => setCustomerFilter(customer)}
+              style={btnStyle}
+            >
+              {customer}
+            </button>
+          );
+        })}
       </div>
 
       <div className="table-container">
