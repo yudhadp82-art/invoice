@@ -919,10 +919,11 @@ export default function HPP() {
                                     </div>
                                   )}
                                 </div>
-                                <div style={{ flex: 1 }}>
+                                <div style={{ flex: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <input
                                     className="form-input"
                                     type="text"
+                                    style={{ width: 65 }}
                                     placeholder="Qty"
                                     value={formatNumberInput(b.qty)}
                                     onChange={e => {
@@ -938,16 +939,16 @@ export default function HPP() {
                                   />
                                   {(() => {
                                     if (b.purchasedQty > 0) {
-                                      return <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Beli: {b.purchasedQty} | Max Sisa: {b.maxQty}</div>;
+                                      return <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {b.maxQty})</div>;
                                     } else {
                                       const matching = sisaPurchases.filter(p => (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase());
                                       const sisa = matching.reduce((s, p) => s + (p.sisaQty || 0), 0);
                                       if (sisa > 0) {
-                                        return <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Total Sisa: {sisa}</div>;
+                                        return <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {sisa})</div>;
                                       } else if (b.maxQty) {
-                                        return <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Max Sisa: {b.maxQty}</div>;
+                                        return <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {b.maxQty})</div>;
                                       } else {
-                                        return <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Sisa Beli: 0</div>;
+                                        return <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>(Stock: 0)</div>;
                                       }
                                     }
                                   })()}
@@ -1053,32 +1054,33 @@ export default function HPP() {
                            ))}
                        </div>
                      )}
-                   </div>
-                   <div style={{ flex: 1 }}>
-                     <input
-                       className="form-input"
-                       type="text"
-                       placeholder="Qty"
-                       value={formatNumberInput(v.qty)}
-                       onChange={e => {
-                         let val = e.target.value.replace(/\./g, '').replace(',', '.');
-                         if (/^\d*\.?\d*$/.test(val) || val === '') {
-                            if (v.maxQty && Number(val) > v.maxQty) {
+                    </div>
+                    <div style={{ flex: 1.5, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        className="form-input"
+                        type="text"
+                        style={{ width: 65 }}
+                        placeholder="Qty"
+                        value={formatNumberInput(v.qty)}
+                        onChange={e => {
+                          let val = e.target.value.replace(/\./g, '').replace(',', '.');
+                          if (/^\d*\.?\d*$/.test(val) || val === '') {
+                             if (v.maxQty && Number(val) > v.maxQty) {
                                alert(`Kapasitas maksimal adalah ${v.maxQty} (sesuai sisa pembelian)`);
                                val = v.maxQty.toString();
-                            }
-                            updateExtraVeg(vi, 'qty', val);
-                         }
-                       }}
-                     />
-                     {v.purchasedQty > 0 ? (
-                       <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>
-                         Beli: {v.purchasedQty} | Max Sisa: {v.maxQty}
-                       </div>
-                     ) : (
-                       <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Sisa Beli: 0</div>
-                     )}
-                   </div>
+                             }
+                             updateExtraVeg(vi, 'qty', val);
+                          }
+                        }}
+                      />
+                      {v.purchasedQty > 0 ? (
+                        <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>
+                          (Stock: {v.maxQty})
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>(Stock: 0)</div>
+                      )}
+                    </div>
                    <div style={{ flex: 2 }}>
                      <input
                        className="form-input"
@@ -1102,7 +1104,7 @@ export default function HPP() {
                  </div>
                ))}
 
-               {form.extraVegetables?.length > 0 && (
+                {form.extraVegetables && form.extraVegetables.length > 0 && (
                  <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#fbbf24', marginTop: 4 }}>
                    Total Sayuran Tambahan: {formatCurrency(totalExtraVeg)}
                  </div>
