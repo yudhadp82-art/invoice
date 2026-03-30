@@ -14,6 +14,7 @@ const COLLECTIONS = {
   PRODUCTION_MATERIALS: 'production_materials',
   SALARY_COSTS: 'salary_costs',
   PRODUCTION_NEEDS: 'production_needs',
+  EMPLOYEES: 'employees',
 };
 
 // Event listener untuk Undo
@@ -203,6 +204,14 @@ export const ProductionNeeds = {
   create: (item) => createInStore(COLLECTIONS.PRODUCTION_NEEDS, item),
   update: (id, updates) => updateInStore(COLLECTIONS.PRODUCTION_NEEDS, id, updates),
   delete: (id) => removeInStore(COLLECTIONS.PRODUCTION_NEEDS, id),
+};
+
+export const Employees = {
+  getAll: () => getAllFromStore(COLLECTIONS.EMPLOYEES),
+  getById: (id) => getByIdFromStore(COLLECTIONS.EMPLOYEES, id),
+  create: (item) => createInStore(COLLECTIONS.EMPLOYEES, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.EMPLOYEES, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.EMPLOYEES, id),
 };
 
 export const TelegramOrders = {

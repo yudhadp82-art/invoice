@@ -20,6 +20,7 @@ const navItems = [
   { path: '/purchases', label: 'Pembelian', icon: FiShoppingCart },
   { section: 'Biaya Produksi' },
   { path: '/production/materials', label: 'Bahan Pendukung', icon: FiPackage },
+  { path: '/production/employees', label: 'Daftar Pekerja', icon: FiUsers },
   { path: '/production/salary', label: 'Biaya Gaji', icon: FiDollarSign },
   { path: '/production/needs', label: 'Kebutuhan Produksi', icon: FiTool },
   { section: 'Analisa' },
@@ -61,7 +62,7 @@ export default function Layout() {
       invoices: 'Invoice', delivery_notes: 'Surat Jalan', purchases: 'Pembelian',
       price_categories: 'Kategori Harga', hpp_reports: 'HPP',
       production_materials: 'Bahan Pendukung', salary_costs: 'Biaya Gaji',
-      production_needs: 'Kebutuhan Produksi'
+      production_needs: 'Kebutuhan Produksi', employees: 'Daftar Pekerja'
     };
     return map[col] || col;
   };
