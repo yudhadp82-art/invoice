@@ -849,15 +849,25 @@ export default function HPP() {
                             <div style={{ paddingBottom: 8, color: '#64748b', fontSize: 12 }}>×</div>
                             <div>
                               <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 3 }}>Qty</label>
-                              <input
-                                className="form-input"
-                                type="number"
-                                min="0" 
-                                step="any"
-                                value={item.qty}
-                                onChange={e => updateItemCost(idx, 'qty', e.target.value)}
-                                style={{ width: 80, textAlign: 'center' }}
-                              />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <input
+                                  className="form-input"
+                                  type="number"
+                                  min="0" 
+                                  step="any"
+                                  value={item.qty}
+                                  onChange={e => updateItemCost(idx, 'qty', e.target.value)}
+                                  style={{ width: 80, textAlign: 'center' }}
+                                />
+                                {(() => {
+                                  const matching = sisaPurchases.filter(p => (p.productName || '').toLowerCase() === (item.productName || '').toLowerCase());
+                                  const sisa = matching.reduce((s, p) => s + (p.sisaQty || 0), 0);
+                                  if (sisa > 0) {
+                                    return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {sisa})</span>;
+                                  }
+                                  return null;
+                                })()}
+                              </div>
                             </div>
                             <div style={{ paddingBottom: 8, fontSize: 12, color: '#64748b', fontWeight: 600 }}>
                               = {formatCurrency(Number(item.hargaModalSatuan) * Number(item.qty))}
