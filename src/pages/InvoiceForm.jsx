@@ -565,9 +565,13 @@ export default function InvoiceForm() {
       }
     }
     
-    // Update Telegram Order status
+    // Update Telegram Order status and customer sync
     if (!isEdit && telegramOrder && telegramOrder.id) {
-      await TelegramOrders.update(telegramOrder.id, { status: 'selesai' });
+      await TelegramOrders.update(telegramOrder.id, { 
+        status: 'selesai',
+        customerName: form.customerName,
+        matchedCustomerId: form.customerId
+      });
     }
 
     // Skip Drive Upload as per request

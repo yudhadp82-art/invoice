@@ -303,19 +303,30 @@ export default function TelegramOrdersPage() {
               </div>
             </button>
             {orderCustomers.map(customer => {
-              const custOrdersCount = orders.filter(o => (o.customerName || '').trim() === customer).length;
+              const isHighlighted = customer === 'SPPG SINDANGJAYA 5' || customer === 'SPPG SINDANGJAYA 2';
+              const custOrdersCount = orders.filter(o => (o.customerName || '').trim() === customer && o.status !== 'selesai').length;
               
+              let btnClass = 'btn-secondary';
+              if (activeTab === customer) {
+                btnClass = isHighlighted ? 'btn-success' : 'btn-primary';
+              }
+              
+              let btnStyle = { whiteSpace: 'nowrap' };
+              if (!btnClass.includes('btn-success') && !btnClass.includes('btn-primary') && isHighlighted) {
+                btnStyle = { ...btnStyle, borderColor: 'var(--accent-success)', color: 'var(--accent-success)' };
+              }
+
               return (
                 <button 
                   key={customer}
-                  className={`btn ${activeTab === customer ? 'btn-primary' : 'btn-secondary'}`}
+                  className={`btn ${btnClass}`}
                   onClick={() => setActiveTab(customer)}
-                  style={{ whiteSpace: 'nowrap' }}
+                  style={btnStyle}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {customer}
                     {custOrdersCount > 0 && (
-                      <span style={{ background: '#64748b', color: 'white', padding: '2px 5px', borderRadius: 8, fontSize: 10, fontWeight: 700 }}>
+                      <span style={{ background: '#ef4444', color: 'white', padding: '2px 5px', borderRadius: 8, fontSize: 10, fontWeight: 700 }}>
                         {custOrdersCount}
                       </span>
                     )}
