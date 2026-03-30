@@ -448,10 +448,11 @@ export default function TelegramOrdersPage() {
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        );
-      })()}
+            </div>
+          ))}
+        </div>
+      );
+    })()}
 
       {/* ===== Edit Modal ===== */}
       {editOrder && (
