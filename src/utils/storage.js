@@ -11,6 +11,9 @@ const COLLECTIONS = {
   SUPPLIERS: 'suppliers',
   TELEGRAM_ORDERS: 'telegram_orders',
   HPP_REPORTS: 'hpp_reports',
+  PRODUCTION_MATERIALS: 'production_materials',
+  SALARY_COSTS: 'salary_costs',
+  PRODUCTION_NEEDS: 'production_needs',
 };
 
 // Event listener untuk Undo
@@ -176,6 +179,30 @@ export const HppReports = {
   create: (item) => createInStore(COLLECTIONS.HPP_REPORTS, item),
   update: (id, updates) => updateInStore(COLLECTIONS.HPP_REPORTS, id, updates),
   delete: (id) => removeInStore(COLLECTIONS.HPP_REPORTS, id),
+};
+
+export const ProductionMaterials = {
+  getAll: () => getAllFromStore(COLLECTIONS.PRODUCTION_MATERIALS),
+  getById: (id) => getByIdFromStore(COLLECTIONS.PRODUCTION_MATERIALS, id),
+  create: (item) => createInStore(COLLECTIONS.PRODUCTION_MATERIALS, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.PRODUCTION_MATERIALS, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.PRODUCTION_MATERIALS, id),
+};
+
+export const SalaryCosts = {
+  getAll: () => getAllFromStore(COLLECTIONS.SALARY_COSTS),
+  getById: (id) => getByIdFromStore(COLLECTIONS.SALARY_COSTS, id),
+  create: (item) => createInStore(COLLECTIONS.SALARY_COSTS, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.SALARY_COSTS, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.SALARY_COSTS, id),
+};
+
+export const ProductionNeeds = {
+  getAll: () => getAllFromStore(COLLECTIONS.PRODUCTION_NEEDS),
+  getById: (id) => getByIdFromStore(COLLECTIONS.PRODUCTION_NEEDS, id),
+  create: (item) => createInStore(COLLECTIONS.PRODUCTION_NEEDS, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.PRODUCTION_NEEDS, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.PRODUCTION_NEEDS, id),
 };
 
 export const TelegramOrders = {

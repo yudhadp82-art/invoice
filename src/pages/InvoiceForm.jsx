@@ -4,6 +4,9 @@ import { FiPlus, FiTrash2, FiArrowLeft, FiSave, FiSearch } from 'react-icons/fi'
 import { Invoices, Customers, Products, DeliveryNotes } from '../utils/storage';
 import { formatCurrency, generateInvoiceNumber, generateDeliveryNoteNumber, getCustomerPrice, formatNumberInput, parseNumberInput } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
+import CombinedPdfTemplates from '../components/CombinedPdfTemplates';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 // -------------------------------------------------------
 // Searchable Product Selector Component
@@ -315,6 +318,9 @@ export default function InvoiceForm() {
     telegramChatId: '',
   });
   const [deleteId, setDeleteId] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
+  const [syncData, setSyncData] = useState({ inv: null, note: null });
 
   useEffect(() => {
     async function loadData() {
@@ -558,7 +564,58 @@ export default function InvoiceForm() {
         });
       }
     }
-    // ===============================
+    // === Drive Upload Logic ===
+    if (savedInvoice) {
+      setIsSyncing(true);
+      setSyncStatus('Sedang membuat PDF...');
+      
+      const note = (await DeliveryNotes.getAll()).find(n => n.invoiceId === savedInvoice.id);
+      setSyncData({ inv: savedInvoice, note: note });
+
+      // Memberi waktu untuk render template tersembunyi
+      await new Promise(r => setTimeout(r, 800));
+
+      try {
+        const invoiceEl = document.getElementById('pdf-invoice-page');
+        const noteEl = document.getElementById('pdf-note-page');
+
+        if (!invoiceEl) throw new Error('Render template not found');
+
+        const canvas1 = await html2canvas(invoiceEl, { scale: 3, useCORS: true });
+        const img1 = canvas1.toDataURL('image/jpeg', 0.8);
+        
+        const doc = new jsPDF('p', 'mm', 'a4');
+        doc.addImage(img1, 'JPEG', 0, 0, 210, 297);
+
+        if (noteEl) {
+          doc.addPage();
+          const canvas2 = await html2canvas(noteEl, { scale: 3, useCORS: true });
+          const img2 = canvas2.toDataURL('image/jpeg', 0.8);
+          doc.addImage(img2, 'JPEG', 0, 0, 210, 297);
+        }
+
+        const pdfBase64 = doc.output('datauristring').split(',')[1];
+        
+        setSyncStatus('Mengupload ke Google Drive...');
+        const res = await fetch('/api/upload-to-drive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: savedInvoice.invoiceNumber,
+            pdfBase64: pdfBase64
+          })
+        });
+
+        if (!res.ok) throw new Error('Gagal upload ke Drive');
+        const driveResult = await res.json();
+        console.log('Sync Drive Success:', driveResult);
+      } catch (err) {
+        console.error('Drive Sync Error:', err);
+        alert('Gagal sinkronisasi ke Google Drive. Invoice tersimpan di lokal saja.');
+      } finally {
+        setIsSyncing(false);
+      }
+    }
 
     navigate('/invoices');
   }
@@ -731,6 +788,30 @@ export default function InvoiceForm() {
         title="Hapus Invoice"
         message="Apakah Anda yakin ingin menghapus invoice ini? Data Surat Jalan terkait tidak akan terhapus otomatis."
       />
+
+      {/* Sync Overlay */}
+      {isSyncing && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, color: 'white', flexDirection: 'column', gap: 20,
+          backdropFilter: 'blur(5px)'
+        }}>
+          <div className="spinning" style={{ fontSize: 50 }}>⚡</div>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{syncStatus}</div>
+          <p style={{ opacity: 0.7, fontSize: 13 }}>Tunggu sebentar, sedang sinkronisasi cloud...</p>
+        </div>
+      )}
+
+      {/* Hidden PDF Templates for Capture */}
+      {syncData.inv && (
+        <CombinedPdfTemplates inv={syncData.inv} note={syncData.note} />
+      )}
+
+      <style>{`
+        .spinning { animation: spin 2s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }

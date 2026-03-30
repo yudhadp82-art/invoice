@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   FiHome, FiPackage, FiUsers, FiFileText,
-  FiTruck, FiShoppingCart, FiBarChart2, FiTag, FiBriefcase, FiMessageCircle, FiPieChart
+  FiTruck, FiShoppingCart, FiBarChart2, FiTag, FiBriefcase, FiMessageCircle, FiPieChart, FiTool, FiDollarSign
 } from 'react-icons/fi';
 import { addMutationListener, removeMutationListener, executeUndo } from '../utils/storage';
 
@@ -18,6 +18,10 @@ const navItems = [
   { path: '/invoices', label: 'Invoice', icon: FiFileText },
   { path: '/delivery-notes', label: 'Surat Jalan', icon: FiTruck },
   { path: '/purchases', label: 'Pembelian', icon: FiShoppingCart },
+  { section: 'Biaya Produksi' },
+  { path: '/production/materials', label: 'Bahan Pendukung', icon: FiPackage },
+  { path: '/production/salary', label: 'Biaya Gaji', icon: FiDollarSign },
+  { path: '/production/needs', label: 'Kebutuhan Produksi', icon: FiTool },
   { section: 'Analisa' },
   { path: '/hpp', label: 'HPP', icon: FiPieChart },
   { path: '/reports', label: 'Laporan', icon: FiBarChart2 },
@@ -55,7 +59,9 @@ export default function Layout() {
     const map = {
       products: 'Produk', customers: 'Customer', suppliers: 'Supplier',
       invoices: 'Invoice', delivery_notes: 'Surat Jalan', purchases: 'Pembelian',
-      price_categories: 'Kategori Harga', hpp_reports: 'HPP'
+      price_categories: 'Kategori Harga', hpp_reports: 'HPP',
+      production_materials: 'Bahan Pendukung', salary_costs: 'Biaya Gaji',
+      production_needs: 'Kebutuhan Produksi'
     };
     return map[col] || col;
   };

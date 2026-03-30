@@ -14,6 +14,9 @@ import Pricing from './pages/Pricing';
 import Suppliers from './pages/Suppliers';
 import TelegramOrders from './pages/TelegramOrders';
 import HPP from './pages/HPP';
+import ProductionMaterials from './pages/ProductionMaterials';
+import SalaryCosts from './pages/SalaryCosts';
+import ProductionNeeds from './pages/ProductionNeeds';
 import { seedDemoData } from './utils/storage';
 
 function App() {
@@ -39,6 +42,9 @@ function App() {
           <Route path="/delivery-notes/new" element={<DeliveryNoteForm />} />
           <Route path="/delivery-notes/:id/edit" element={<DeliveryNoteForm />} />
           <Route path="/purchases" element={<Purchases />} />
+          <Route path="/production/materials" element={<ProductionMaterials />} />
+          <Route path="/production/salary" element={<SalaryCosts />} />
+          <Route path="/production/needs" element={<ProductionNeeds />} />
           <Route path="/hpp" element={<HPP />} />
           <Route path="/reports" element={<Reports />} />
         </Route>
