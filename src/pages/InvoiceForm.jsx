@@ -564,58 +564,7 @@ export default function InvoiceForm() {
         });
       }
     }
-    // === Drive Upload Logic ===
-    if (savedInvoice) {
-      setIsSyncing(true);
-      setSyncStatus('Sedang membuat PDF...');
-      
-      const note = (await DeliveryNotes.getAll()).find(n => n.invoiceId === savedInvoice.id);
-      setSyncData({ inv: savedInvoice, note: note });
-
-      // Memberi waktu untuk render template tersembunyi
-      await new Promise(r => setTimeout(r, 800));
-
-      try {
-        const invoiceEl = document.getElementById('pdf-invoice-page');
-        const noteEl = document.getElementById('pdf-note-page');
-
-        if (!invoiceEl) throw new Error('Render template not found');
-
-        const canvas1 = await html2canvas(invoiceEl, { scale: 3, useCORS: true });
-        const img1 = canvas1.toDataURL('image/jpeg', 0.8);
-        
-        const doc = new jsPDF('p', 'mm', 'a4');
-        doc.addImage(img1, 'JPEG', 0, 0, 210, 297);
-
-        if (noteEl) {
-          doc.addPage();
-          const canvas2 = await html2canvas(noteEl, { scale: 3, useCORS: true });
-          const img2 = canvas2.toDataURL('image/jpeg', 0.8);
-          doc.addImage(img2, 'JPEG', 0, 0, 210, 297);
-        }
-
-        const pdfBase64 = doc.output('datauristring').split(',')[1];
-        
-        setSyncStatus('Mengupload ke Google Drive...');
-        const res = await fetch('/api/upload-to-drive', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileName: savedInvoice.invoiceNumber,
-            pdfBase64: pdfBase64
-          })
-        });
-
-        if (!res.ok) throw new Error('Gagal upload ke Drive');
-        const driveResult = await res.json();
-        console.log('Sync Drive Success:', driveResult);
-      } catch (err) {
-        console.error('Drive Sync Error:', err);
-        alert('Gagal sinkronisasi ke Google Drive. Invoice tersimpan di lokal saja.');
-      } finally {
-        setIsSyncing(false);
-      }
-    }
+    // Skip Drive Upload as per request
 
     navigate('/invoices');
   }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiDollarSign, FiTruck, FiPackage, FiUsers, FiAlertTriangle, FiChevronDown, FiChevronUp, FiDownload, FiPrinter } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore } from '../utils/storage';
-import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
+import { formatCurrency, formatDateShort, formatNumber, formatNumberInput } from '../utils/formatter';
 import { exportHppToExcel } from '../utils/excel';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -50,6 +50,7 @@ const emptyForm = {
   customerName: '',
   invoiceTotal: 0,
   itemCosts: [],
+  extraVegetables: [], // Sayuran tambahan (tidak terhubung ke item tunggal)
   // Biaya level invoice (bukan per item)
   ongkosKirimBahan: 0,
   ongkosPengiriman: 0,
@@ -283,6 +284,7 @@ export default function HPP() {
       customerName: r.customerName || '',
       invoiceTotal: r.invoiceTotal || 0,
       itemCosts: linkedItems,
+      extraVegetables: r.extraVegetables || [],
       ongkosKirimBahan: r.ongkosKirimBahan || 0,
       ongkosPengiriman: r.ongkosPengiriman || 0,
       biayaTenagaKerja: r.biayaTenagaKerja || 0,
@@ -371,6 +373,29 @@ export default function HPP() {
     });
   }
 
+  // --- SAYURAN TAMBAHAN (GLOBAL INVOICE) ---
+  function addExtraVeg() {
+    setForm(f => ({
+      ...f,
+      extraVegetables: [...(f.extraVegetables || []), { nama: '', qty: 0, harga: 0 }]
+    }));
+  }
+
+  function removeExtraVeg(idx) {
+    setForm(f => ({
+      ...f,
+      extraVegetables: f.extraVegetables.filter((_, i) => i !== idx)
+    }));
+  }
+
+  function updateExtraVeg(idx, field, value) {
+    setForm(f => {
+      const extraVegetables = [...(f.extraVegetables || [])];
+      extraVegetables[idx] = { ...extraVegetables[idx], [field]: value };
+      return { ...f, extraVegetables };
+    });
+  }
+
   // Hitung modal per item berdasarkan sub-items ATAU harga satuan langsung
   function calcItemModal(item) {
     if (item.useSubItems && item.subItems.length > 0) {
@@ -382,11 +407,12 @@ export default function HPP() {
   // Hitung semua untuk form saat ini
   function calcFormTotals() {
     const totalModalBarang = form.itemCosts.reduce((s, item) => s + calcItemModal(item), 0);
+    const totalExtraVeg = (form.extraVegetables || []).reduce((s, v) => s + (Number(v.qty) * Number(v.harga)), 0);
     const totalBiayaInvoice = Number(form.ongkosKirimBahan) + Number(form.ongkosPengiriman) + Number(form.biayaTenagaKerja) + Number(form.biayaLainnya);
-    const totalHPP = totalModalBarang + totalBiayaInvoice;
+    const totalHPP = totalModalBarang + totalExtraVeg + totalBiayaInvoice;
     const labaKotor = Number(form.invoiceTotal) - totalHPP;
     const margin = Number(form.invoiceTotal) > 0 ? ((labaKotor / Number(form.invoiceTotal)) * 100) : 0;
-    return { totalModalBarang, totalBiayaInvoice, totalHPP, labaKotor, margin };
+    return { totalModalBarang, totalExtraVeg, totalBiayaInvoice, totalHPP, labaKotor, margin };
   }
 
   async function handleSave(e) {
@@ -413,12 +439,18 @@ export default function HPP() {
     const data = {
       ...form,
       itemCosts,
+      extraVegetables: (form.extraVegetables || []).map(v => ({
+        ...v,
+        qty: Number(v.qty) || 0,
+        harga: Number(v.harga) || 0
+      })),
       ongkosKirimBahan: Number(form.ongkosKirimBahan),
       ongkosPengiriman: Number(form.ongkosPengiriman),
       biayaTenagaKerja: Number(form.biayaTenagaKerja),
       biayaLainnya: Number(form.biayaLainnya),
       invoiceTotal: Number(form.invoiceTotal),
       totalModalBarang,
+      totalExtraVeg,
       totalBiayaInvoice,
       totalHPP,
       labaKotor,
@@ -481,7 +513,7 @@ export default function HPP() {
   const existingIds = new Set(reports.map(r => r.invoiceId));
   const unlinkedInvoices = invoices.filter(inv => !existingIds.has(inv.id));
 
-  const { totalModalBarang, totalBiayaInvoice, totalHPP, labaKotor, margin } = calcFormTotals();
+  const { totalModalBarang, totalExtraVeg, totalBiayaInvoice, totalHPP, labaKotor, margin } = calcFormTotals();
 
   return (
     <div className="animate-in">
@@ -652,18 +684,38 @@ export default function HPP() {
                                     <td colSpan={2}></td>
                                   </tr>
                                 ))}
-                              </>
-                            );
-                          })}
-                        </tbody>
-                        <tfoot>
-                          <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)', fontWeight: 700 }}>
-                            <td colSpan={3} style={{ padding: '6px 8px', color: '#94a3b8' }}>Biaya Invoice (kirim bahan: {formatCurrency(r.ongkosKirimBahan)}, pengiriman: {formatCurrency(r.ongkosPengiriman)}, TK: {formatCurrency(r.biayaTenagaKerja)}, lain: {formatCurrency(r.biayaLainnya)})</td>
-                            <td style={{ padding: '6px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(r.totalBiayaInvoice)}</td>
-                            <td style={{ padding: '6px 8px', textAlign: 'right' }}>{formatCurrency(r.invoiceTotal)}</td>
-                            <td style={{ padding: '6px 8px', textAlign: 'right', color: r.labaKotor >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(r.labaKotor)}</td>
-                          </tr>
-                        </tfoot>
+                               </>
+                             );
+                           })}
+                           {/* Sayuran Tambahan */}
+                           {(r.extraVegetables || []).length > 0 && (
+                             <>
+                               <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                 <td colSpan={6} style={{ padding: '8px 8px 4px 8px', fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sayuran Tambahan (Global)</td>
+                               </tr>
+                               {(r.extraVegetables || []).map((v, vi) => (
+                                 <tr key={`extra-${vi}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                   <td style={{ padding: '5px 8px', fontWeight: 600, color: '#fbbf24' }}>+ {v.nama}</td>
+                                   <td style={{ padding: '5px 8px', textAlign: 'center' }}>{formatNumber(v.qty)}</td>
+                                   <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(v.harga)}</td>
+                                   <td style={{ padding: '5px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(v.qty * v.harga)}</td>
+                                   <td colSpan={2}></td>
+                                 </tr>
+                               ))}
+                             </>
+                           )}
+                         </tbody>
+                         <tfoot>
+                           <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)', fontWeight: 700 }}>
+                             <td colSpan={3} style={{ padding: '6px 8px', color: '#94a3b8' }}>
+                               Biaya Invoice (kirim: {formatCurrency(r.ongkosKirimBahan)}, delivery: {formatCurrency(r.ongkosPengiriman)}, TK: {formatCurrency(r.biayaTenagaKerja)}, lain: {formatCurrency(r.biayaLainnya)})
+                               {r.totalExtraVeg > 0 && ` + Sayuran Tambahan: ${formatCurrency(r.totalExtraVeg)}`}
+                             </td>
+                             <td style={{ padding: '6px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(Number(r.totalBiayaInvoice || 0) + Number(r.totalExtraVeg || 0))}</td>
+                             <td style={{ padding: '6px 8px', textAlign: 'right' }}>{formatCurrency(r.invoiceTotal)}</td>
+                             <td style={{ padding: '6px 8px', textAlign: 'right', color: r.labaKotor >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(r.labaKotor)}</td>
+                           </tr>
+                         </tfoot>
                       </table>
                     </td>
                   </tr>
@@ -894,10 +946,111 @@ export default function HPP() {
                 })}
 
                 <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#fbbf24', marginTop: 4 }}>
-                  Total Modal Barang: {formatCurrency(totalModalBarang)}
-                </div>
-              </div>
-            )}
+                   Total Modal Barang: {formatCurrency(totalModalBarang)}
+                 </div>
+               </div>
+             )}
+
+             {/* ===== SAYURAN TAMBAHAN (GLOBAL) ===== */}
+             <div style={{ marginBottom: 20 }}>
+               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                 <h4 style={{ color: '#94a3b8', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+                   🥦 Sayuran &amp; Bahan Tambahan
+                 </h4>
+                 <button type="button" className="btn btn-ghost btn-sm" onClick={addExtraVeg}>
+                   <FiPlus /> Tambah Sayuran
+                 </button>
+               </div>
+               
+               {(form.extraVegetables || []).map((v, vi) => (
+                 <div key={vi} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, position: 'relative' }}>
+                   <div style={{ flex: 3, position: 'relative' }}>
+                     <input
+                       className="form-input"
+                       placeholder="Nama sayuran/bahan..."
+                       value={v.nama}
+                       onChange={e => {
+                         updateExtraVeg(vi, 'nama', e.target.value);
+                         setSubQuery(e.target.value);
+                         setOpenSubIndex(`extra-${vi}`);
+                       }}
+                       onFocus={() => {
+                         setOpenSubIndex(`extra-${vi}`);
+                         setSubQuery(v.nama || '');
+                       }}
+                     />
+                     {openSubIndex === `extra-${vi}` && (
+                       <div className="dropdown-panel" style={{ 
+                         position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, 
+                         background: '#1e293b', border: '1px solid #334155', borderRadius: 8, 
+                         maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', 
+                         marginTop: 4 
+                       }}>
+                         {sisaPurchases
+                           .filter(p => (p.productName || '').toLowerCase().includes(subQuery.toLowerCase()))
+                           .map((p, pi) => (
+                             <div
+                               key={pi}
+                               className="dropdown-item"
+                               style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '12px' }}
+                               onClick={() => {
+                                 updateExtraVeg(vi, 'nama', p.productName);
+                                 updateExtraVeg(vi, 'harga', p.costPerUnit);
+                                 updateExtraVeg(vi, 'purchaseId', p.purchaseId);
+                                 setOpenSubIndex(null);
+                               }}
+                               onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.05)'}
+                               onMouseLeave={e => e.target.style.background = 'transparent'}
+                             >
+                               {p.productName} - {p.supplier} (Rp {p.costPerUnit} / <strong style={{ color: '#34d399' }}>Sisa: {p.sisaQty}</strong>)
+                             </div>
+                           ))}
+                       </div>
+                     )}
+                   </div>
+                   <div style={{ flex: 1 }}>
+                     <input
+                       className="form-input"
+                       type="text"
+                       placeholder="Qty"
+                       value={formatNumberInput(v.qty)}
+                       onChange={e => {
+                         const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                         if (/^\d*\.?\d*$/.test(val) || val === '') {
+                           updateExtraVeg(vi, 'qty', val);
+                         }
+                       }}
+                     />
+                   </div>
+                   <div style={{ flex: 2 }}>
+                     <input
+                       className="form-input"
+                       type="text"
+                       placeholder="Harga"
+                       value={formatNumberInput(v.harga)}
+                       onChange={e => {
+                         const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                         if (/^\d*\.?\d*$/.test(val) || val === '') {
+                           updateExtraVeg(vi, 'harga', val);
+                         }
+                       }}
+                     />
+                   </div>
+                   <div style={{ minWidth: 80, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#fbbf24' }}>
+                     {formatCurrency(v.qty * v.harga)}
+                   </div>
+                   <button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => removeExtraVeg(vi)}>
+                     <FiTrash2 />
+                   </button>
+                 </div>
+               ))}
+
+               {form.extraVegetables?.length > 0 && (
+                 <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#fbbf24', marginTop: 4 }}>
+                   Total Sayuran Tambahan: {formatCurrency(totalExtraVeg)}
+                 </div>
+               )}
+             </div>
 
             {/* ===== BIAYA LEVEL INVOICE ===== */}
             <hr style={{ borderColor: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
@@ -939,10 +1092,15 @@ export default function HPP() {
                     <FiAlertTriangle /> PERINGATAN: Invoice ini mengalami kerugian sebesar {formatCurrency(Math.abs(labaKotor))}!
                   </div>
                 )}
-                <h4 style={{ marginBottom: 10, fontSize: 13, color: labaKotor < 0 ? '#f87171' : '#34d399' }}>📊 Ringkasan HPP</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 16px', fontSize: 13 }}>
-                  <span className="text-muted">Modal Barang</span><span style={{ textAlign: 'right' }}>{formatCurrency(totalModalBarang)}</span>
-                  <span className="text-muted">Biaya Kirim Bahan</span><span style={{ textAlign: 'right' }}>{formatCurrency(Number(form.ongkosKirimBahan))}</span>
+                 <h4 style={{ marginBottom: 10, fontSize: 13, color: labaKotor < 0 ? '#f87171' : '#34d399' }}>📊 Ringkasan HPP</h4>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 16px', fontSize: 13 }}>
+                   <span className="text-muted">Modal Barang</span><span style={{ textAlign: 'right' }}>{formatCurrency(totalModalBarang)}</span>
+                   {totalExtraVeg > 0 && (
+                     <>
+                       <span className="text-muted">Sayuran Tambahan</span><span style={{ textAlign: 'right' }}>{formatCurrency(totalExtraVeg)}</span>
+                     </>
+                   )}
+                   <span className="text-muted">Biaya Kirim Bahan</span><span style={{ textAlign: 'right' }}>{formatCurrency(Number(form.ongkosKirimBahan))}</span>
                   <span className="text-muted">Biaya Pengiriman</span><span style={{ textAlign: 'right' }}>{formatCurrency(Number(form.ongkosPengiriman))}</span>
                   <span className="text-muted">Biaya Tenaga Kerja</span><span style={{ textAlign: 'right' }}>{formatCurrency(Number(form.biayaTenagaKerja))}</span>
                   <span className="text-muted">Biaya Lainnya</span><span style={{ textAlign: 'right' }}>{formatCurrency(Number(form.biayaLainnya))}</span>

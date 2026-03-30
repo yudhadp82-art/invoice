@@ -79,12 +79,44 @@ export default function HppPdfTemplate({ report }) {
         </tbody>
       </table>
 
+      {/* Extra Vegetables Breakdown */}
+      {(report.extraVegetables || []).length > 0 && (
+        <>
+          <div style={{ fontSize: 11, fontWeight: 'bold', marginBottom: 5 }}>2. Sayuran & Bahan Tambahan (Global)</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 15, fontSize: 10 }}>
+            <thead>
+              <tr style={{ background: '#f2f2f2' }}>
+                <th style={{ border: '1px solid black', padding: '4px', width: '45%' }}>Bahan / Sayuran</th>
+                <th style={{ border: '1px solid black', padding: '4px', width: '15%' }}>Qty</th>
+                <th style={{ border: '1px solid black', padding: '4px', width: '20%', textAlign: 'right' }}>Harga/unit</th>
+                <th style={{ border: '1px solid black', padding: '4px', width: '20%', textAlign: 'right' }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.extraVegetables.map((v, idx) => (
+                <tr key={idx}>
+                  <td style={{ border: '1px solid black', padding: '4px' }}>{v.nama}</td>
+                  <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>{formatNumber(v.qty)}</td>
+                  <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>{formatCurrency(v.harga)}</td>
+                  <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(v.qty * v.harga)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
       {/* Overall Summary */}
-      <div style={{ fontSize: 11, fontWeight: 'bold', marginBottom: 5 }}>2. Ringkasan Keseluruhan</div>
+      <div style={{ fontSize: 11, fontWeight: 'bold', marginBottom: 5 }}>
+        {(report.extraVegetables || []).length > 0 ? '3' : '2'}. Ringkasan Keseluruhan
+      </div>
       <div style={{ background: '#f9f9f9', border: '1px solid #ccc', borderRadius: 4, padding: '10px 15px', fontSize: 11 }}>
         <table style={{ width: '100%', fontSize: 10 }}>
           <tbody>
-            <tr><td>Total Modal Barang</td><td style={{ textAlign: 'right' }}>{formatCurrency(report.totalModalBarang)}</td></tr>
+            <tr><td>Total Modal Barang (Invoice Items)</td><td style={{ textAlign: 'right' }}>{formatCurrency(report.totalModalBarang)}</td></tr>
+            {report.totalExtraVeg > 0 && (
+              <tr><td>Total Sayuran & Bahan Tambahan</td><td style={{ textAlign: 'right', color: '#856404' }}>{formatCurrency(report.totalExtraVeg)}</td></tr>
+            )}
             <tr><td>Biaya Kirim Bahan</td><td style={{ textAlign: 'right' }}>{formatCurrency(Number(report.ongkosKirimBahan || 0))}</td></tr>
             <tr><td>Biaya Pengiriman</td><td style={{ textAlign: 'right' }}>{formatCurrency(Number(report.ongkosPengiriman || 0))}</td></tr>
             <tr><td>Biaya Tenaga Kerja</td><td style={{ textAlign: 'right' }}>{formatCurrency(Number(report.biayaTenagaKerja || 0))}</td></tr>
