@@ -186,16 +186,30 @@ export default function Invoices() {
         >
           Semua Customer
         </button>
-        {uniqueCustomers.map(customer => (
-          <button 
-            key={customer}
-            className={`btn ${customerFilter === customer ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setCustomerFilter(customer)}
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            {customer}
-          </button>
-        ))}
+        {uniqueCustomers.map(customer => {
+          const isHighlighted = customer === 'SPPG SINDANGJAYA 5' || customer === 'SPPG SINDANGJAYA 2';
+          
+          let btnClass = 'btn-secondary';
+          if (customerFilter === customer) {
+            btnClass = isHighlighted ? 'btn-success' : 'btn-primary';
+          }
+          
+          let btnStyle = { whiteSpace: 'nowrap' };
+          if (!btnClass.includes('btn-success') && !btnClass.includes('btn-primary') && isHighlighted) {
+            btnStyle = { ...btnStyle, borderColor: 'var(--accent-success)', color: 'var(--accent-success)' };
+          }
+
+          return (
+            <button 
+              key={customer}
+              className={`btn ${btnClass}`}
+              onClick={() => setCustomerFilter(customer)}
+              style={btnStyle}
+            >
+              {customer}
+            </button>
+          );
+        })}
       </div>
 
       <div className="table-container">
