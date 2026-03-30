@@ -15,6 +15,7 @@ const COLLECTIONS = {
   SALARY_COSTS: 'salary_costs',
   PRODUCTION_NEEDS: 'production_needs',
   EMPLOYEES: 'employees',
+  SUPPORTING_MATERIAL_ITEMS: 'supporting_material_items',
 };
 
 // Event listener untuk Undo
@@ -212,6 +213,14 @@ export const Employees = {
   create: (item) => createInStore(COLLECTIONS.EMPLOYEES, item),
   update: (id, updates) => updateInStore(COLLECTIONS.EMPLOYEES, id, updates),
   delete: (id) => removeInStore(COLLECTIONS.EMPLOYEES, id),
+};
+
+export const SupportingMaterialItems = {
+  getAll: () => getAllFromStore(COLLECTIONS.SUPPORTING_MATERIAL_ITEMS),
+  getById: (id) => getByIdFromStore(COLLECTIONS.SUPPORTING_MATERIAL_ITEMS, id),
+  create: (item) => createInStore(COLLECTIONS.SUPPORTING_MATERIAL_ITEMS, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.SUPPORTING_MATERIAL_ITEMS, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.SUPPORTING_MATERIAL_ITEMS, id),
 };
 
 export const TelegramOrders = {

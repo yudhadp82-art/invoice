@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiPackage } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiPackage, FiChevronDown } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
-import { ProductionMaterials as Store } from '../utils/storage';
+import { ProductionMaterials as Store, SupportingMaterialItems as ItemStore } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumberInput } from '../utils/formatter';
 
 const emptyForm = {
   date: new Date().toISOString().slice(0, 10),
   supplierName: '',
+  materialItemId: '',
   materialName: '',
   qty: '',
   unit: '',
@@ -18,11 +19,13 @@ const emptyForm = {
 
 export default function ProductionMaterialsPage() {
   const [items, setItems] = useState([]);
+  const [masterItems, setMasterItems] = useState([]);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [showItemDropdown, setShowItemDropdown] = useState(false);
 
   useEffect(() => {
     reload();
@@ -31,8 +34,8 @@ export default function ProductionMaterialsPage() {
   }, []);
 
   async function reload() {
-    const data = await Store.getAll();
-    setItems(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    setItems((await Store.getAll()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    setMasterItems(await ItemStore.getAll());
   }
 
   function calcTotal(f = form) {
@@ -49,6 +52,21 @@ export default function ProductionMaterialsPage() {
     });
   }
 
+  function handleMaterialSelect(item) {
+    setForm(prev => {
+      const updated = {
+        ...prev,
+        materialItemId: item.id,
+        materialName: item.name,
+        unit: item.unit || prev.unit,
+        pricePerUnit: item.defaultPrice || prev.pricePerUnit,
+      };
+      updated.totalCost = calcTotal(updated);
+      return updated;
+    });
+    setShowItemDropdown(false);
+  }
+
   function openAdd() {
     setForm({ ...emptyForm, date: new Date().toISOString().slice(0, 10) });
     setEditingId(null);
@@ -59,6 +77,7 @@ export default function ProductionMaterialsPage() {
     setForm({
       date: item.date || new Date().toISOString().slice(0, 10),
       supplierName: item.supplierName || '',
+      materialItemId: item.materialItemId || '',
       materialName: item.materialName || '',
       qty: item.qty || '',
       unit: item.unit || '',
@@ -111,13 +130,14 @@ export default function ProductionMaterialsPage() {
       <div className="page-header page-header-actions">
         <div>
           <h1>Bahan Pendukung</h1>
-          <p>Pembelian bahan pendukung produksi</p>
+          <p>Pencatatan pembelian bahan pendukung produksi</p>
         </div>
         <button className="btn btn-primary" onClick={openAdd}>
           <FiPlus /> Tambah Pembelian
         </button>
       </div>
 
+      {/* Summary Stats */}
       <div className="stats-grid">
         <div className="stat-card blue">
           <div className="stat-card-header">
@@ -145,7 +165,7 @@ export default function ProductionMaterialsPage() {
       <div className="toolbar">
         <div className="search-box">
           <FiSearch className="search-icon" />
-          <input type="text" placeholder="Cari bahan pendukung..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input type="text" placeholder="Cari transaksi..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
 
@@ -159,18 +179,17 @@ export default function ProductionMaterialsPage() {
               <th>Qty</th>
               <th style={{ textAlign: 'right' }}>Harga/Unit</th>
               <th style={{ textAlign: 'right' }}>Total</th>
-              <th>Catatan</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={7}>
                   <div className="empty-state">
                     <div className="empty-state-icon"><FiPackage /></div>
                     <h3>Belum ada data bahan pendukung</h3>
-                    <p>Klik tombol "Tambah Pembelian" untuk mencatat.</p>
+                    <p>Klik tombol untuk mencatat pembelian.</p>
                   </div>
                 </td>
               </tr>
@@ -182,7 +201,6 @@ export default function ProductionMaterialsPage() {
                 <td>{it.qty} {it.unit}</td>
                 <td className="text-right">{formatCurrency(it.pricePerUnit)}</td>
                 <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(it.totalCost)}</td>
-                <td className="text-muted text-sm">{it.notes || '-'}</td>
                 <td>
                   <div className="table-actions">
                     <button className="btn btn-ghost btn-sm" onClick={() => openEdit(it)}><FiEdit2 /></button>
@@ -195,38 +213,89 @@ export default function ProductionMaterialsPage() {
         </table>
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Bahan Pendukung' : 'Tambah Bahan Pendukung'} size="md">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Pembelian' : 'Tambah Pembelian'} size="md">
         <form onSubmit={handleSave}>
           <div className="modal-body">
             <div className="form-group">
               <label className="form-label">Tanggal</label>
               <input type="date" className="form-input" value={form.date} onChange={e => handleFieldChange('date', e.target.value)} required />
             </div>
-            <div className="form-group">
-              <label className="form-label">Nama Bahan</label>
-              <input className="form-input" value={form.materialName} onChange={e => handleFieldChange('materialName', e.target.value)} placeholder="Contoh: Tepung Terigu, Plastik kemasan..." required />
+
+            <div className="form-group" style={{ position: 'relative' }}>
+              <label className="form-label">Pilih Bahan</label>
+              <div className="flex gap-xs">
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <button 
+                    type="button" 
+                    className="form-input text-left flex-between" 
+                    onClick={() => setShowItemDropdown(!showItemDropdown)}
+                    style={{ background: '#0f172a' }}
+                  >
+                    <span>{form.materialName || 'Pilih item dari master bahan...'}</span>
+                    <FiChevronDown />
+                  </button>
+                  {showItemDropdown && (
+                    <div className="dropdown-panel" style={{ 
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, 
+                      background: '#1e293b', border: '1px solid #334155', borderRadius: 8, 
+                      maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', 
+                      marginTop: 4 
+                    }}>
+                      <div style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <input 
+                          autoFocus
+                          className="form-input form-input-sm" 
+                          placeholder="Cari bahan..." 
+                          onChange={(e) => {
+                            // Local search logic could go here if masterItems was large
+                          }}
+                        />
+                      </div>
+                      {masterItems.map(item => (
+                        <div 
+                          key={item.id} 
+                          className="dropdown-item" 
+                          style={{ padding: '8px 12px', cursor: 'pointer' }}
+                          onClick={() => handleMaterialSelect(item)}
+                        >
+                          <div style={{ fontWeight: 600 }}>{item.name}</div>
+                          <div className="text-xs text-muted">Satuan: {item.unit} • Std: {formatCurrency(item.defaultPrice)}</div>
+                        </div>
+                      ))}
+                      {masterItems.length === 0 && (
+                        <div className="p-md text-center text-muted text-sm">Belum ada master bahan.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+
             <div className="form-group">
               <label className="form-label">Nama Supplier / Toko</label>
-              <input className="form-input" value={form.supplierName} onChange={e => handleFieldChange('supplierName', e.target.value)} placeholder="Nama supplier atau toko" />
+              <input className="form-input" value={form.supplierName} onChange={e => handleFieldChange('supplierName', e.target.value)} placeholder="Misal: Toko Berkah" />
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-group">
                 <label className="form-label">Qty</label>
-                <input className="form-input" value={form.qty} onChange={e => handleFieldChange('qty', e.target.value)} placeholder="0" required />
+                <input className="form-input" type="number" step="any" value={form.qty} onChange={e => handleFieldChange('qty', e.target.value)} placeholder="0" required />
               </div>
               <div className="form-group">
                 <label className="form-label">Satuan</label>
-                <input className="form-input" value={form.unit} onChange={e => handleFieldChange('unit', e.target.value)} placeholder="kg, ltr, pcs..." />
+                <input className="form-input" value={form.unit} onChange={e => handleFieldChange('unit', e.target.value)} placeholder="kg, pcs..." />
               </div>
             </div>
+
             <div className="form-group">
               <label className="form-label">Harga per Unit (Rp)</label>
-              <input className="form-input" value={form.pricePerUnit} onChange={e => handleFieldChange('pricePerUnit', e.target.value)} placeholder="0" required />
+              <input className="form-input" type="number" value={form.pricePerUnit} onChange={e => handleFieldChange('pricePerUnit', e.target.value)} placeholder="0" required />
             </div>
-            <div style={{ textAlign: 'right', marginBottom: 12, fontSize: 15, fontWeight: 700, color: '#818cf8' }}>
+
+            <div style={{ textAlign: 'right', marginBottom: 12, fontSize: 16, fontWeight: 700, color: '#38bdf8' }}>
               Total: {formatCurrency(calcTotal())}
             </div>
+
             <div className="form-group">
               <label className="form-label">Catatan</label>
               <textarea className="form-textarea" value={form.notes} onChange={e => handleFieldChange('notes', e.target.value)} placeholder="Catatan tambahan..." rows={2} />
@@ -243,8 +312,8 @@ export default function ProductionMaterialsPage() {
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={confirmDelete}
-        title="Hapus Bahan Pendukung"
-        message="Apakah Anda yakin ingin menghapus data ini?"
+        title="Hapus Catatan"
+        message="Hapus catatan pembelian bahan pendukung ini?"
       />
     </div>
   );

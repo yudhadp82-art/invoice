@@ -18,6 +18,7 @@ import ProductionMaterials from './pages/ProductionMaterials';
 import SalaryCosts from './pages/SalaryCosts';
 import ProductionNeeds from './pages/ProductionNeeds';
 import Employees from './pages/Employees';
+import MaterialItems from './pages/MaterialItems';
 import { seedDemoData } from './utils/storage';
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
           <Route path="/production/salary" element={<SalaryCosts />} />
           <Route path="/production/needs" element={<ProductionNeeds />} />
           <Route path="/production/employees" element={<Employees />} />
+          <Route path="/production/material-items" element={<MaterialItems />} />
           <Route path="/hpp" element={<HPP />} />
           <Route path="/reports" element={<Reports />} />
         </Route>
