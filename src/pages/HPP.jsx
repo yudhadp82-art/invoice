@@ -201,6 +201,14 @@ export default function HPP() {
           });
         }
       });
+      
+      // Hitung juga pemakaian dari sayuran tambahan
+      (r.extraVegetables || []).forEach(v => {
+        if (v.purchaseId && v.nama) {
+          const key = `${v.purchaseId}-${v.nama}`;
+          usedMap[key] = (usedMap[key] || 0) + Number(v.qty || 0);
+        }
+      });
     });
 
     return purchaseItems.map(p => {
@@ -215,26 +223,26 @@ export default function HPP() {
     return itemsList.map(item => {
       if (!item.useSubItems) return item;
       const subItems = (item.subItems || []).map(b => {
-        // Jika sudah ada link purchaseId, pastikan harga tetap sinkron dengan data pembelian terbaru
         if (b.purchaseId) {
           const match = currentSisa.find(p => p.purchaseId === b.purchaseId && (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase());
           if (match) {
             return {
               ...b,
               harga: match.costPerUnit,
-              maxQty: match.sisaQty + (Number(b.qty) || 0) // total available is current sisa + what this item uses
+              purchasedQty: match.qty,
+              maxQty: match.sisaQty + (Number(b.qty) || 0)
             };
           }
         }
 
-        // Jika belum terhubung, cari sisa pembelian terbaru yang cocok
         const matching = currentSisa
           .filter(p => (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase())
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Terbaru dulu
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         if (matching.length > 0 && matching[0].sisaQty > 0) {
           return {
             ...b,
             harga: matching[0].costPerUnit,
+            purchasedQty: matching[0].qty,
             maxQty: matching[0].sisaQty,
             purchaseId: matching[0].purchaseId
           };
@@ -242,6 +250,36 @@ export default function HPP() {
         return b;
       });
       return { ...item, subItems };
+    });
+  };
+
+  const autoLinkExtraVeg = (extraVegs, currentSisa) => {
+    return extraVegs.map(v => {
+      if (v.purchaseId) {
+        const match = currentSisa.find(p => p.purchaseId === v.purchaseId && (p.productName || '').toLowerCase() === (v.nama || '').toLowerCase());
+        if (match) {
+          return {
+            ...v,
+            harga: match.costPerUnit,
+            purchasedQty: match.qty,
+            maxQty: match.sisaQty + (Number(v.qty) || 0)
+          };
+        }
+      }
+      
+      const matching = currentSisa
+        .filter(p => (p.productName || '').toLowerCase() === (v.nama || '').toLowerCase())
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      if (matching.length > 0 && matching[0].sisaQty > 0) {
+        return {
+          ...v,
+          harga: matching[0].costPerUnit,
+          purchasedQty: matching[0].qty,
+          maxQty: matching[0].sisaQty,
+          purchaseId: matching[0].purchaseId
+        };
+      }
+      return v;
     });
   };
 
@@ -278,13 +316,14 @@ export default function HPP() {
     setEditId(r.id);
     const sisa = calculateSisa(r.id);
     const linkedItems = autoLinkSubItems(r.itemCosts || [], sisa);
+    const linkedExtra = autoLinkExtraVeg(r.extraVegetables || [], sisa);
     setForm({
       invoiceId: r.invoiceId || '',
       invoiceNumber: r.invoiceNumber || '',
       customerName: r.customerName || '',
       invoiceTotal: r.invoiceTotal || 0,
       itemCosts: linkedItems,
-      extraVegetables: r.extraVegetables || [],
+      extraVegetables: linkedExtra,
       ongkosKirimBahan: r.ongkosKirimBahan || 0,
       ongkosPengiriman: r.ongkosPengiriman || 0,
       biayaTenagaKerja: r.biayaTenagaKerja || 0,
@@ -377,7 +416,7 @@ export default function HPP() {
   function addExtraVeg() {
     setForm(f => ({
       ...f,
-      extraVegetables: [...(f.extraVegetables || []), { nama: '', qty: 0, harga: 0 }]
+      extraVegetables: [...(f.extraVegetables || []), { nama: '', qty: 0, harga: 0, purchasedQty: 0, maxQty: 0, purchaseId: '' }]
     }));
   }
 
@@ -866,6 +905,7 @@ export default function HPP() {
                                             onClick={() => {
                                               updateSubItem(idx, si, 'nama', p.productName);
                                               updateSubItem(idx, si, 'harga', p.costPerUnit);
+                                              updateSubItem(idx, si, 'purchasedQty', p.qty);
                                               updateSubItem(idx, si, 'maxQty', p.sisaQty); // max limit per sisa
                                               updateSubItem(idx, si, 'purchaseId', p.purchaseId); // simpan link!
                                               setOpenSubIndex(null);
@@ -873,7 +913,7 @@ export default function HPP() {
                                             onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.05)'}
                                             onMouseLeave={e => e.target.style.background = 'transparent'}
                                           >
-                                            {p.productName} - {p.supplier} (Rp {p.costPerUnit} / <strong style={{ color: '#34d399' }}>Sisa: {p.sisaQty}</strong>)
+                                            {p.productName} - {p.supplier} (Beli: {p.qty} | <strong style={{ color: '#34d399' }}>Sisa: {p.sisaQty}</strong> | Rp {p.costPerUnit})
                                           </div>
                                         ))}
                                     </div>
@@ -897,14 +937,18 @@ export default function HPP() {
                                     }}
                                   />
                                   {(() => {
-                                    const matching = sisaPurchases.filter(p => (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase());
-                                    const sisa = matching.reduce((s, p) => s + (p.sisaQty || 0), 0);
-                                    if (sisa > 0) {
-                                      return <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Sisa Beli: {sisa}</div>;
-                                    } else if (b.maxQty) {
-                                      return <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Max: {b.maxQty}</div>;
+                                    if (b.purchasedQty > 0) {
+                                      return <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Beli: {b.purchasedQty} | Max Sisa: {b.maxQty}</div>;
                                     } else {
-                                      return <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Sisa Beli: 0</div>;
+                                      const matching = sisaPurchases.filter(p => (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase());
+                                      const sisa = matching.reduce((s, p) => s + (p.sisaQty || 0), 0);
+                                      if (sisa > 0) {
+                                        return <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Total Sisa: {sisa}</div>;
+                                      } else if (b.maxQty) {
+                                        return <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>Max Sisa: {b.maxQty}</div>;
+                                      } else {
+                                        return <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Sisa Beli: 0</div>;
+                                      }
                                     }
                                   })()}
                                 </div>
@@ -996,13 +1040,15 @@ export default function HPP() {
                                onClick={() => {
                                  updateExtraVeg(vi, 'nama', p.productName);
                                  updateExtraVeg(vi, 'harga', p.costPerUnit);
+                                 updateExtraVeg(vi, 'purchasedQty', p.qty);
+                                 updateExtraVeg(vi, 'maxQty', p.sisaQty);
                                  updateExtraVeg(vi, 'purchaseId', p.purchaseId);
                                  setOpenSubIndex(null);
                                }}
                                onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.05)'}
                                onMouseLeave={e => e.target.style.background = 'transparent'}
                              >
-                               {p.productName} - {p.supplier} (Rp {p.costPerUnit} / <strong style={{ color: '#34d399' }}>Sisa: {p.sisaQty}</strong>)
+                               {p.productName} - {p.supplier} (Beli: {p.qty} | <strong style={{ color: '#34d399' }}>Sisa: {p.sisaQty}</strong> | Rp {p.costPerUnit})
                              </div>
                            ))}
                        </div>
@@ -1015,12 +1061,23 @@ export default function HPP() {
                        placeholder="Qty"
                        value={formatNumberInput(v.qty)}
                        onChange={e => {
-                         const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                         let val = e.target.value.replace(/\./g, '').replace(',', '.');
                          if (/^\d*\.?\d*$/.test(val) || val === '') {
-                           updateExtraVeg(vi, 'qty', val);
+                            if (v.maxQty && Number(val) > v.maxQty) {
+                               alert(`Kapasitas maksimal adalah ${v.maxQty} (sesuai sisa pembelian)`);
+                               val = v.maxQty.toString();
+                            }
+                            updateExtraVeg(vi, 'qty', val);
                          }
                        }}
                      />
+                     {v.purchasedQty > 0 ? (
+                       <div style={{ fontSize: 10, color: '#34d399', marginTop: 2 }}>
+                         Beli: {v.purchasedQty} | Max Sisa: {v.maxQty}
+                       </div>
+                     ) : (
+                       <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Sisa Beli: 0</div>
+                     )}
                    </div>
                    <div style={{ flex: 2 }}>
                      <input
