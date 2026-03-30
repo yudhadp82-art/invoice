@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiRefreshCw, FiCheck, FiFileText, FiTrash2, FiAlertCircle, FiEdit2, FiX, FiSave } from 'react-icons/fi';
-import { TelegramOrders, Customers, Products as ProductStorage, PriceCategories } from '../utils/storage';
+import { TelegramOrders, Customers, Products as ProductStorage, PriceCategories, Invoices } from '../utils/storage';
 import { checkBotStatus, fetchUpdates, parseOrderMessage, matchCustomer, matchProduct, sendMessage, suggestProducts, correctAndMatchItemsWithAI } from '../utils/telegram';
 import { formatDateTime, formatNumber } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
@@ -16,16 +16,18 @@ export default function TelegramOrdersPage() {
   const [allPriceCategories, setAllPriceCategories] = useState([]);
   const [editOrder, setEditOrder] = useState(null); // order being edited in modal
   const [deleteId, setDeleteId] = useState(null);
+  const [allInvoices, setAllInvoices] = useState([]);
   const [activeTab, setActiveTab] = useState('active');
 
   useEffect(() => {
-    async function init() {
-      const custs = await Customers.getAll();
+      const cats = await Customers.getAll();
       const prods = await ProductStorage.getAll();
       const priceCats = await PriceCategories.getAll();
-      setAllCustomers(custs);
+      const invs = await Invoices.getAll();
+      setAllCustomers(cats);
       setAllProducts(prods);
       setAllPriceCategories(priceCats);
+      setAllInvoices(invs);
       await loadOrders();
       await loadBotStatus();
     }
@@ -49,6 +51,8 @@ export default function TelegramOrdersPage() {
 
   async function loadOrders() {
     const list = await TelegramOrders.getAll();
+    const invs = await Invoices.getAll();
+    setAllInvoices(invs);
     setOrders([...list].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
   }
 
@@ -141,6 +145,27 @@ export default function TelegramOrdersPage() {
   async function handleMarkSelesai(id) {
     await TelegramOrders.update(id, { status: 'selesai' });
     await loadOrders();
+  }
+
+  async function handleCleanup() {
+    if (!window.confirm('Bersihkan semua daftar pesanan lama yang sudah dibuatkan invoice?')) return;
+    setLoading(true);
+    let count = 0;
+    for (const order of orders) {
+      if (order.status !== 'selesai' && order.matchedCustomerId) {
+        const hasInv = allInvoices.some(inv => 
+          inv.customerId === order.matchedCustomerId && 
+          inv.date >= order.createdAt.split('T')[0]
+        );
+        if (hasInv) {
+          await TelegramOrders.update(order.id, { status: 'selesai' });
+          count++;
+        }
+      }
+    }
+    await loadOrders();
+    setLoading(false);
+    alert(`Berhasil merapikan ${count} pesanan ke tab riwayat.`);
   }
 
   async function handleDelete(id) {
@@ -282,10 +307,15 @@ export default function TelegramOrdersPage() {
             </div>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={handleRefresh} disabled={loading}>
-          <FiRefreshCw style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-          {loading ? 'Mengambil...' : 'Ambil Pesanan Baru'}
-        </button>
+        <div className="flex gap-sm">
+          <button className="btn btn-secondary" onClick={handleCleanup} title="Merapikan Pesanan Yang Sudah Jadi Invoice" disabled={loading}>
+            <FiCheck /> Rapikan Riwayat
+          </button>
+          <button className="btn btn-primary" onClick={handleRefresh} disabled={loading}>
+            <FiRefreshCw style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+            {loading ? 'Mengambil...' : 'Ambil Pesanan Baru'}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -349,7 +379,16 @@ export default function TelegramOrdersPage() {
 
       {/* State Manager */}
       {(() => {
-        const activeOrders = orders.filter(o => o.status === 'baru');
+        const activeOrders = orders.filter(o => {
+          if (o.status === 'selesai') return false;
+          // Logic: Jika sudah ada invoice di hari yang sama/setelahnya, sembunyikan dari antrean masuk
+          const hasInv = allInvoices.some(inv => 
+            inv.customerId === o.matchedCustomerId && 
+            inv.date >= o.createdAt.split('T')[0]
+          );
+          return o.status === 'baru' && !hasInv;
+        });
+        
         const displayedOrders = activeTab === 'active' 
           ? activeOrders 
           : orders.filter(o => (o.customerName || '').trim() === activeTab);
