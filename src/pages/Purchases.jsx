@@ -20,6 +20,8 @@ export default function Purchases() {
     invoiceId: '',
     items: [],
     notes: '',
+    discountType: 'nominal',
+    discountValue: 0,
   });
   const [openIndex, setOpenIndex] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +83,9 @@ export default function Purchases() {
       supplier: '', 
       invoiceId: latestInvoice ? latestInvoice.id : '',
       items: initialItems, 
-      notes: latestInvoice ? `Pembelian untuk PO: ${latestInvoice.invoiceNumber}` : '' 
+      notes: latestInvoice ? `Pembelian untuk PO: ${latestInvoice.invoiceNumber}` : '',
+      discountType: 'nominal',
+      discountValue: 0
     });
     setEditingId(null);
     setModalOpen(true);
@@ -92,7 +96,9 @@ export default function Purchases() {
       supplier: purchase.supplier || '',
       invoiceId: purchase.invoiceId || '',
       items: (purchase.items || []).map(item => ({...item})),
-      notes: purchase.notes || ''
+      notes: purchase.notes || '',
+      discountType: purchase.discountType || 'nominal',
+      discountValue: purchase.discountValue || 0
     });
     setEditingId(purchase.id);
     setModalOpen(true);
@@ -170,7 +176,15 @@ export default function Purchases() {
       return;
     }
 
-    const totalCost = form.items.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0);
+    const subtotal = form.items.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0);
+    let discountAmount = 0;
+    if (form.discountType === 'percent') {
+      discountAmount = (subtotal * (Number(form.discountValue) || 0)) / 100;
+    } else {
+      discountAmount = Number(form.discountValue) || 0;
+    }
+    const totalCost = subtotal - discountAmount;
+    
     const itemData = form.items.map(i => ({...i, qty: Number(i.qty) || 0}));
 
     if (editingId) {
@@ -542,8 +556,61 @@ export default function Purchases() {
             )}
 
             {form.items.length > 0 && (
-              <div style={{ textAlign: 'right', marginTop: 12, fontSize: '16px', fontWeight: 700, color: '#818cf8' }}>
-                Total: {formatCurrency(form.items.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0))}
+              <div className="discount-section mt-lg p-md" style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="flex-between mb-sm">
+                  <span className="text-sm font-medium">Diskon</span>
+                  <div className="flex gap-xs">
+                    <button 
+                      type="button" 
+                      className={`btn btn-xs ${form.discountType === 'nominal' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setForm({...form, discountType: 'nominal'})}
+                    >
+                      Rp
+                    </button>
+                    <button 
+                      type="button" 
+                      className={`btn btn-xs ${form.discountType === 'percent' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setForm({...form, discountType: 'percent'})}
+                    >
+                      %
+                    </button>
+                  </div>
+                </div>
+                <input 
+                  className="form-input text-right" 
+                  type="text" 
+                  placeholder={form.discountType === 'nominal' ? "Nominal Diskon (Rp)" : "Persentase Diskon (%)"}
+                  value={formatNumberInput(form.discountValue)} 
+                  onChange={e => {
+                    const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                    if (/^\d*\.?\d*$/.test(val) || val === '') {
+                      setForm({...form, discountValue: val});
+                    }
+                  }} 
+                />
+                
+                <div className="mt-md pt-md" style={{ borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
+                  <div className="flex-between text-sm text-muted mb-xs">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(form.items.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0))}</span>
+                  </div>
+                  <div className="flex-between text-sm text-danger mb-xs">
+                    <span>Potongan Diskon</span>
+                    <span>-{formatCurrency(form.discountType === 'percent' 
+                      ? (form.items.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0) * (Number(form.discountValue) || 0) / 100)
+                      : (Number(form.discountValue) || 0)
+                    )}</span>
+                  </div>
+                  <div className="flex-between text-lg font-bold" style={{ color: '#818cf8' }}>
+                    <span>Total Akhir</span>
+                    <span>{formatCurrency(
+                      form.items.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0) - 
+                      (form.discountType === 'percent' 
+                        ? (form.items.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0) * (Number(form.discountValue) || 0) / 100)
+                        : (Number(form.discountValue) || 0))
+                    )}</span>
+                  </div>
+                </div>
               </div>
             )}
 
