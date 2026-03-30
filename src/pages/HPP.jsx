@@ -199,6 +199,11 @@ export default function HPP() {
               usedMap[key] = (usedMap[key] || 0) + Number(b.qty || 0);
             }
           });
+        } else {
+          if (item.purchaseId && item.productName) {
+            const key = `${item.purchaseId}-${item.productName}`;
+            usedMap[key] = (usedMap[key] || 0) + Number(item.qty || 0);
+          }
         }
       });
       
@@ -221,7 +226,30 @@ export default function HPP() {
 
   const autoLinkSubItems = (itemsList, currentSisa) => {
     return itemsList.map(item => {
-      if (!item.useSubItems) return item;
+      let updatedItem = { ...item };
+      
+      if (!item.useSubItems) {
+        if (item.purchaseId) {
+          const match = currentSisa.find(p => p.purchaseId === item.purchaseId && (p.productName || '').toLowerCase() === (item.productName || '').toLowerCase());
+          if (match) {
+            updatedItem.hargaModalSatuan = match.costPerUnit;
+            updatedItem.purchasedQty = match.qty;
+            updatedItem.maxQty = match.sisaQty + (Number(item.qty) || 0);
+          }
+        } else {
+          const matching = currentSisa
+            .filter(p => (p.productName || '').toLowerCase() === (item.productName || '').toLowerCase())
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          if (matching.length > 0 && matching[0].sisaQty > 0) {
+            updatedItem.hargaModalSatuan = matching[0].costPerUnit;
+            updatedItem.purchasedQty = matching[0].qty;
+            updatedItem.maxQty = matching[0].sisaQty; // For first bind, max is current sisa
+            updatedItem.purchaseId = matching[0].purchaseId;
+          }
+        }
+        return updatedItem;
+      }
+      
       const subItems = (item.subItems || []).map(b => {
         if (b.purchaseId) {
           const match = currentSisa.find(p => p.purchaseId === b.purchaseId && (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase());
@@ -856,16 +884,29 @@ export default function HPP() {
                                   min="0" 
                                   step="any"
                                   value={item.qty}
-                                  onChange={e => updateItemCost(idx, 'qty', e.target.value)}
+                                  onChange={e => {
+                                    let val = e.target.value;
+                                    if (item.maxQty && Number(val) > item.maxQty) {
+                                      alert(`Kapasitas maksimal adalah ${item.maxQty} (sesuai pembelian)`);
+                                      val = item.maxQty.toString();
+                                    }
+                                    updateItemCost(idx, 'qty', val);
+                                  }}
                                   style={{ width: 80, textAlign: 'center' }}
                                 />
                                 {(() => {
-                                  const matching = sisaPurchases.filter(p => (p.productName || '').toLowerCase() === (item.productName || '').toLowerCase());
-                                  const sisa = matching.reduce((s, p) => s + (p.sisaQty || 0), 0);
-                                  if (sisa > 0) {
-                                    return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {sisa})</span>;
+                                  if (item.purchasedQty > 0) {
+                                    return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {item.maxQty})</span>;
+                                  } else {
+                                    const matching = sisaPurchases.filter(p => (p.productName || '').toLowerCase() === (item.productName || '').toLowerCase());
+                                    const sisa = matching.reduce((s, p) => s + (p.sisaQty || 0), 0);
+                                    if (sisa > 0) {
+                                      return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {sisa})</span>;
+                                    } else if (item.maxQty) {
+                                      return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {item.maxQty})</span>;
+                                    }
+                                    return null;
                                   }
-                                  return null;
                                 })()}
                               </div>
                             </div>
