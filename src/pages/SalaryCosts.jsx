@@ -63,9 +63,12 @@ export default function SalaryCostsPage() {
 
   function calculateAutoAmount(updatedForm) {
     if (updatedForm.salaryType === 'per_jam') {
-      const hours = getHoursDelta(updatedForm.clockIn, updatedForm.clockOut);
+      let hours = getHoursDelta(updatedForm.clockIn, updatedForm.clockOut);
+      // Pengurangan otomatis jam istirahat 1 jam
+      const breakTime = 1;
+      const effectiveHours = Math.max(0, hours - breakTime);
       const rate = Number(updatedForm.hourlyRate) || 0;
-      return Math.round(hours * rate);
+      return Math.round(effectiveHours * rate);
     }
     return updatedForm.amount;
   }
@@ -303,7 +306,13 @@ export default function SalaryCostsPage() {
                   <label className="form-label"><FiDollarSign /> Upah Per Jam</label>
                   <input type="number" className="form-input" value={form.hourlyRate} onChange={e => handleFormChange('hourlyRate', e.target.value)} placeholder="0" />
                   <div className="text-xs text-muted mt-xs">
-                    Durasi: {getHoursDelta(form.clockIn, form.clockOut).toFixed(2)} jam
+                    Durasi Bruto: {getHoursDelta(form.clockIn, form.clockOut).toFixed(2)} jam
+                  </div>
+                  <div className="text-xs text-danger mt-xs">
+                    Potongan Istirahat: 1.00 jam
+                  </div>
+                  <div className="text-xs text-success mt-xs" style={{ fontWeight: 600 }}>
+                    Total Jam Kerja: {Math.max(0, getHoursDelta(form.clockIn, form.clockOut) - 1).toFixed(2)} jam
                   </div>
                 </div>
               </div>
