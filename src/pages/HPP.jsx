@@ -234,7 +234,7 @@ export default function HPP() {
           if (match) {
             updatedItem.hargaModalSatuan = match.costPerUnit;
             updatedItem.purchasedQty = match.qty;
-            updatedItem.maxQty = match.sisaQty + (Number(item.qty) || 0);
+            updatedItem.maxQty = match.sisaQty;
           }
         } else {
           const matching = currentSisa
@@ -258,7 +258,7 @@ export default function HPP() {
               ...b,
               harga: match.costPerUnit,
               purchasedQty: match.qty,
-              maxQty: match.sisaQty + (Number(b.qty) || 0)
+              maxQty: match.sisaQty
             };
           }
         }
@@ -290,7 +290,7 @@ export default function HPP() {
             ...v,
             harga: match.costPerUnit,
             purchasedQty: match.qty,
-            maxQty: match.sisaQty + (Number(v.qty) || 0)
+            maxQty: match.sisaQty
           };
         }
       }
@@ -896,14 +896,14 @@ export default function HPP() {
                                 />
                                 {(() => {
                                   if (item.purchasedQty > 0) {
-                                    return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {item.maxQty})</span>;
+                                    return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Sisa Stok: {item.maxQty - Number(item.qty || 0)})</span>;
                                   } else {
                                     const matching = sisaPurchases.filter(p => (p.productName || '').toLowerCase() === (item.productName || '').toLowerCase());
                                     const sisa = matching.reduce((s, p) => s + (p.sisaQty || 0), 0);
                                     if (sisa > 0) {
-                                      return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {sisa})</span>;
+                                      return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Sisa Stok: {sisa - Number(item.qty || 0)})</span>;
                                     } else if (item.maxQty) {
-                                      return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {item.maxQty})</span>;
+                                      return <span style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Sisa Stok: {item.maxQty - Number(item.qty || 0)})</span>;
                                     }
                                     return null;
                                   }
@@ -990,16 +990,16 @@ export default function HPP() {
                                   />
                                   {(() => {
                                     if (b.purchasedQty > 0) {
-                                      return <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {b.maxQty})</div>;
+                                      return <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Sisa Stok: {b.maxQty - Number(b.qty || 0)})</div>;
                                     } else {
                                       const matching = sisaPurchases.filter(p => (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase());
                                       const sisa = matching.reduce((s, p) => s + (p.sisaQty || 0), 0);
                                       if (sisa > 0) {
-                                        return <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {sisa})</div>;
+                                        return <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Sisa Stok: {sisa - Number(b.qty || 0)})</div>;
                                       } else if (b.maxQty) {
-                                        return <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Stock: {b.maxQty})</div>;
+                                        return <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>(Sisa Stok: {b.maxQty - Number(b.qty || 0)})</div>;
                                       } else {
-                                        return <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>(Stock: 0)</div>;
+                                        return <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>(Stok Habis)</div>;
                                       }
                                     }
                                   })()}
@@ -1126,10 +1126,10 @@ export default function HPP() {
                       />
                       {v.purchasedQty > 0 ? (
                         <div style={{ fontSize: 11, color: '#34d399', whiteSpace: 'nowrap' }}>
-                          (Stock: {v.maxQty})
+                          (Sisa Stok: {v.maxQty - Number(v.qty || 0)})
                         </div>
                       ) : (
-                        <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>(Stock: 0)</div>
+                        <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>(Stok Habis)</div>
                       )}
                     </div>
                    <div style={{ flex: 2 }}>
