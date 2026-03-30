@@ -30,6 +30,10 @@ export default function TelegramOrdersPage() {
       await loadBotStatus();
     }
     init();
+    
+    // Auto sync when storage changes (e.g. from InvoiceForm)
+    window.addEventListener('app-data-mutation', loadOrders);
+    return () => window.removeEventListener('app-data-mutation', loadOrders);
   }, []);
 
   // Helper: resolve price for a product given a customer
@@ -278,8 +282,9 @@ export default function TelegramOrdersPage() {
       {/* Tabs */}
       {(() => {
         const activeOrders = orders.filter(o => o.status !== 'selesai');
-        const completedOrders = orders.filter(o => o.status === 'selesai');
-        const completedCustomers = [...new Set(completedOrders.map(o => o.customerName))].filter(Boolean).sort();
+        
+        // Gather EVERY customer who has ever sent an order
+        const orderCustomers = [...new Set(orders.map(o => (o.customerName || '').trim()))].filter(Boolean).sort();
         
         return (
           <div className="tabs-container" style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }}>
@@ -297,27 +302,24 @@ export default function TelegramOrdersPage() {
                 )}
               </div>
             </button>
-            {completedCustomers.map(customer => {
-              const isHighlighted = customer === 'SPPG SINDANGJAYA 5' || customer === 'SPPG SINDANGJAYA 2';
+            {orderCustomers.map(customer => {
+              const custOrdersCount = orders.filter(o => (o.customerName || '').trim() === customer).length;
               
-              let btnClass = 'btn-secondary';
-              if (activeTab === customer) {
-                btnClass = isHighlighted ? 'btn-success' : 'btn-primary';
-              }
-              
-              let btnStyle = { whiteSpace: 'nowrap' };
-              if (!btnClass.includes('btn-success') && !btnClass.includes('btn-primary') && isHighlighted) {
-                btnStyle = { ...btnStyle, borderColor: 'var(--accent-success)', color: 'var(--accent-success)' };
-              }
-
               return (
                 <button 
                   key={customer}
-                  className={`btn ${btnClass}`}
+                  className={`btn ${activeTab === customer ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setActiveTab(customer)}
-                  style={btnStyle}
+                  style={{ whiteSpace: 'nowrap' }}
                 >
-                  {customer}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {customer}
+                    {custOrdersCount > 0 && (
+                      <span style={{ background: '#64748b', color: 'white', padding: '2px 5px', borderRadius: 8, fontSize: 10, fontWeight: 700 }}>
+                        {custOrdersCount}
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -328,17 +330,16 @@ export default function TelegramOrdersPage() {
       {/* State Manager */}
       {(() => {
         const activeOrders = orders.filter(o => o.status !== 'selesai');
-        const completedOrders = orders.filter(o => o.status === 'selesai');
         const displayedOrders = activeTab === 'active' 
           ? activeOrders 
-          : completedOrders.filter(o => o.customerName === activeTab);
+          : orders.filter(o => (o.customerName || '').trim() === activeTab);
 
         if (displayedOrders.length === 0) {
           return (
             <div className="card">
               <div className="empty-state">
                 <FiAlertCircle className="empty-state-icon" />
-                <h3>{activeTab === 'active' ? 'Belum ada pesanan masuk' : 'Belum ada pesanan selesai untuk pemesan ini'}</h3>
+                <h3>{activeTab === 'active' ? 'Belum ada pesanan masuk' : 'Belum ada pesanan untuk pemesan ini'}</h3>
                 {activeTab === 'active' && <p className="text-muted">Kirim pesan ke bot, lalu klik "Ambil Pesanan Baru".</p>}
                 {activeTab === 'active' && (
                   <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: 12, maxWidth: 420, margin: '16px auto', textAlign: 'left' }}>
