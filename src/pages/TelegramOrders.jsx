@@ -155,6 +155,10 @@ export default function TelegramOrdersPage() {
   }
 
   function handleCreateInvoice(order) {
+    // Mark as diproses immediately so it shows progress
+    if (order.status === 'baru') {
+      TelegramOrders.update(order.id, { status: 'diproses' });
+    }
     navigate('/invoices/new', { state: { telegramOrder: order } });
   }
 
@@ -309,7 +313,7 @@ export default function TelegramOrdersPage() {
             </button>
             {orderCustomers.map(customer => {
               const isHighlighted = customer === 'SPPG SINDANGJAYA 5' || customer === 'SPPG SINDANGJAYA 2';
-              const custOrdersCount = orders.filter(o => (o.customerName || '').trim() === customer && o.status !== 'selesai').length;
+              const activeCountForCust = orders.filter(o => (o.customerName || '').trim() === customer && o.status !== 'selesai').length;
               
               let btnClass = 'btn-secondary';
               if (activeTab === customer) {
@@ -330,9 +334,9 @@ export default function TelegramOrdersPage() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {customer}
-                    {custOrdersCount > 0 && (
+                    {activeCountForCust > 0 && (
                       <span style={{ background: '#ef4444', color: 'white', padding: '2px 5px', borderRadius: 8, fontSize: 10, fontWeight: 700 }}>
-                        {custOrdersCount}
+                        {activeCountForCust}
                       </span>
                     )}
                   </div>
@@ -345,10 +349,10 @@ export default function TelegramOrdersPage() {
 
       {/* State Manager */}
       {(() => {
-        const activeOrders = orders.filter(o => o.status === 'baru' || o.status === 'diproses');
+        const activeOrders = orders.filter(o => o.status === 'baru');
         const displayedOrders = activeTab === 'active' 
           ? activeOrders 
-          : orders.filter(o => (o.customerName || '').trim() === activeTab && o.status === 'selesai');
+          : orders.filter(o => (o.customerName || '').trim() === activeTab);
 
         if (displayedOrders.length === 0) {
           return (
