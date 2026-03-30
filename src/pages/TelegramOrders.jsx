@@ -138,6 +138,11 @@ export default function TelegramOrdersPage() {
     sendMessage(order.telegramChatId, `Pesanan "${order.customerRaw || order.customerName}" sedang kami proses. Terima kasih!`);
   }
 
+  async function handleMarkSelesai(id) {
+    await TelegramOrders.update(id, { status: 'selesai' });
+    await loadOrders();
+  }
+
   async function handleDelete(id) {
     setDeleteId(id);
   }
@@ -340,10 +345,10 @@ export default function TelegramOrdersPage() {
 
       {/* State Manager */}
       {(() => {
-        const activeOrders = orders.filter(o => o.status !== 'selesai');
+        const activeOrders = orders.filter(o => o.status === 'baru' || o.status === 'diproses');
         const displayedOrders = activeTab === 'active' 
           ? activeOrders 
-          : orders.filter(o => (o.customerName || '').trim() === activeTab);
+          : orders.filter(o => (o.customerName || '').trim() === activeTab && o.status === 'selesai');
 
         if (displayedOrders.length === 0) {
           return (
@@ -444,6 +449,11 @@ export default function TelegramOrdersPage() {
                 {order.status === 'baru' && (
                   <button className="btn btn-secondary btn-sm" onClick={() => handleProcess(order)}>
                     <FiCheck /> Proses
+                  </button>
+                )}
+                {order.status !== 'selesai' && (
+                  <button className="btn btn-ghost btn-sm text-success" onClick={() => handleMarkSelesai(order.id)} title="Tandai Selesai (Pindah ke Tab)">
+                    <FiCheck /> Selesai
                   </button>
                 )}
                 <button className="btn btn-secondary btn-sm" onClick={() => openEdit(order)}>
