@@ -689,7 +689,7 @@ export default function HPP() {
       </div>
 
       {/* Modal Form */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Edit Laporan HPP' : 'Tambah Laporan HPP'} size="xl">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Edit Laporan HPP' : 'Tambah Laporan HPP'} size="xl" persistent={true}>
         <form onSubmit={handleSave}>
           <div className="modal-body" style={{ position: 'relative' }}>
             {openSubIndex !== null && (
