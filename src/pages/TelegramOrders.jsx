@@ -16,6 +16,7 @@ export default function TelegramOrdersPage() {
   const [allPriceCategories, setAllPriceCategories] = useState([]);
   const [editOrder, setEditOrder] = useState(null); // order being edited in modal
   const [deleteId, setDeleteId] = useState(null);
+  const [activeTab, setActiveTab] = useState('active');
 
   useEffect(() => {
     async function init() {
@@ -274,30 +275,90 @@ export default function TelegramOrdersPage() {
         </button>
       </div>
 
-      {/* Empty State */}
-      {orders.length === 0 ? (
-        <div className="card">
-          <div className="empty-state">
-            <FiAlertCircle className="empty-state-icon" />
-            <h3>Belum ada pesanan masuk</h3>
-            <p className="text-muted">Kirim pesan ke bot, lalu klik "Ambil Pesanan Baru".</p>
-            <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: 12, maxWidth: 420, margin: '16px auto', textAlign: 'left' }}>
-              <p style={{ fontWeight: 600, marginBottom: 6 }}>Format Pesanan:</p>
-              <pre style={{ background: '#090d16', padding: 10, borderRadius: 6, fontSize: 13, color: '#22d3ee', whiteSpace: 'pre' }}>{`SPPG sindangjaya 5
-- wortel 5kg
-- bawang merah 3 kg
-- cabe rawit 2kg`}</pre>
-              <p style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>Baris pertama = kode/nama customer. Angka di akhir diabaikan saat pencocokan nama.</p>
-            </div>
+      {/* Tabs */}
+      {(() => {
+        const activeOrders = orders.filter(o => o.status !== 'selesai');
+        const completedOrders = orders.filter(o => o.status === 'selesai');
+        const completedCustomers = [...new Set(completedOrders.map(o => o.customerName))].filter(Boolean).sort();
+        
+        return (
+          <div className="tabs-container" style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }}>
+            <button 
+              className={`btn ${activeTab === 'active' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('active')}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                Pesanan Masuk
+                {activeOrders.length > 0 && (
+                  <span style={{ background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>
+                    {activeOrders.length}
+                  </span>
+                )}
+              </div>
+            </button>
+            {completedCustomers.map(customer => {
+              const isHighlighted = customer === 'SPPG SINDANGJAYA 5' || customer === 'SPPG SINDANGJAYA 2';
+              
+              let btnClass = 'btn-secondary';
+              if (activeTab === customer) {
+                btnClass = isHighlighted ? 'btn-success' : 'btn-primary';
+              }
+              
+              let btnStyle = { whiteSpace: 'nowrap' };
+              if (!btnClass.includes('btn-success') && !btnClass.includes('btn-primary') && isHighlighted) {
+                btnStyle = { ...btnStyle, borderColor: 'var(--accent-success)', color: 'var(--accent-success)' };
+              }
+
+              return (
+                <button 
+                  key={customer}
+                  className={`btn ${btnClass}`}
+                  onClick={() => setActiveTab(customer)}
+                  style={btnStyle}
+                >
+                  {customer}
+                </button>
+              );
+            })}
           </div>
-        </div>
-      ) : (
-        <div className="telegram-grid">
-          {orders.map(order => (
-            <div key={order.id} className="telegram-card">
-              {/* Card Header */}
-              <div className="telegram-card-header">
-                <div>
+        );
+      })()}
+
+      {/* State Manager */}
+      {(() => {
+        const activeOrders = orders.filter(o => o.status !== 'selesai');
+        const completedOrders = orders.filter(o => o.status === 'selesai');
+        const displayedOrders = activeTab === 'active' 
+          ? activeOrders 
+          : completedOrders.filter(o => o.customerName === activeTab);
+
+        if (displayedOrders.length === 0) {
+          return (
+            <div className="card">
+              <div className="empty-state">
+                <FiAlertCircle className="empty-state-icon" />
+                <h3>{activeTab === 'active' ? 'Belum ada pesanan masuk' : 'Belum ada pesanan selesai untuk pemesan ini'}</h3>
+                {activeTab === 'active' && <p className="text-muted">Kirim pesan ke bot, lalu klik "Ambil Pesanan Baru".</p>}
+                {activeTab === 'active' && (
+                  <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: 12, maxWidth: 420, margin: '16px auto', textAlign: 'left' }}>
+                    <p style={{ fontWeight: 600, marginBottom: 6 }}>Format Pesanan:</p>
+                    <pre style={{ background: '#090d16', padding: 10, borderRadius: 6, fontSize: 13, color: '#22d3ee', whiteSpace: 'pre' }}>{`SPPG sindangjaya 5\n- wortel 5kg\n- bawang merah 3 kg\n- cabe rawit 2kg`}</pre>
+                    <p style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>Baris pertama = kode/nama customer. Angka di akhir diabaikan saat pencocokan nama.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="telegram-grid">
+            {displayedOrders.map(order => (
+              <div key={order.id} className="telegram-card">
+                {/* Card Header */}
+                <div className="telegram-card-header">
+                  <div>
                   <strong style={{ color: order.matchedCustomerId ? 'var(--accent-success)' : 'var(--accent-warning)' }}>
                     {order.customerName}
                   </strong>
@@ -376,19 +437,21 @@ export default function TelegramOrdersPage() {
                 <button className="btn btn-secondary btn-sm" onClick={() => openEdit(order)}>
                   <FiEdit2 /> Edit
                 </button>
-                <button className="btn btn-primary btn-sm" onClick={() => handleCreateInvoice(order)}>
-                  <FiFileText /> Invoice
-                </button>
+                {order.status !== 'selesai' && (
+                  <button className="btn btn-primary btn-sm" onClick={() => handleCreateInvoice(order)}>
+                    <FiFileText /> Buat Invoice
+                  </button>
+                )}
                 <div style={{ marginLeft: 'auto' }}>
                   <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(order.id)}>
                     <FiTrash2 />
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        );
+      })()}
 
       {/* ===== Edit Modal ===== */}
       {editOrder && (

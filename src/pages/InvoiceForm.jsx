@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiArrowLeft, FiSave, FiSearch } from 'react-icons/fi';
-import { Invoices, Customers, Products, DeliveryNotes } from '../utils/storage';
+import { Invoices, Customers, Products, DeliveryNotes, TelegramOrders } from '../utils/storage';
 import { formatCurrency, generateInvoiceNumber, generateDeliveryNoteNumber, getCustomerPrice, formatNumberInput, parseNumberInput } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 import CombinedPdfTemplates from '../components/CombinedPdfTemplates';
@@ -564,6 +564,12 @@ export default function InvoiceForm() {
         });
       }
     }
+    
+    // Update Telegram Order status
+    if (!isEdit && telegramOrder && telegramOrder.id) {
+      await TelegramOrders.update(telegramOrder.id, { status: 'selesai' });
+    }
+
     // Skip Drive Upload as per request
 
     navigate('/invoices');
