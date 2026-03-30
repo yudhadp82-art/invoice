@@ -228,7 +228,17 @@ export default function DeliveryNotes() {
               onClick={() => setCustomerFilter(customer)}
               style={btnStyle}
             >
-              {customer}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {customer}
+                {(() => {
+                  const count = notes.filter(n => n.customerName === customer).length;
+                  return count > 0 ? (
+                    <span style={{ background: '#64748b', color: 'white', padding: '2px 5px', borderRadius: 8, fontSize: 10, fontWeight: 700 }}>
+                      {count}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
             </button>
           );
         })}

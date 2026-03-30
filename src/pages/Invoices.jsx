@@ -206,7 +206,17 @@ export default function Invoices() {
               onClick={() => setCustomerFilter(customer)}
               style={btnStyle}
             >
-              {customer}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {customer}
+                {(() => {
+                  const unpaidCount = invoices.filter(inv => inv.customerName === customer && inv.paymentStatus !== 'paid').length;
+                  return unpaidCount > 0 ? (
+                    <span style={{ background: '#ef4444', color: 'white', padding: '2px 5px', borderRadius: 8, fontSize: 10, fontWeight: 700 }}>
+                      {unpaidCount}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
             </button>
           );
         })}
