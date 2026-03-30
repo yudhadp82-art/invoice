@@ -15,6 +15,7 @@ export default function Invoices() {
   const [deliveryNotes, setDeliveryNotes] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [customerFilter, setCustomerFilter] = useState('all');
   const [printId, setPrintId] = useState(null);
   const [sendingId, setSendingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -117,9 +118,12 @@ export default function Invoices() {
     await reload();
   }
 
+  const uniqueCustomers = Array.from(new Set(invoices.map(inv => inv.customerName).filter(Boolean))).sort();
+
   const filtered = invoices
     .filter(inv => {
       if (statusFilter !== 'all' && inv.paymentStatus !== statusFilter) return false;
+      if (customerFilter !== 'all' && inv.customerName !== customerFilter) return false;
       const q = search.toLowerCase();
       return (inv.invoiceNumber || '').toLowerCase().includes(q) ||
         (inv.customerName || '').toLowerCase().includes(q);
@@ -172,6 +176,26 @@ export default function Invoices() {
           <option value="unpaid">Belum Bayar</option>
           <option value="partial">Sebagian</option>
         </select>
+      </div>
+
+      <div className="tabs-container" style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }}>
+        <button 
+          className={`btn ${customerFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setCustomerFilter('all')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          Semua Customer
+        </button>
+        {uniqueCustomers.map(customer => (
+          <button 
+            key={customer}
+            className={`btn ${customerFilter === customer ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setCustomerFilter(customer)}
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            {customer}
+          </button>
+        ))}
       </div>
 
       <div className="table-container">
