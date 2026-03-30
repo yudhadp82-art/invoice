@@ -20,6 +20,7 @@ export default function TelegramOrdersPage() {
   const [activeTab, setActiveTab] = useState('active');
 
   useEffect(() => {
+    async function init() {
       const cats = await Customers.getAll();
       const prods = await ProductStorage.getAll();
       const priceCats = await PriceCategories.getAll();
