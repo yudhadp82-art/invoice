@@ -120,7 +120,13 @@ export default function HPP() {
       } else {
         invItems.forEach(invIt => {
           const match = currentItems.find(cIt => cIt.productId === invIt.productId);
-          if (!match || match.qty !== invIt.qty || match.subtotalJual !== invIt.subtotal) {
+          if (
+            !match || 
+            match.qty !== invIt.qty || 
+            match.subtotalJual !== invIt.subtotal ||
+            match.productName !== invIt.productName ||
+            match.unit !== invIt.unit
+          ) {
             hasChange = true;
           }
         });
@@ -208,7 +214,19 @@ export default function HPP() {
     return itemsList.map(item => {
       if (!item.useSubItems) return item;
       const subItems = (item.subItems || []).map(b => {
-        if (b.purchaseId) return b; // Sudah terhubung
+        // Jika sudah ada link purchaseId, pastikan harga tetap sinkron dengan data pembelian terbaru
+        if (b.purchaseId) {
+          const match = currentSisa.find(p => p.purchaseId === b.purchaseId && (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase());
+          if (match) {
+            return {
+              ...b,
+              harga: match.costPerUnit,
+              maxQty: match.sisaQty + (Number(b.qty) || 0) // total available is current sisa + what this item uses
+            };
+          }
+        }
+
+        // Jika belum terhubung, cari sisa pembelian terbaru yang cocok
         const matching = currentSisa
           .filter(p => (p.productName || '').toLowerCase() === (b.nama || '').toLowerCase())
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Terbaru dulu

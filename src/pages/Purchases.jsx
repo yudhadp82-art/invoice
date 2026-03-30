@@ -37,9 +37,73 @@ export default function Purchases() {
     const invs = await InvoiceStore.getAll();
     const prods = await ProductStore.getAll();
     
+    // Auto-sync linked purchases secretly in case parent invoice was modified
+    const updatedPurchases = await Promise.all(ps.map(async p => {
+      if (!p.invoiceId) return p;
+      const inv = invs.find(i => i.id === p.invoiceId);
+      if (!inv) return p;
+
+      const invItems = inv.items || [];
+      const pItems = p.items || [];
+
+      // Check if items changed
+      let hasChange = invItems.length !== pItems.length;
+      if (!hasChange) {
+        for (let i = 0; i < invItems.length; i++) {
+          const it = invItems[i];
+          const pMatch = pItems.find(pi => pi.productId === it.productId);
+          if (!pMatch || Number(pMatch.qty) !== Number(it.qty) || pMatch.productName !== it.productName || pMatch.unit !== it.unit) {
+            hasChange = true;
+            break;
+          }
+        }
+      }
+
+      if (hasChange) {
+        // Prepare new items
+        const newItems = invItems.map(it => {
+          const existing = pItems.find(pi => pi.productId === it.productId);
+          return {
+            productId: it.productId,
+            productName: it.productName,
+            qty: it.qty,
+            unit: it.unit,
+            costPerUnit: existing ? existing.costPerUnit : (it.purchaseCost || 0)
+          };
+        });
+
+        const subtotal = newItems.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0);
+        let discountAmount = 0;
+        if (p.discountType === 'percent') {
+          discountAmount = (subtotal * (Number(p.discountValue) || 0)) / 100;
+        } else {
+          discountAmount = Number(p.discountValue) || 0;
+        }
+        const totalCost = subtotal - discountAmount;
+
+        // reconciliation stock
+        for (const oldI of pItems) {
+          const prod = prods.find(pr => pr.id === oldI.productId);
+          if (prod) prod.stock = (Number(prod.stock) || 0) - (Number(oldI.qty) || 0);
+        }
+        for (const newI of newItems) {
+          const prod = prods.find(pr => pr.id === newI.productId);
+          if (prod) {
+            prod.stock = (Number(prod.stock) || 0) + (Number(newI.qty) || 0);
+            await ProductStore.update(prod.id, { stock: prod.stock });
+          }
+        }
+
+        const updated = { ...p, items: newItems, totalCost };
+        await PurchaseStore.update(p.id, updated);
+        return updated;
+      }
+      return p;
+    }));
+
     setInvoices(invs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
     setProducts(prods);
-    setPurchases(ps);
+    setPurchases(updatedPurchases);
   }
 
   function getCustomerName(invoiceId) {
