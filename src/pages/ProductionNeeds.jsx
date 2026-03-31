@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiTool } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiTool, FiFileText } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
-import { ProductionNeeds as Store } from '../utils/storage';
+import { ProductionNeeds as Store, Invoices } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 
 const CATEGORY_OPTIONS = [
@@ -23,16 +23,19 @@ const emptyForm = {
   pricePerUnit: '',
   totalCost: 0,
   notes: '',
+  invoiceIds: [], // Link ke satu atau beberapa invoice
 };
 
 export default function ProductionNeedsPage() {
   const [items, setItems] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [invoiceSearch, setInvoiceSearch] = useState('');
 
   useEffect(() => {
     reload();
@@ -42,7 +45,9 @@ export default function ProductionNeedsPage() {
 
   async function reload() {
     const data = await Store.getAll();
+    const invs = await Invoices.getAll();
     setItems(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    setInvoices(invs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
   }
 
   function calcTotal(f = form) {
@@ -63,6 +68,7 @@ export default function ProductionNeedsPage() {
     setForm({ ...emptyForm, date: new Date().toISOString().slice(0, 10) });
     setEditingId(null);
     setModalOpen(true);
+    setInvoiceSearch('');
   }
 
   function openEdit(item) {
@@ -75,9 +81,11 @@ export default function ProductionNeedsPage() {
       pricePerUnit: item.pricePerUnit || '',
       totalCost: item.totalCost || 0,
       notes: item.notes || '',
+      invoiceIds: item.invoiceIds || [],
     });
     setEditingId(item.id);
     setModalOpen(true);
+    setInvoiceSearch('');
   }
 
   async function handleSave(e) {
@@ -189,6 +197,7 @@ export default function ProductionNeedsPage() {
               <th>Qty</th>
               <th style={{ textAlign: 'right' }}>Harga/Unit</th>
               <th style={{ textAlign: 'right' }}>Total</th>
+              <th>Ref. Invoice</th>
               <th>Catatan</th>
               <th></th>
             </tr>
@@ -220,6 +229,19 @@ export default function ProductionNeedsPage() {
                 <td>{it.qty} {it.unit}</td>
                 <td className="text-right">{formatCurrency(it.pricePerUnit)}</td>
                 <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(it.totalCost)}</td>
+                <td>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {(it.invoiceIds || []).map(id => {
+                      const inv = invoices.find(i => i.id === id);
+                      return inv ? (
+                        <span key={id} style={{ fontSize: 11, background: 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+                          {inv.invoiceNumber}
+                        </span>
+                      ) : null;
+                    })}
+                    {(!it.invoiceIds || it.invoiceIds.length === 0) && <span style={{ color: '#64748b', fontSize: 11 }}>-</span>}
+                  </div>
+                </td>
                 <td className="text-muted text-sm">{it.notes || '-'}</td>
                 <td>
                   <div className="table-actions">
@@ -272,6 +294,73 @@ export default function ProductionNeedsPage() {
             <div className="form-group">
               <label className="form-label">Catatan</label>
               <textarea className="form-textarea" value={form.notes} onChange={e => handleFieldChange('notes', e.target.value)} placeholder="Catatan tambahan..." rows={2} />
+            </div>
+
+            {/* Referensi Invoice */}
+            <hr style={{ border: 0, borderTop: '1px solid rgba(255,255,255,0.06)', margin: '16px 0' }} />
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <FiFileText /> Hubungkan ke Invoice (HPP)
+              </label>
+              <div style={{ position: 'relative', marginBottom: 8 }}>
+                <FiSearch style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: 12 }} />
+                <input 
+                  className="form-input" 
+                  style={{ paddingLeft: 30, fontSize: 13 }} 
+                  placeholder="Cari no. invoice atau customer..." 
+                  value={invoiceSearch}
+                  onChange={e => setInvoiceSearch(e.target.value)}
+                />
+              </div>
+              <div style={{ 
+                maxHeight: 150, 
+                overflowY: 'auto', 
+                border: '1px solid rgba(255,255,255,0.06)', 
+                borderRadius: 8,
+                background: 'rgba(0,0,0,0.1)',
+                padding: 4
+              }}>
+                {invoices
+                  .filter(inv => {
+                    const q = invoiceSearch.toLowerCase();
+                    return inv.invoiceNumber?.toLowerCase().includes(q) || inv.customerName?.toLowerCase().includes(q);
+                  })
+                  .map(inv => {
+                    const isSelected = (form.invoiceIds || []).includes(inv.id);
+                    return (
+                      <label key={inv.id} style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 10, 
+                        padding: '6px 10px', 
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        background: isSelected ? 'rgba(129,140,248,0.1)' : 'transparent',
+                        marginBottom: 2
+                      }}>
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={() => {
+                            const current = [...(form.invoiceIds || [])];
+                            if (isSelected) {
+                              handleFieldChange('invoiceIds', current.filter(id => id !== inv.id));
+                            } else {
+                              handleFieldChange('invoiceIds', [...current, inv.id]);
+                            }
+                          }}
+                        />
+                        <div style={{ fontSize: 12 }}>
+                          <div style={{ fontWeight: 600 }}>{inv.invoiceNumber}</div>
+                          <div style={{ fontSize: 11, color: '#94a3b8' }}>{inv.customerName}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+              </div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
+                {form.invoiceIds?.length || 0} invoice terpilih. Biaya akan dibagi rata ke setiap invoice di Laporan HPP.
+              </div>
             </div>
           </div>
           <div className="modal-footer">

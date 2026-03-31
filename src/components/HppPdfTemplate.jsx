@@ -121,6 +121,9 @@ export default function HppPdfTemplate({ report }) {
             <tr><td>Biaya Pengiriman</td><td style={{ textAlign: 'right' }}>{formatCurrency(Number(report.ongkosPengiriman || 0))}</td></tr>
             <tr><td>Biaya Tenaga Kerja</td><td style={{ textAlign: 'right' }}>{formatCurrency(Number(report.biayaTenagaKerja || 0))}</td></tr>
             <tr><td>Biaya Lainnya</td><td style={{ textAlign: 'right' }}>{formatCurrency(Number(report.biayaLainnya || 0))}</td></tr>
+            {report.totalBiayaOperasional > 0 && (
+              <tr><td>Biaya Operasional (Pro-rata)</td><td style={{ textAlign: 'right' }}>{formatCurrency(report.totalBiayaOperasional)}</td></tr>
+            )}
             <tr style={{ borderTop: '1px solid #ddd' }}><td colSpan={2} style={{ height: 4 }}></td></tr>
             <tr style={{ fontWeight: 'bold' }}><td>Total HPP</td><td style={{ textAlign: 'right', color: 'red' }}>{formatCurrency(report.totalHPP)}</td></tr>
             <tr style={{ fontWeight: 'bold' }}><td>Total Penjualan</td><td style={{ textAlign: 'right', color: 'blue' }}>{formatCurrency(Number(report.invoiceTotal))}</td></tr>

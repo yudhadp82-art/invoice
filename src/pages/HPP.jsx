@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiDollarSign, FiTruck, FiPackage, FiUsers, FiAlertTriangle, FiChevronDown, FiChevronUp, FiDownload, FiPrinter } from 'react-icons/fi';
 import Modal from '../components/Modal';
-import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore } from '../utils/storage';
+import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore, ProductionNeeds } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumber, formatNumberInput } from '../utils/formatter';
 import { exportHppToExcel } from '../utils/excel';
 import { jsPDF } from 'jspdf';
@@ -56,6 +56,7 @@ const emptyForm = {
   ongkosPengiriman: 0,
   biayaTenagaKerja: 0,
   biayaLainnya: 0,
+  totalBiayaOperasional: 0,
   catatan: '',
 };
 
@@ -89,6 +90,7 @@ export default function HPP() {
     let allReports = await HppReports.getAll();
     const allPurchases = await PurchaseStore.getAll();
     const allProducts = await ProductStore.getAll();
+    const allProductionNeeds = await ProductionNeeds.getAll();
     setProducts(allProducts);
 
     // Flatten purchase items untuk mempermudah pencarian
@@ -126,6 +128,16 @@ export default function HPP() {
 
       // Check if qty or items count changed
       let hasChange = false;
+      
+      // Calculate shared production needs costs
+      const linkedNeeds = allProductionNeeds.filter(n => (n.invoiceIds || []).includes(r.invoiceId));
+      const totalBiayaOperasional = linkedNeeds.reduce((s, n) => s + (Number(n.totalCost || 0) / (n.invoiceIds.length || 1)), 0);
+      
+      const oldBiayaOp = r.totalBiayaOperasional || 0;
+      if (Math.abs(oldBiayaOp - totalBiayaOperasional) > 0.01) {
+        hasChange = true;
+      }
+
       if (invItems.length !== currentItems.length || parentInv.grandTotal !== r.invoiceTotal) {
         hasChange = true;
       } else {
@@ -171,7 +183,7 @@ export default function HPP() {
 
         const totalModalBarang = syncedItemCosts.reduce((s, it) => s + (it.totalModal || 0), 0);
         const totalBiayaInvoice = Number(r.ongkosKirimBahan||0) + Number(r.ongkosPengiriman||0) + Number(r.biayaTenagaKerja||0) + Number(r.biayaLainnya||0);
-        const totalHPP = totalModalBarang + totalBiayaInvoice;
+        const totalHPP = totalModalBarang + totalBiayaInvoice + totalBiayaOperasional;
         const labaKotor = Number(parentInv.grandTotal||0) - totalHPP;
         const margin = parentInv.grandTotal > 0 ? ((labaKotor / parentInv.grandTotal) * 100) : 0;
 
@@ -181,6 +193,7 @@ export default function HPP() {
           itemCosts: syncedItemCosts,
           totalModalBarang,
           totalBiayaInvoice,
+          totalBiayaOperasional,
           totalHPP,
           labaKotor,
           margin: Number(margin.toFixed(2)),
@@ -366,6 +379,7 @@ export default function HPP() {
       ongkosPengiriman: r.ongkosPengiriman || 0,
       biayaTenagaKerja: r.biayaTenagaKerja || 0,
       biayaLainnya: r.biayaLainnya || 0,
+      totalBiayaOperasional: r.totalBiayaOperasional || 0,
       catatan: r.catatan || '',
     });
     setSisaPurchases(sisa); // Hitung instan
@@ -485,11 +499,12 @@ export default function HPP() {
   function calcFormTotals() {
     const totalModalBarang = form.itemCosts.reduce((s, item) => s + calcItemModal(item), 0);
     const totalExtraVeg = (form.extraVegetables || []).reduce((s, v) => s + (Number(v.qty) * Number(v.harga)), 0);
+    const totalBiayaOperasional = Number(form.totalBiayaOperasional || 0);
     const totalBiayaInvoice = Number(form.ongkosKirimBahan) + Number(form.ongkosPengiriman) + Number(form.biayaTenagaKerja) + Number(form.biayaLainnya);
-    const totalHPP = totalModalBarang + totalExtraVeg + totalBiayaInvoice;
+    const totalHPP = totalModalBarang + totalExtraVeg + totalBiayaInvoice + totalBiayaOperasional;
     const labaKotor = Number(form.invoiceTotal) - totalHPP;
     const margin = Number(form.invoiceTotal) > 0 ? ((labaKotor / Number(form.invoiceTotal)) * 100) : 0;
-    return { totalModalBarang, totalExtraVeg, totalBiayaInvoice, totalHPP, labaKotor, margin };
+    return { totalModalBarang, totalExtraVeg, totalBiayaInvoice, totalBiayaOperasional, totalHPP, labaKotor, margin };
   }
 
   async function handleSave(e) {
@@ -498,7 +513,7 @@ export default function HPP() {
       alert('Pilih invoice terlebih dahulu');
       return;
     }
-    const { totalModalBarang, totalBiayaInvoice, totalHPP, labaKotor, margin } = calcFormTotals();
+    const { totalModalBarang, totalBiayaInvoice, totalBiayaOperasional, totalHPP, labaKotor, margin } = calcFormTotals();
 
     // Build itemCosts with computed totals
     const itemCosts = form.itemCosts.map(item => ({
@@ -529,6 +544,7 @@ export default function HPP() {
       totalModalBarang,
       totalExtraVeg,
       totalBiayaInvoice,
+      totalBiayaOperasional,
       totalHPP,
       labaKotor,
       margin: Number(margin.toFixed(2)),
@@ -787,8 +803,9 @@ export default function HPP() {
                              <td colSpan={3} style={{ padding: '6px 8px', color: '#94a3b8' }}>
                                Biaya Invoice (kirim: {formatCurrency(r.ongkosKirimBahan)}, delivery: {formatCurrency(r.ongkosPengiriman)}, TK: {formatCurrency(r.biayaTenagaKerja)}, lain: {formatCurrency(r.biayaLainnya)})
                                {r.totalExtraVeg > 0 && ` + Sayuran Tambahan: ${formatCurrency(r.totalExtraVeg)}`}
+                               {r.totalBiayaOperasional > 0 && ` + Operasional (Shared): ${formatCurrency(r.totalBiayaOperasional)}`}
                              </td>
-                             <td style={{ padding: '6px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(Number(r.totalBiayaInvoice || 0) + Number(r.totalExtraVeg || 0))}</td>
+                             <td style={{ padding: '6px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(Number(r.totalBiayaInvoice || 0) + Number(r.totalExtraVeg || 0) + Number(r.totalBiayaOperasional || 0))}</td>
                              <td style={{ padding: '6px 8px', textAlign: 'right' }}>{formatCurrency(r.invoiceTotal)}</td>
                              <td style={{ padding: '6px 8px', textAlign: 'right', color: r.labaKotor >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(r.labaKotor)}</td>
                            </tr>
@@ -1224,6 +1241,11 @@ export default function HPP() {
                   <span className="text-muted">Biaya Pengiriman</span><span style={{ textAlign: 'right' }}>{formatCurrency(Number(form.ongkosPengiriman))}</span>
                   <span className="text-muted">Biaya Tenaga Kerja</span><span style={{ textAlign: 'right' }}>{formatCurrency(Number(form.biayaTenagaKerja))}</span>
                   <span className="text-muted">Biaya Lainnya</span><span style={{ textAlign: 'right' }}>{formatCurrency(Number(form.biayaLainnya))}</span>
+                  {form.totalBiayaOperasional > 0 && (
+                    <>
+                      <span className="text-muted">Biaya Operasional (Pro-rata)</span><span style={{ textAlign: 'right' }}>{formatCurrency(form.totalBiayaOperasional)}</span>
+                    </>
+                  )}
                   <div style={{ gridColumn: '1/-1', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '4px 0' }} />
                   <strong>Total HPP</strong><strong style={{ textAlign: 'right', color: '#f87171' }}>{formatCurrency(totalHPP)}</strong>
                   <strong>Total Penjualan</strong><strong style={{ textAlign: 'right', color: '#818cf8' }}>{formatCurrency(Number(form.invoiceTotal))}</strong>
