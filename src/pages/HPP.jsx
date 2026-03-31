@@ -114,6 +114,16 @@ export default function HPP() {
       const invItems = parentInv.items || [];
       const currentItems = r.itemCosts || [];
 
+      // Check if invoice was updated after the report was last saved
+      const invUpdated = parentInv.updatedAt ? new Date(parentInv.updatedAt) : new Date(0);
+      const repUpdated = r.updatedAt ? new Date(r.updatedAt) : new Date(0);
+      
+      // If report is newer than invoice, skip auto-sync of details to preserve manual edits
+      // UNLESS the number of items changed (which means structural change)
+      if (repUpdated > invUpdated && invItems.length === currentItems.length) {
+        return r;
+      }
+
       // Check if qty or items count changed
       let hasChange = false;
       if (invItems.length !== currentItems.length || parentInv.grandTotal !== r.invoiceTotal) {
