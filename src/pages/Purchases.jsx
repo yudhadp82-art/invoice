@@ -17,7 +17,7 @@ export default function Purchases() {
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState({
     supplier: '',
-    invoiceId: '',
+    invoiceIds: [], // array to support Multi-PO
     items: [],
     notes: '',
     discountType: 'nominal',
@@ -39,19 +39,34 @@ export default function Purchases() {
     
     // Auto-sync linked purchases secretly in case parent invoice was modified
     const updatedPurchases = await Promise.all(ps.map(async p => {
-      if (!p.invoiceId) return p;
-      const inv = invs.find(i => i.id === p.invoiceId);
-      if (!inv) return p;
+      // Support legacy invoiceId or new invoiceIds array
+      const currentIds = p.invoiceIds || (p.invoiceId ? [p.invoiceId] : []);
+      if (currentIds.length === 0) return p;
 
-      const invItems = inv.items || [];
+      // Ambil data-data invoice terkini untuk semua ID
+      const linkedInvs = invs.filter(i => currentIds.includes(i.id));
+      if (linkedInvs.length === 0) return p;
+
+      // Gabungkan semua item dari invoice-invoice terpilih
+      const combinedInvItemsMap = {};
+      linkedInvs.forEach(inv => {
+        (inv.items || []).forEach(it => {
+          const key = it.productId || it.productName;
+          if (combinedInvItemsMap[key]) {
+            combinedInvItemsMap[key].qty = Number(combinedInvItemsMap[key].qty) + Number(it.qty);
+          } else {
+            combinedInvItemsMap[key] = { ...it };
+          }
+        });
+      });
+      const combinedInvItems = Object.values(combinedInvItemsMap);
       const pItems = p.items || [];
 
-      // Check if items changed
-      let hasChange = invItems.length !== pItems.length;
+      // Check if items changed (structural or qty)
+      let hasChange = combinedInvItems.length !== pItems.length;
       if (!hasChange) {
-        for (let i = 0; i < invItems.length; i++) {
-          const it = invItems[i];
-          const pMatch = pItems.find(pi => pi.productId === it.productId);
+        for (const it of combinedInvItems) {
+          const pMatch = pItems.find(pi => (pi.productId === it.productId) || (pi.productName === it.productName));
           if (!pMatch || Number(pMatch.qty) !== Number(it.qty) || pMatch.productName !== it.productName || pMatch.unit !== it.unit) {
             hasChange = true;
             break;
@@ -60,9 +75,9 @@ export default function Purchases() {
       }
 
       if (hasChange) {
-        // Prepare new items
-        const newItems = invItems.map(it => {
-          const existing = pItems.find(pi => pi.productId === it.productId);
+        // Prepare new items (preserve existing costPerUnit if product matches)
+        const newItems = combinedInvItems.map(it => {
+          const existing = pItems.find(pi => (pi.productId === it.productId) || (pi.productName === it.productName));
           return {
             productId: it.productId,
             productName: it.productName,
@@ -94,7 +109,10 @@ export default function Purchases() {
           }
         }
 
-        const updated = { ...p, items: newItems, totalCost };
+        const updated = { ...p, invoiceIds: currentIds, items: newItems, totalCost };
+        // Clean up legacy invoiceId if it was there
+        if (updated.invoiceId) delete updated.invoiceId;
+        
         await PurchaseStore.update(p.id, updated);
         return updated;
       }
@@ -106,14 +124,25 @@ export default function Purchases() {
     setPurchases(updatedPurchases);
   }
 
-  function getCustomerName(invoiceId) {
-    if (!invoiceId) return 'Stok / Umum';
-    const inv = invoices.find(i => i.id === invoiceId);
-    return inv ? inv.customerName : 'Pelanggan Tidak Dikenal';
+  function getCustomerNames(p) {
+    const currentIds = p.invoiceIds || (p.invoiceId ? [p.invoiceId] : []);
+    if (currentIds.length === 0) return 'Stok / Umum';
+    
+    return currentIds.map(id => {
+      const inv = invoices.find(i => i.id === id);
+      return inv ? inv.customerName : 'Unknown';
+    }).join(', ');
   }
 
-  // Get unique customers (Folders)
-  const customers = Array.from(new Set(purchases.map(p => getCustomerName(p.invoiceId))));
+  // Get unique individual customers for folders
+  const allCustomerFolders = Array.from(new Set(purchases.flatMap(p => {
+    const ids = p.invoiceIds || (p.invoiceId ? [p.invoiceId] : []);
+    if (ids.length === 0) return ['Stok / Umum'];
+    return ids.map(id => {
+      const inv = invoices.find(i => i.id === id);
+      return inv ? inv.customerName : 'Unknown';
+    });
+  })));
   
   const filtered = purchases
     .filter(p => {
@@ -121,8 +150,11 @@ export default function Purchases() {
       const matchesSearch = (p.supplier || '').toLowerCase().includes(q) ||
         (p.items || []).some(item => (item.productName || '').toLowerCase().includes(q));
       
-      const customer = getCustomerName(p.invoiceId);
-      const matchesFolder = selectedFolder === 'All' || customer === selectedFolder;
+      const currentIds = p.invoiceIds || (p.invoiceId ? [p.invoiceId] : []);
+      const matchesFolder = selectedFolder === 'All' || currentIds.some(id => {
+        const inv = invoices.find(i => i.id === id);
+        return inv && inv.customerName === selectedFolder;
+      }) || (currentIds.length === 0 && selectedFolder === 'Stok / Umum');
       
       return matchesSearch && matchesFolder;
     })
@@ -145,7 +177,7 @@ export default function Purchases() {
 
     setForm({ 
       supplier: '', 
-      invoiceId: latestInvoice ? latestInvoice.id : '',
+      invoiceIds: latestInvoice ? [latestInvoice.id] : [],
       items: initialItems, 
       notes: latestInvoice ? `Pembelian untuk PO: ${latestInvoice.invoiceNumber}` : '',
       discountType: 'nominal',
@@ -158,7 +190,7 @@ export default function Purchases() {
   function openEdit(purchase) {
     setForm({
       supplier: purchase.supplier || '',
-      invoiceId: purchase.invoiceId || '',
+      invoiceIds: purchase.invoiceIds || (purchase.invoiceId ? [purchase.invoiceId] : []),
       items: (purchase.items || []).map(item => ({...item})),
       notes: purchase.notes || '',
       discountType: purchase.discountType || 'nominal',
@@ -168,28 +200,43 @@ export default function Purchases() {
     setModalOpen(true);
   }
 
-  function handleInvoiceChange(invoiceId) {
-    if (!invoiceId) {
-      setForm(f => ({ ...f, invoiceId: '', items: [], notes: '' }));
-      return;
-    }
-    const selected = invoices.find(i => i.id === invoiceId);
-    if (!selected) return;
-    
-    const initialItems = (selected.items || []).map(item => ({
-      productId: item.productId,
-      productName: item.productName,
-      qty: item.qty,
-      costPerUnit: item.purchaseCost || 0,
-      unit: item.unit
-    }));
+  function toggleInvoice(invoiceId) {
+    setForm(f => {
+      let newIds = [...(f.invoiceIds || [])];
+      if (newIds.includes(invoiceId)) {
+        newIds = newIds.filter(id => id !== invoiceId);
+      } else {
+        newIds.push(invoiceId);
+      }
 
-    setForm(f => ({
-      ...f,
-      invoiceId: invoiceId,
-      items: initialItems,
-      notes: `Pembelian untuk PO: ${selected.invoiceNumber}`
-    }));
+      // Merge items from all selected invoices
+      const combinedMap = {};
+      const selectedInvs = invoices.filter(i => newIds.includes(i.id));
+      
+      selectedInvs.forEach(inv => {
+        (inv.items || []).forEach(it => {
+          const key = it.productId || it.productName;
+          if (combinedMap[key]) {
+            combinedMap[key].qty = Number(combinedMap[key].qty) + Number(it.qty);
+          } else {
+            combinedMap[key] = {
+              productId: it.productId,
+              productName: it.productName,
+              qty: it.qty,
+              costPerUnit: it.purchaseCost || 0,
+              unit: it.unit
+            };
+          }
+        });
+      });
+
+      const newItems = Object.values(combinedMap);
+      const notes = newIds.length > 0 
+        ? `Pembelian untuk PO: ${selectedInvs.map(i => i.invoiceNumber).join(', ')}` 
+        : '';
+
+      return { ...f, invoiceIds: newIds, items: newItems, notes };
+    });
   }
 
   function addItem() {
@@ -354,7 +401,7 @@ export default function Purchases() {
             >
               <FiFolder className="icon" /> <span>Stok / Umum</span>
             </button>
-            {customers.filter(c => c !== 'Stok / Umum').sort().map(c => (
+            {allCustomerFolders.filter(c => c !== 'Stok / Umum').sort().map(c => (
               <button 
                 key={c}
                 className={`folder-item ${selectedFolder === c ? 'active' : ''}`} 
@@ -403,7 +450,7 @@ export default function Purchases() {
                       <strong>{p.supplier || '-'}</strong>
                       {selectedFolder === 'All' && (
                         <div className="text-xs text-muted mt-xs flex-center gap-xs">
-                          <FiFolder size={10} /> {getCustomerName(p.invoiceId)}
+                          <FiFolder size={10} /> {getCustomerNames(p)}
                         </div>
                       )}
                     </td>
@@ -516,12 +563,60 @@ export default function Purchases() {
             
             <div className="form-group mb-md">
               <label className="form-label">Referensi Invoice (PO)</label>
-              <select className="form-select" value={form.invoiceId || ''} onChange={e => handleInvoiceChange(e.target.value)}>
-                <option value="">-- Tanpa Referensi / Pilih PO --</option>
-                {invoices.map(inv => (
-                  <option key={inv.id} value={inv.id}>{inv.invoiceNumber} - {inv.customerName}</option>
-                ))}
-              </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* Dropdown untuk memilih PO (tambah ke list) */}
+                <select 
+                  className="form-select" 
+                  value="" 
+                  onChange={e => {
+                    if (e.target.value) toggleInvoice(e.target.value);
+                  }}
+                >
+                  <option value="">-- Tambah Referensi PO --</option>
+                  {invoices
+                    .filter(inv => !(form.invoiceIds || []).includes(inv.id))
+                    .map(inv => (
+                      <option key={inv.id} value={inv.id}>{inv.invoiceNumber} - {inv.customerName}</option>
+                    ))
+                  }
+                </select>
+
+                {/* List PO yang terpilih (Tags) */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {(form.invoiceIds || []).map(id => {
+                    const inv = invoices.find(i => i.id === id);
+                    if (!inv) return null;
+                    return (
+                      <div 
+                        key={id} 
+                        style={{ 
+                          background: 'rgba(129, 140, 248, 0.15)', 
+                          color: '#818cf8', 
+                          padding: '6px 12px', 
+                          borderRadius: 20, 
+                          fontSize: 12, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 8,
+                          border: '1px solid rgba(129, 140, 248, 0.2)'
+                        }}
+                      >
+                        <span>{inv.invoiceNumber} - {inv.customerName}</span>
+                        <button 
+                          type="button" 
+                          onClick={() => toggleInvoice(id)}
+                          style={{ background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', display: 'flex', padding: 2 }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {(form.invoiceIds || []).length === 0 && (
+                    <span className="text-muted text-xs">Belum ada PO terpilih (Stok / Umum)</span>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="form-group">
