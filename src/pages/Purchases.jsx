@@ -255,6 +255,10 @@ export default function Purchases() {
     setModalOpen(false);
   }
 
+  function handleDelete(id) {
+    setDeleteId(id);
+  }
+
   async function confirmDelete() {
     const id = deleteId;
     if (!id) return;
