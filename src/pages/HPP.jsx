@@ -222,6 +222,23 @@ export default function HPP() {
         };
         await HppReports.update(r.id, updatedReport);
         return updatedReport;
+      } else {
+        // Even if we don't sync everything (HPP is newer than invoice), 
+        // we MUST always keep originalInvoiceQty in sync with current invoice data
+        const currentItemsCopy = [...currentItems];
+        let changedRef = false;
+        invItems.forEach(invIt => {
+          const idx = currentItemsCopy.findIndex(c => c.productId === invIt.productId);
+          if (idx !== -1 && currentItemsCopy[idx].originalInvoiceQty !== invIt.qty) {
+            currentItemsCopy[idx] = { ...currentItemsCopy[idx], originalInvoiceQty: invIt.qty };
+            changedRef = true;
+          }
+        });
+        if (changedRef) {
+          const updated = { ...r, itemCosts: currentItemsCopy };
+          await HppReports.update(r.id, updated);
+          return updated;
+        }
       }
       return r;
     }));
