@@ -6,7 +6,7 @@ import { exportToExcel } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
 import { formatCurrency } from '../utils/formatter';
 
-const emptyItem = { name: '', unit: '', defaultPrice: 0, notes: '' };
+const emptyItem = { name: '', unit: '', defaultPrice: 0, stock: 0, notes: '' };
 
 export default function MaterialItems() {
   const [items, setItems] = useState([]);
@@ -37,6 +37,7 @@ export default function MaterialItems() {
       name: item.name,
       unit: item.unit || '',
       defaultPrice: item.defaultPrice || 0,
+      stock: item.stock || 0,
       notes: item.notes || '',
     });
     setEditingId(item.id);
@@ -47,7 +48,8 @@ export default function MaterialItems() {
     e.preventDefault();
     const payload = { 
       ...form, 
-      defaultPrice: Number(form.defaultPrice) || 0 
+      defaultPrice: Number(form.defaultPrice) || 0,
+      stock: Number(form.stock) || 0
     };
     
     if (editingId) {
@@ -111,6 +113,7 @@ export default function MaterialItems() {
             <tr>
               <th>Nama Bahan</th>
               <th>Satuan Standar</th>
+              <th style={{ textAlign: 'right' }}>Stok</th>
               <th style={{ textAlign: 'right' }}>Harga Standar</th>
               <th>Catatan</th>
               <th></th>
@@ -131,6 +134,7 @@ export default function MaterialItems() {
               <tr key={it.id}>
                 <td><strong>{it.name || '-'}</strong></td>
                 <td><span className="badge" style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>{it.unit || '-'}</span></td>
+                <td className="text-right"><span style={{ fontWeight: 600, color: (it.stock || 0) <= 0 ? 'var(--accent-danger)' : 'inherit' }}>{it.stock || 0}</span></td>
                 <td className="text-right" style={{ color: '#fb923c', fontWeight: 600 }}>{formatCurrency(it.defaultPrice)}</td>
                 <td className="text-muted text-sm">{it.notes || '-'}</td>
                 <td>
@@ -161,6 +165,10 @@ export default function MaterialItems() {
               <div className="form-group">
                 <label className="form-label">Harga Perkiraan (Rp)</label>
                 <input className="form-input" type="number" value={form.defaultPrice} onChange={e => setForm({...form, defaultPrice: e.target.value})} placeholder="0" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Stok Awal</label>
+                <input className="form-input" type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="0" />
               </div>
             </div>
 

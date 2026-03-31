@@ -19,6 +19,7 @@ import SalaryCosts from './pages/SalaryCosts';
 import ProductionNeeds from './pages/ProductionNeeds';
 import Employees from './pages/Employees';
 import MaterialItems from './pages/MaterialItems';
+import Stock from './pages/Stock';
 import { seedDemoData } from './utils/storage';
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/stock" element={<Stock />} />
           <Route path="/products" element={<Products />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/suppliers" element={<Suppliers />} />

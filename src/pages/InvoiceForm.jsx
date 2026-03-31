@@ -502,11 +502,31 @@ export default function InvoiceForm() {
       profit,
     };
 
+    const oldInv = isEdit ? await Invoices.getById(id) : null;
     let savedInvoice;
     if (isEdit) {
       savedInvoice = await Invoices.update(id, data);
     } else {
       savedInvoice = await Invoices.create(data);
+    }
+
+    // Update Stock
+    const stockDiffs = {};
+    if (oldInv && oldInv.items) {
+      oldInv.items.forEach(it => {
+        if (it.productId) stockDiffs[it.productId] = (stockDiffs[it.productId] || 0) + (Number(it.qty) || 0);
+      });
+    }
+    data.items.forEach(it => {
+      if (it.productId) stockDiffs[it.productId] = (stockDiffs[it.productId] || 0) - (Number(it.qty) || 0);
+    });
+
+    for (const pid of Object.keys(stockDiffs)) {
+      if (stockDiffs[pid] === 0) continue;
+      const product = await Products.getById(pid);
+      if (product) {
+        await Products.update(pid, { stock: (product.stock || 0) + stockDiffs[pid] });
+      }
     }
 
     // === Sync with Delivery Note ===

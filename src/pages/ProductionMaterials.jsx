@@ -95,17 +95,36 @@ export default function ProductionMaterialsPage() {
     const pricePerUnit = parseFloat(String(form.pricePerUnit).replace(/\./g, '').replace(',', '.')) || 0;
     const payload = { ...form, qty, pricePerUnit, totalCost: qty * pricePerUnit };
 
+    const oldItem = editingId ? items.find(it => it.id === editingId) : null;
+    
     if (editingId) {
       await Store.update(editingId, payload);
     } else {
       await Store.create(payload);
     }
+
+    // Update Stock
+    if (payload.materialItemId) {
+      const master = await ItemStore.getById(payload.materialItemId);
+      if (master) {
+        let newStock = (master.stock || 0) + payload.qty;
+        if (oldItem) newStock -= oldItem.qty;
+        await ItemStore.update(master.id, { stock: newStock });
+      }
+    }
+
     setModalOpen(false);
     await reload();
   }
 
   async function confirmDelete() {
-    if (!deleteId) return;
+    const oldItem = items.find(it => it.id === deleteId);
+    if (oldItem && oldItem.materialItemId) {
+      const master = await ItemStore.getById(oldItem.materialItemId);
+      if (master) {
+        await ItemStore.update(master.id, { stock: (master.stock || 0) - oldItem.qty });
+      }
+    }
     await Store.delete(deleteId);
     setDeleteId(null);
     await reload();

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiSearch, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiCheck, FiClock, FiDownload, FiTruck, FiSend } from 'react-icons/fi';
-import { Invoices as InvoiceStore, DeliveryNotes as DNStore, TelegramOrders, HppReports } from '../utils/storage';
+import { Invoices as InvoiceStore, DeliveryNotes as DNStore, TelegramOrders, HppReports, Products } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 import { exportInvoicesToExcel } from '../utils/excel';
 import { sendDocument } from '../utils/telegram';
@@ -107,6 +107,19 @@ export default function Invoices() {
       await DNStore.delete(note.id);
     }
     
+    // Rollback Stok Barang sebelum invoice dihapus
+    const inv = invoices.find(i => i.id === deleteId);
+    if (inv && inv.items) {
+      for (const it of inv.items) {
+        if (it.productId) {
+          const product = await Products.getById(it.productId);
+          if (product) {
+            await Products.update(it.productId, { stock: (product.stock || 0) + (Number(it.qty) || 0) });
+          }
+        }
+      }
+    }
+
     await InvoiceStore.delete(deleteId);
     setDeleteId(null);
     await reload();
