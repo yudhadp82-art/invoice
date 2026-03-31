@@ -37,6 +37,7 @@ function emptyItemCost(item, productsList = []) {
     subtotalJual: item.subtotal || 0,
     // biaya modal per item
     hargaModalSatuan: hp || 0,
+    originalInvoiceQty: item.qty || 0, // Simpan kuantitas asli dari invoice
     subItems: isMixVeg(item.productName)
       ? MIX_VEG_DEFAULTS.map(b => ({ ...b }))
       : [],
@@ -178,6 +179,7 @@ export default function HPP() {
                 hargaJual: invIt.unitPrice,
                 subtotalJual: invIt.subtotal,
                 hargaModalSatuan: baseModal,
+                originalInvoiceQty: invIt.qty, // Update data asli jika invoice berubah
                 totalModal:
                   existing.useSubItems && existing.subItems?.length
                     ? existing.subItems.reduce((s, b) => s + Number(b.qty) * Number(b.harga), 0)

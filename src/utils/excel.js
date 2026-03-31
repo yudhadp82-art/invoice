@@ -224,9 +224,9 @@ export function exportHppToExcel(reports) {
             'No. Invoice': i === 0 ? r.invoiceNumber : '',
             'Customer': i === 0 ? r.customerName : '',
             'Produk': item.productName,
-            'Qty Pembelian (HPP)': soldQty, // Menampilkan yang terpakai sesuai permintaan
-            'Qty Item Invoice': soldQty,
-            'Penyusutan': penyusutan, // Selisih dengan total supplier (jika ada)
+            'Qty Pembelian (HPP)': item.qty || 0, // Kuantitas terpakai yang bisa diedit di HPP
+            'Qty Item Invoice': item.originalInvoiceQty || item.qty || 0, // Kuantitas asli dari invoice
+            'Penyusutan': penyusutan, 
             'Harga Satuan Item': modalPerCustomer,
             'Total Pembelian Item': totalPurchasePerInvoice,
             'Harga Invoice': item.hargaJual || 0,
