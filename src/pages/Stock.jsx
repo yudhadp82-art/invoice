@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Products, SupportingMaterialItems, Purchases, Invoices, ProductionMaterials, ProductionNeeds, HppReports } from '../utils/storage';
 import { formatCurrency, formatNumber } from '../utils/formatter';
 import { exportToExcel } from '../utils/excel';
-import { FiPackage, FiSearch, FiAlertTriangle, FiTrendingUp, FiDollarSign, FiDownload, FiArrowRight, FiRefreshCw, FiCheckCircle } from 'react-icons/fi';
+import { FiPackage, FiSearch, FiAlertTriangle, FiTrendingUp, FiDollarSign, FiDownload, FiArrowRight, FiRefreshCw, FiCheckCircle, FiTrash2 } from 'react-icons/fi';
 
 export default function Stock() {
   const [activeTab, setActiveTab] = useState('products');
