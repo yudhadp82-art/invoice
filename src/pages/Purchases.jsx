@@ -37,13 +37,11 @@ export default function Purchases() {
     const invs = await InvoiceStore.getAll();
     const prods = await ProductStore.getAll();
     
-    // Auto-sync linked purchases secretly in case parent invoice was modified
+    // Auto-sync linked purchases (Smart Sync: maintain manual items)
     const updatedPurchases = await Promise.all(ps.map(async p => {
-      // Support legacy invoiceId or new invoiceIds array
       const currentIds = p.invoiceIds || (p.invoiceId ? [p.invoiceId] : []);
       if (currentIds.length === 0) return p;
 
-      // Ambil data-data invoice terkini untuk semua ID
       const linkedInvs = invs.filter(i => currentIds.includes(i.id));
       if (linkedInvs.length === 0) return p;
 
@@ -62,31 +60,38 @@ export default function Purchases() {
       const combinedInvItems = Object.values(combinedInvItemsMap);
       const pItems = p.items || [];
 
-      // Check if items changed (structural or qty)
-      let hasChange = combinedInvItems.length !== pItems.length;
-      if (!hasChange) {
-        for (const it of combinedInvItems) {
-          const pMatch = pItems.find(pi => (pi.productId === it.productId) || (pi.productName === it.productName));
-          if (!pMatch || Number(pMatch.qty) !== Number(it.qty) || pMatch.productName !== it.productName || pMatch.unit !== it.unit) {
+      // ANALISA PERUBAHAN
+      // Kita ingin menyinkronkan item yang ADA di PO, namun TIDAK menghapus item manual.
+      let hasChange = false;
+      const newItems = [...pItems];
+      
+      // 1. Update atau tambah item dari PO
+      combinedInvItems.forEach(it => {
+        const idx = newItems.findIndex(pi => (pi.productId === it.productId) || (pi.productName === it.productName));
+        if (idx !== -1) {
+          // Jika ada, cek apakah qty berbeda
+          if (Number(newItems[idx].qty) !== Number(it.qty)) {
+            newItems[idx] = { ...newItems[idx], qty: it.qty };
             hasChange = true;
-            break;
           }
-        }
-      }
-
-      if (hasChange) {
-        // Prepare new items (preserve existing costPerUnit if product matches)
-        const newItems = combinedInvItems.map(it => {
-          const existing = pItems.find(pi => (pi.productId === it.productId) || (pi.productName === it.productName));
-          return {
+        } else {
+          // Jika tidak ada di pembelian, tambahkan sebagai item PO baru
+          newItems.push({
             productId: it.productId,
             productName: it.productName,
             qty: it.qty,
             unit: it.unit,
-            costPerUnit: existing ? existing.costPerUnit : (it.purchaseCost || 0)
-          };
-        });
+            costPerUnit: it.purchaseCost || 0
+          });
+          hasChange = true;
+        }
+      });
 
+      // (Opsional) Jika Anda ingin Sinkronisasi "Balik": Menghapus item PO yang tadinya ada di pembelian tapi sekarang sudah dihapus dari PO aslinya.
+      // Kita lakukan ini hanya jika item tersebut BUKAN manual (yakni ada productId).
+      // Namun untuk keamanan data user, kita lewati dulu bagian "hapus" ini agar tidak membingungkan.
+
+      if (hasChange) {
         const subtotal = newItems.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0);
         let discountAmount = 0;
         if (p.discountType === 'percent') {
@@ -96,21 +101,26 @@ export default function Purchases() {
         }
         const totalCost = subtotal - discountAmount;
 
-        // reconciliation stock
-        for (const oldI of pItems) {
-          const prod = prods.find(pr => pr.id === oldI.productId);
-          if (prod) prod.stock = (Number(prod.stock) || 0) - (Number(oldI.qty) || 0);
-        }
-        for (const newI of newItems) {
-          const prod = prods.find(pr => pr.id === newI.productId);
+        // reconciliation stock (Aman)
+        const stockDiffs = {}; // productId -> diff
+        pItems.forEach(it => {
+          if (it.productId) stockDiffs[it.productId] = (stockDiffs[it.productId] || 0) - (Number(it.qty) || 0);
+        });
+        newItems.forEach(it => {
+          if (it.productId) stockDiffs[it.productId] = (stockDiffs[it.productId] || 0) + (Number(it.qty) || 0);
+        });
+
+        for (const pid of Object.keys(stockDiffs)) {
+          const diff = stockDiffs[pid];
+          if (diff === 0) continue;
+          const prod = prods.find(pr => pr.id === pid);
           if (prod) {
-            prod.stock = (Number(prod.stock) || 0) + (Number(newI.qty) || 0);
-            await ProductStore.update(prod.id, { stock: prod.stock });
+            prod.stock = (Number(prod.stock) || 0) + diff;
+            await ProductStore.update(pid, { stock: prod.stock });
           }
         }
 
         const updated = { ...p, invoiceIds: currentIds, items: newItems, totalCost };
-        // Clean up legacy invoiceId if it was there
         if (updated.invoiceId) delete updated.invoiceId;
         
         await PurchaseStore.update(p.id, updated);
@@ -297,31 +307,37 @@ export default function Purchases() {
     const totalCost = subtotal - discountAmount;
     
     const itemData = form.items.map(i => ({...i, qty: Number(i.qty) || 0}));
+    const stockDiffs = {}; // productId -> totalDiff (new - old)
 
     if (editingId) {
-      const oldPurchase = purchases.find(p => p.id === editingId);
-      if (oldPurchase && oldPurchase.items) {
-        for (const oldItem of oldPurchase.items) {
-          const product = await ProductStore.getById(oldItem.productId);
-          if (product) {
-            await ProductStore.update(oldItem.productId, {
-              stock: (product.stock || 0) - (Number(oldItem.qty) || 0)
-            });
-          }
-        }
+      const oldP = purchases.find(p => p.id === editingId);
+      if (oldP && oldP.items) {
+        oldP.items.forEach(it => {
+          if (it.productId) stockDiffs[it.productId] = (stockDiffs[it.productId] || 0) - (Number(it.qty) || 0);
+        });
       }
       await PurchaseStore.update(editingId, { ...form, items: itemData, totalCost });
     } else {
       await PurchaseStore.create({ ...form, items: itemData, totalCost });
     }
 
-    for (const item of itemData) {
-      const product = await ProductStore.getById(item.productId);
+    // Tambah kuantitas baru
+    itemData.forEach(it => {
+      if (it.productId) stockDiffs[it.productId] = (stockDiffs[it.productId] || 0) + it.qty;
+    });
+
+    // Update Stok Final (Sekali jalan per produk)
+    for (const pid of Object.keys(stockDiffs)) {
+      const diff = stockDiffs[pid];
+      if (diff === 0) continue;
+      const product = await ProductStore.getById(pid);
       if (product) {
-        await ProductStore.update(item.productId, {
-          stock: (product.stock || 0) + (Number(item.qty) || 0),
-          purchaseCost: item.costPerUnit,
-        });
+        const updatePayload = { stock: (product.stock || 0) + diff };
+        // Update purchaseCost dari nota terakhir (itemData lebih baru daripada oldP)
+        const match = itemData.find(it => it.productId === pid);
+        if (match) updatePayload.purchaseCost = match.costPerUnit;
+        
+        await ProductStore.update(pid, updatePayload);
       }
     }
 
@@ -331,19 +347,20 @@ export default function Purchases() {
 
   async function confirmDelete() {
     if (!deleteId) return;
-    const id = deleteId;
-    const oldPurchase = purchases.find(p => p.id === id);
-    if (oldPurchase && oldPurchase.items) {
-      for (const oldItem of oldPurchase.items) {
-        const product = await ProductStore.getById(oldItem.productId);
+    const oldP = purchases.find(p => p.id === deleteId);
+    if (oldP && oldP.items) {
+      const stockDiffs = {};
+      oldP.items.forEach(it => {
+        if (it.productId) stockDiffs[it.productId] = (stockDiffs[it.productId] || 0) - (Number(it.qty) || 0);
+      });
+      for (const pid of Object.keys(stockDiffs)) {
+        const product = await ProductStore.getById(pid);
         if (product) {
-          await ProductStore.update(oldItem.productId, {
-            stock: (product.stock || 0) - (Number(oldItem.qty) || 0)
-          });
+          await ProductStore.update(pid, { stock: (product.stock || 0) + stockDiffs[pid] });
         }
       }
     }
-    await PurchaseStore.delete(id);
+    await PurchaseStore.delete(deleteId);
     setDeleteId(null);
     await reload();
   }
