@@ -212,23 +212,23 @@ export function exportHppToExcel(reports) {
           });
         } else {
           // Item biasa tanpa subItems
-          const purchasedQty = item.purchasedQty || 0;
-          const soldQty = item.qty || 0;
-          const penyusutan = purchasedQty - soldQty;
+          const purchasedQty = item.purchasedQty || 0; // Total dari supplier
+          const soldQty = item.qty || 0; // Terpakai di invoice
+          const penyusutan = purchasedQty > soldQty ? purchasedQty - soldQty : 0;
           const modalPerCustomer = item.hargaModalSatuan || 0;
-          const totalPurchase = soldQty * modalPerCustomer; // Based on sold qty for margin
-          const margin = (item.qty * item.hargaJual) - totalPurchase;
+          const totalPurchasePerInvoice = soldQty * modalPerCustomer; // Pakai yang terpakai di invoice
+          const margin = (item.qty * item.hargaJual) - totalPurchasePerInvoice;
 
           rows.push({
             'Tanggal': i === 0 && r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID') : '',
             'No. Invoice': i === 0 ? r.invoiceNumber : '',
             'Customer': i === 0 ? r.customerName : '',
             'Produk': item.productName,
-            'Qty Pembelian (HPP)': modalPerCustomer, // As requested: Qty Pembelian = Harga Modal
+            'Qty Pembelian (HPP)': soldQty, // Menampilkan yang terpakai sesuai permintaan
             'Qty Item Invoice': soldQty,
-            'Penyusutan': penyusutan,
-            'Harga Satuan Item': item.hargaModalSatuan || 0,
-            'Total Pembelian Item': totalPurchase,
+            'Penyusutan': penyusutan, // Selisih dengan total supplier (jika ada)
+            'Harga Satuan Item': modalPerCustomer,
+            'Total Pembelian Item': totalPurchasePerInvoice,
             'Harga Invoice': item.hargaJual || 0,
             'Total Margin Pendapatan': margin,
             'Biaya Kirim Bahan': i === 0 ? (r.ongkosKirimBahan || 0) : '',
