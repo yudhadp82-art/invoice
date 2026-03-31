@@ -17,10 +17,10 @@ export default function Pricing() {
   const [catName, setCatName] = useState('');
   const [deleteId, setDeleteId] = useState(null);
 
-  // Pricing Modal State
   const [priceModalOpen, setPriceModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [productPrices, setProductPrices] = useState({});
+  const [productModals, setProductModals] = useState({});
 
   useEffect(() => {
     reload();
@@ -72,6 +72,7 @@ export default function Pricing() {
   function openEditPrices(product) {
     setEditingProduct(product);
     setProductPrices(product.categoryPrices || {});
+    setProductModals(product.categoryModals || {});
     setPriceModalOpen(true);
   }
 
@@ -81,13 +82,23 @@ export default function Pricing() {
     
     // Clean up empty prices
     const cleanPrices = {};
-    Object.entries(productPrices).forEach(([catId, price]) => {
-      if (price !== '' && price !== null && !isNaN(price)) {
-        cleanPrices[catId] = Number(price);
+    Object.entries(productPrices).forEach(([catId, val]) => {
+      if (val !== '' && val !== null && !isNaN(val)) {
+        cleanPrices[catId] = Number(val);
       }
     });
 
-    await ProductStore.update(editingProduct.id, { categoryPrices: cleanPrices });
+    const cleanModals = {};
+    Object.entries(productModals).forEach(([catId, val]) => {
+      if (val !== '' && val !== null && !isNaN(val)) {
+        cleanModals[catId] = Number(val);
+      }
+    });
+
+    await ProductStore.update(editingProduct.id, { 
+      categoryPrices: cleanPrices,
+      categoryModals: cleanModals 
+    });
     setPriceModalOpen(false);
     await reload();
   }
@@ -230,9 +241,17 @@ export default function Pricing() {
                   <td className="text-right" style={{ background: 'rgba(99, 102, 241, 0.02)', fontWeight: 600 }}>{formatCurrency(p.sellPrice)}</td>
                   {categories.map(c => {
                     const price = p.categoryPrices?.[c.id];
+                    const modal = p.categoryModals?.[c.id];
                     return (
-                      <td key={c.id} className="text-right" style={{ color: price ? '#e2e8f0' : '#64748b' }}>
-                        {price ? formatCurrency(price) : <span className="text-muted text-sm">- pakai default -</span>}
+                      <td key={c.id} className="text-right">
+                        <div style={{ color: price ? '#e2e8f0' : '#64748b', fontWeight: 600 }}>
+                          {price ? formatCurrency(price) : <span className="text-muted text-sm">- default -</span>}
+                        </div>
+                        {modal && (
+                          <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: 2 }}>
+                            Modal: {formatCurrency(modal)}
+                          </div>
+                        )}
                       </td>
                     );
                   })}
@@ -273,21 +292,34 @@ export default function Pricing() {
                 <p className="text-sm text-muted mt-sm">Harga utama digunakan jika harga kategori dikosongkan.</p>
               </div>
 
-              <h4 className="mb-sm">Harga Khusus per Kategori</h4>
-              <p className="text-sm text-muted mb-md">Masukkan harga fix untuk setiap kategori (bukan persen markup). Kosongkan untuk mengikuti harga utama.</p>
+              <h4 className="mb-sm">Harga Jual &amp; Modal per Kategori</h4>
+              <p className="text-sm text-muted mb-md">Masukkan harga jual dan modal khusus untuk setiap kategori. Kosongkan untuk mengikuti harga utama/modal utama.</p>
               
-              <div className="form-row">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 15, fontWeight: 'bold', fontSize: 12, marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                <div>Kategori</div>
+                <div className="text-right">Harga Jual (Rp)</div>
+                <div className="text-right">Harga Modal (Rp)</div>
+              </div>
+
+              <div className="flex flex-col gap-sm">
                 {categories.map(c => (
-                  <div className="form-group" key={c.id}>
-                    <label className="form-label">{c.name} (Rp)</label>
+                  <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 15, alignItems: 'center' }}>
+                    <div className="text-sm">{c.name}</div>
                     <input 
                       type="number" 
-                      className="form-input" 
+                      className="form-input text-right" 
                       min="0"
-                      placeholder="Ikut harga utama"
+                      placeholder="Default"
                       value={productPrices[c.id] || ''}
                       onChange={e => setProductPrices({ ...productPrices, [c.id]: e.target.value })}
-                      name={`price_${c.id}`}
+                    />
+                    <input 
+                      type="number" 
+                      className="form-input text-right" 
+                      min="0"
+                      placeholder="Default"
+                      value={productModals[c.id] || ''}
+                      onChange={e => setProductModals({ ...productModals, [c.id]: e.target.value })}
                     />
                   </div>
                 ))}

@@ -215,8 +215,8 @@ export function exportHppToExcel(reports) {
           const purchasedQty = item.purchasedQty || 0;
           const soldQty = item.qty || 0;
           const penyusutan = purchasedQty - soldQty;
-          const unitCost = item.hargaModalSatuan || 0;
-          const totalPurchase = purchasedQty * unitCost;
+          const modalPerCustomer = item.hargaModalSatuan || 0;
+          const totalPurchase = soldQty * modalPerCustomer; // Based on sold qty for margin
           const margin = (item.qty * item.hargaJual) - totalPurchase;
 
           rows.push({
@@ -224,10 +224,10 @@ export function exportHppToExcel(reports) {
             'No. Invoice': i === 0 ? r.invoiceNumber : '',
             'Customer': i === 0 ? r.customerName : '',
             'Produk': item.productName,
-            'Qty Pembelian Bahan': purchasedQty,
+            'Qty Pembelian (HPP)': modalPerCustomer, // As requested: Qty Pembelian = Harga Modal
             'Qty Item Invoice': soldQty,
             'Penyusutan': penyusutan,
-            'Harga Satuan Item': unitCost,
+            'Harga Satuan Item': item.hargaModalSatuan || 0,
             'Total Pembelian Item': totalPurchase,
             'Harga Invoice': item.hargaJual || 0,
             'Total Margin Pendapatan': margin,

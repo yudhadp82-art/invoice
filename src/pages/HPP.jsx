@@ -87,6 +87,7 @@ export default function HPP() {
 
   async function reload() {
     const allInvs = await InvoiceStore.getAll();
+    const allCusts = await Customers.getAll();
     let allReports = await HppReports.getAll();
     const allPurchases = await PurchaseStore.getAll();
     const allProducts = await ProductStore.getAll();
@@ -112,6 +113,8 @@ export default function HPP() {
     allReports = await Promise.all(allReports.map(async r => {
       const parentInv = allInvs.find(i => i.id === r.invoiceId);
       if (!parentInv) return r;
+      const customer = allCusts.find(c => c.id === parentInv.customerId);
+      const categoryId = customer?.priceCategoryId;
 
       const invItems = parentInv.items || [];
       const currentItems = r.itemCosts || [];
@@ -159,34 +162,49 @@ export default function HPP() {
         needsUpdate = true;
         // Sync mapping
         const currentSisa = calculateSisa(r.id);
-        const syncedItemCosts = autoLinkSubItems(invItems.map(invIt => {
-          const existing = currentItems.find(cIt => cIt.productId === invIt.productId);
-          if (existing) {
+        const syncedItemCosts = autoLinkSubItems(
+          invItems.map((invIt) => {
+            const existing = currentItems.find((cIt) => cIt.productId === invIt.productId);
+            const product = allProducts.find((p) => p.id === invIt.productId);
+            const categoryModal = categoryId && product?.categoryModals?.[categoryId];
+
+            if (existing) {
+              const baseModal = categoryModal ?? existing.hargaModalSatuan;
+              return {
+                ...existing,
+                productName: invIt.productName,
+                qty: invIt.qty,
+                unit: invIt.unit,
+                hargaJual: invIt.unitPrice,
+                subtotalJual: invIt.subtotal,
+                hargaModalSatuan: baseModal,
+                totalModal:
+                  existing.useSubItems && existing.subItems?.length
+                    ? existing.subItems.reduce((s, b) => s + Number(b.qty) * Number(b.harga), 0)
+                    : Number(baseModal) * Number(invIt.qty),
+              };
+            }
+
+            const newItem = emptyItemCost(invIt, allProducts);
+            const finalModal = categoryModal ?? newItem.hargaModalSatuan;
             return {
-              ...existing,
-              productName: invIt.productName,
-              qty: invIt.qty,
-              unit: invIt.unit,
-              hargaJual: invIt.unitPrice,
-              subtotalJual: invIt.subtotal,
-              // Update totalModal just in case qty changed
-              totalModal: existing.useSubItems && existing.subItems?.length 
-                          ? existing.subItems.reduce((s,b)=>s+(Number(b.qty)*Number(b.harga)),0)
-                          : Number(existing.hargaModalSatuan) * Number(invIt.qty)
+              ...newItem,
+              hargaModalSatuan: finalModal,
+              totalModal: Number(finalModal || 0) * Number(invIt.qty),
             };
-          }
-          const newItem = emptyItemCost(invIt, allProducts);
-          return {
-            ...newItem,
-            totalModal: Number(newItem.hargaModalSatuan || 0) * Number(invIt.qty)
-          };
-        }), currentSisa);
+          }),
+          currentSisa
+        );
 
         const totalModalBarang = syncedItemCosts.reduce((s, it) => s + (it.totalModal || 0), 0);
-        const totalBiayaInvoice = Number(r.ongkosKirimBahan||0) + Number(r.ongkosPengiriman||0) + Number(r.biayaTenagaKerja||0) + Number(r.biayaLainnya||0);
+        const totalBiayaInvoice =
+          Number(r.ongkosKirimBahan || 0) +
+          Number(r.ongkosPengiriman || 0) +
+          Number(r.biayaTenagaKerja || 0) +
+          Number(r.biayaLainnya || 0);
         const totalHPP = totalModalBarang + totalBiayaInvoice + totalBiayaOperasional;
-        const labaKotor = Number(parentInv.grandTotal||0) - totalHPP;
-        const margin = parentInv.grandTotal > 0 ? ((labaKotor / parentInv.grandTotal) * 100) : 0;
+        const labaKotor = Number(parentInv.grandTotal || 0) - totalHPP;
+        const margin = parentInv.grandTotal > 0 ? (labaKotor / parentInv.grandTotal) * 100 : 0;
 
         const updatedReport = {
           ...r,
