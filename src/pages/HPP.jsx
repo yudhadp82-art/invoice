@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiDollarSign, FiTruck, FiPackage, FiUsers, FiAlertTriangle, FiChevronDown, FiChevronUp, FiDownload, FiPrinter } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore, ProductionNeeds, Customers } from '../utils/storage';
@@ -61,6 +61,124 @@ const emptyForm = {
   catatan: '',
 };
 
+// Komponen internal untuk baris tabel invoice agar tidak terlalu ramai di HPP()
+function ViewModeItem({ r, expandedRow, setExpandedRow, handleExportPdf, openEdit, handleDelete, printingId }) {
+  const labaKotor = Number(r.labaKotor || 0);
+  const margin = Number(r.margin || 0);
+
+  return (
+    <>
+      <tr style={r.rugi ? { background: 'rgba(239,68,68,0.07)', borderLeft: '3px solid #ef4444' } : {}}>
+        <td className="text-muted">{formatDateShort(r.createdAt)}</td>
+        <td>
+          <strong>{r.invoiceNumber}</strong>
+          {r.rugi && <span style={{ marginLeft: 8, color: '#f87171', fontSize: 12 }}><FiAlertTriangle style={{ marginRight: 3 }} />RUGI</span>}
+        </td>
+        <td>{r.customerName}</td>
+        <td className="text-right">{formatCurrency(r.invoiceTotal)}</td>
+        <td className="text-right text-warning">{formatCurrency(r.totalModalBarang)}</td>
+        <td className="text-right">{formatCurrency(r.totalBiayaInvoice)}</td>
+        <td className="text-right" style={{ fontWeight: 700, color: '#f87171' }}>{formatCurrency(r.totalHPP)}</td>
+        <td className="text-right" style={{ fontWeight: 700, color: labaKotor >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(labaKotor)}</td>
+        <td className="text-right">
+          <span style={{ fontWeight: 700, color: margin >= 20 ? '#34d399' : margin >= 10 ? '#fbbf24' : '#f87171' }}>
+            {margin.toFixed(1)}%
+          </span>
+        </td>
+        <td>
+          <button className="btn btn-ghost btn-sm" onClick={() => setExpandedRow(expandedRow === r.id ? null : r.id)}>
+            {expandedRow === r.id ? <FiChevronUp /> : <FiChevronDown />}
+          </button>
+        </td>
+        <td>
+          <div className="table-actions">
+            <button className="btn btn-ghost btn-sm text-info" onClick={() => handleExportPdf(r)} disabled={!!printingId} title="Download PDF"><FiDownload /></button>
+            <button className="btn btn-ghost btn-sm" onClick={() => openEdit(r)}><FiEdit2 /></button>
+            <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(r.id)}><FiTrash2 /></button>
+          </div>
+        </td>
+      </tr>
+      {expandedRow === r.id && (
+        <tr>
+          <td colSpan={11} style={{ padding: '0 24px 16px 40px', background: 'rgba(99,102,241,0.03)' }}>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, marginTop: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rincian Modal per Item</div>
+            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ color: '#64748b', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <th style={{ textAlign: 'left', padding: '4px 8px' }}>Produk</th>
+                  <th style={{ textAlign: 'center', padding: '4px 8px' }}>Qty</th>
+                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Harga Jual/unit</th>
+                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Modal</th>
+                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Subtotal Jual</th>
+                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Laba Item</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(r.itemCosts || []).map((item, idx) => {
+                  const modalItem = Number(item.totalModal || 0);
+                  const itemLaba = Number(item.subtotalJual || 0) - modalItem;
+                  return (
+                    <React.Fragment key={idx}>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <td style={{ padding: '5px 8px', fontWeight: 600 }}>{item.productName}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'center' }}>{item.qty} {item.unit}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(item.hargaJual)}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(modalItem)}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(item.subtotalJual)}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, color: itemLaba >= 0 ? '#34d399' : '#f87171' }}>
+                          {itemLaba < 0 && <FiAlertTriangle style={{ marginRight: 3, fontSize: 10 }} />}
+                          {formatCurrency(itemLaba)}
+                        </td>
+                      </tr>
+                      {item.useSubItems && (item.subItems || []).map((b, si) => (
+                        <tr key={`${idx}-${si}`} style={{ background: 'rgba(255,255,255,0.015)' }}>
+                          <td style={{ padding: '3px 8px 3px 24px', color: '#64748b' }}>↳ {b.nama}</td>
+                          <td style={{ padding: '3px 8px', textAlign: 'center' }}>{b.qty}</td>
+                          <td style={{ padding: '3px 8px', textAlign: 'right' }}>{formatCurrency(b.harga)}</td>
+                          <td style={{ padding: '3px 8px', textAlign: 'right' }}>{formatCurrency(b.qty * b.harga)}</td>
+                          <td colSpan={2}></td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
+                {(r.extraVegetables || []).length > 0 && (
+                   <>
+                     <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                       <td colSpan={6} style={{ padding: '8px 8px 4px 8px', fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sayuran Tambahan (Global)</td>
+                     </tr>
+                     {(r.extraVegetables || []).map((v, vi) => (
+                       <tr key={`extra-${vi}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                         <td style={{ padding: '5px 8px', fontWeight: 600, color: '#fbbf24' }}>+ {v.nama}</td>
+                         <td style={{ padding: '5px 8px', textAlign: 'center' }}>{v.qty}</td>
+                         <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(v.harga)}</td>
+                         <td style={{ padding: '5px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(v.qty * v.harga)}</td>
+                         <td colSpan={2}></td>
+                       </tr>
+                     ))}
+                   </>
+                )}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)', fontWeight: 700 }}>
+                  <td colSpan={3} style={{ padding: '6px 8px', color: '#94a3b8' }}>
+                    Biaya Invoice (kirim: {formatCurrency(r.ongkosKirimBahan)}, delivery: {formatCurrency(r.ongkosPengiriman)}, TK: {formatCurrency(r.biayaTenagaKerja)}, lain: {formatCurrency(r.biayaLainnya)})
+                    {r.totalExtraVeg > 0 && ` + Sayuran Tambahan: ${formatCurrency(r.totalExtraVeg)}`}
+                    {r.totalBiayaOperasional > 0 && ` + Operasional (Shared): ${formatCurrency(r.totalBiayaOperasional)}`}
+                  </td>
+                  <td style={{ padding: '6px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(Number(r.totalBiayaInvoice || 0) + Number(r.totalExtraVeg || 0) + Number(r.totalBiayaOperasional || 0))}</td>
+                  <td style={{ padding: '6px 8px', textAlign: 'right' }}>{formatCurrency(r.invoiceTotal)}</td>
+                  <td style={{ padding: '6px 8px', textAlign: 'right', color: labaKotor >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(labaKotor)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 export default function HPP() {
   const [reports, setReports] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -77,6 +195,7 @@ export default function HPP() {
   const [sisaPurchases, setSisaPurchases] = useState([]); // state baru
   const [openSubIndex, setOpenSubIndex] = useState(null);
   const [subQuery, setSubQuery] = useState('');
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'daily'
 
   const [deleteId, setDeleteId] = useState(null);
 
@@ -633,6 +752,36 @@ export default function HPP() {
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+  // --- REKAP HARIAN LOGIC ---
+  const dailyRecap = (() => {
+    const groups = {};
+    filtered.forEach(r => {
+      const dateKey = r.createdAt ? new Date(r.createdAt).toISOString().split('T')[0] : 'Unknown';
+      if (!groups[dateKey]) {
+        groups[dateKey] = {
+          date: dateKey,
+          count: 0,
+          revenue: 0,
+          modalBarang: 0,
+          biayaInvoice: 0,
+          biayaOperasional: 0,
+          totalHPP: 0,
+          labaKotor: 0,
+          rugiCount: 0
+        };
+      }
+      groups[dateKey].count += 1;
+      groups[dateKey].revenue += Number(r.invoiceTotal || 0);
+      groups[dateKey].modalBarang += Number(r.totalModalBarang || 0);
+      groups[dateKey].biayaInvoice += Number(r.totalBiayaInvoice || 0);
+      groups[dateKey].biayaOperasional += (Number(r.totalBiayaOperasional || 0) + Number(r.totalExtraVeg || 0));
+      groups[dateKey].totalHPP += Number(r.totalHPP || 0);
+      groups[dateKey].labaKotor += Number(r.labaKotor || 0);
+      if (r.rugi) groups[dateKey].rugiCount += 1;
+    });
+    return Object.values(groups).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  })();
+
   const totalRevenue = filtered.reduce((s, r) => s + (r.invoiceTotal || 0), 0);
   const totalHPPAll = filtered.reduce((s, r) => s + (r.totalHPP || 0), 0);
   const totalLaba = filtered.reduce((s, r) => s + (r.labaKotor || 0), 0);
@@ -697,6 +846,34 @@ export default function HPP() {
           <div className="stat-card-label">Rata-rata Margin</div>
         </div>
       </div>
+      
+      {/* View Mode Toggle */}
+      <div className="flex gap-sm mb-md" style={{ background: 'rgba(255,255,255,0.03)', padding: 4, borderRadius: 8, width: 'fit-content' }}>
+        <button 
+          className="btn btn-sm" 
+          onClick={() => setViewMode('list')}
+          style={{ 
+            background: viewMode === 'list' ? 'rgba(129, 140, 248, 0.2)' : 'transparent',
+            color: viewMode === 'list' ? '#818cf8' : '#94a3b8',
+            border: 'none',
+            padding: '6px 16px'
+          }}
+        >
+          <FiPackage style={{ marginRight: 6 }} /> Daftar Invoice
+        </button>
+        <button 
+          className="btn btn-sm" 
+          onClick={() => setViewMode('daily')}
+          style={{ 
+            background: viewMode === 'daily' ? 'rgba(129, 140, 248, 0.2)' : 'transparent',
+            color: viewMode === 'daily' ? '#818cf8' : '#94a3b8',
+            border: 'none',
+            padding: '6px 16px'
+          }}
+        >
+          <FiDollarSign style={{ marginRight: 6 }} /> Rekap Harian
+        </button>
+      </div>
 
       {/* Toolbar */}
       <div className="toolbar">
@@ -714,162 +891,123 @@ export default function HPP() {
 
       {/* Table */}
       <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Tanggal</th>
-              <th>No. Invoice</th>
-              <th>Pelanggan</th>
-              <th style={{ textAlign: 'right' }}>Total Penjualan</th>
-              <th style={{ textAlign: 'right' }}>Modal Barang</th>
-              <th style={{ textAlign: 'right' }}>Biaya Invoice</th>
-              <th style={{ textAlign: 'right' }}>Total HPP</th>
-              <th style={{ textAlign: 'right' }}>Laba Kotor</th>
-              <th style={{ textAlign: 'right' }}>Margin</th>
-              <th>Detail</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
+        {viewMode === 'list' ? (
+          <table className="table">
+            <thead>
               <tr>
-                <td colSpan={11}>
-                  <div className="empty-state">
-                    <div className="empty-state-icon"><FiDollarSign /></div>
-                    <h3>Belum ada laporan HPP</h3>
-                    <p>Klik "Tambah Laporan HPP" untuk memulai</p>
-                  </div>
-                </td>
+                <th>Tanggal</th>
+                <th>No. Invoice</th>
+                <th>Pelanggan</th>
+                <th style={{ textAlign: 'right' }}>Total Penjualan</th>
+                <th style={{ textAlign: 'right' }}>Modal Barang</th>
+                <th style={{ textAlign: 'right' }}>Biaya Invoice</th>
+                <th style={{ textAlign: 'right' }}>Total HPP</th>
+                <th style={{ textAlign: 'right' }}>Laba Kotor</th>
+                <th style={{ textAlign: 'right' }}>Margin</th>
+                <th>Detail</th>
+                <th></th>
               </tr>
-            ) : filtered.map(r => (
-              <>
-                <tr key={r.id} style={r.rugi ? { background: 'rgba(239,68,68,0.07)', borderLeft: '3px solid #ef4444' } : {}}>
-                  <td className="text-muted">{formatDateShort(r.createdAt)}</td>
-                  <td>
-                    <strong>{r.invoiceNumber}</strong>
-                    {r.rugi && <span style={{ marginLeft: 8, color: '#f87171', fontSize: 12 }}><FiAlertTriangle style={{ marginRight: 3 }} />RUGI</span>}
-                  </td>
-                  <td>{r.customerName}</td>
-                  <td className="text-right">{formatCurrency(r.invoiceTotal)}</td>
-                  <td className="text-right text-warning">{formatCurrency(r.totalModalBarang)}</td>
-                  <td className="text-right">{formatCurrency(r.totalBiayaInvoice)}</td>
-                  <td className="text-right" style={{ fontWeight: 700, color: '#f87171' }}>{formatCurrency(r.totalHPP)}</td>
-                  <td className="text-right" style={{ fontWeight: 700, color: r.labaKotor >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(r.labaKotor)}</td>
-                  <td className="text-right">
-                    <span style={{ fontWeight: 700, color: r.margin >= 20 ? '#34d399' : r.margin >= 10 ? '#fbbf24' : '#f87171' }}>
-                      {r.margin?.toFixed(1)}%
-                    </span>
-                  </td>
-                  <td>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setExpandedRow(expandedRow === r.id ? null : r.id)}>
-                      {expandedRow === r.id ? <FiChevronUp /> : <FiChevronDown />}
-                    </button>
-                  </td>
-                  <td>
-                    <div className="table-actions">
-                      <button className="btn btn-ghost btn-sm text-info" onClick={() => handleExportPdf(r)} disabled={!!printingId} title="Download PDF"><FiDownload /></button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(r)}><FiEdit2 /></button>
-                      <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(r.id)}><FiTrash2 /></button>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={11}>
+                    <div className="empty-state">
+                      <div className="empty-state-icon"><FiDollarSign /></div>
+                      <h3>Belum ada laporan HPP</h3>
+                      <p>Klik "Tambah Laporan HPP" untuk memulai</p>
                     </div>
                   </td>
                 </tr>
-                {/* Expanded: rincian per item */}
-                {expandedRow === r.id && (
-                  <tr key={`${r.id}-detail`}>
-                    <td colSpan={11} style={{ padding: '0 24px 16px 40px', background: 'rgba(99,102,241,0.03)' }}>
-                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, marginTop: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rincian Modal per Item</div>
-                      <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ color: '#64748b', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                            <th style={{ textAlign: 'left', padding: '4px 8px' }}>Produk</th>
-                            <th style={{ textAlign: 'center', padding: '4px 8px' }}>Qty</th>
-                            <th style={{ textAlign: 'right', padding: '4px 8px' }}>Harga Jual/unit</th>
-                            <th style={{ textAlign: 'right', padding: '4px 8px' }}>Modal</th>
-                            <th style={{ textAlign: 'right', padding: '4px 8px' }}>Subtotal Jual</th>
-                            <th style={{ textAlign: 'right', padding: '4px 8px' }}>Laba Item</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(r.itemCosts || []).map((item, idx) => {
-                            const labaItem = (item.subtotalJual || 0) - (item.totalModal || 0);
-                            return (
-                              <>
-                                <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                  <td style={{ padding: '5px 8px', fontWeight: 600 }}>{item.productName}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'center' }}>{formatNumber(item.qty)} {item.unit}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(item.hargaJual)}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(item.totalModal)}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(item.subtotalJual)}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, color: labaItem >= 0 ? '#34d399' : '#f87171' }}>
-                                    {labaItem < 0 && <FiAlertTriangle style={{ marginRight: 3, fontSize: 10 }} />}
-                                    {formatCurrency(labaItem)}
-                                  </td>
-                                </tr>
-                                {/* Sub items bahan */}
-                                {item.useSubItems && (item.subItems || []).map((b, si) => (
-                                  <tr key={`${idx}-${si}`} style={{ background: 'rgba(255,255,255,0.015)' }}>
-                                    <td style={{ padding: '3px 8px 3px 24px', color: '#64748b' }}>↳ {b.nama}</td>
-                                    <td style={{ padding: '3px 8px', textAlign: 'center', color: '#64748b' }}>{formatNumber(b.qty)}</td>
-                                    <td style={{ padding: '3px 8px', textAlign: 'right', color: '#64748b' }}>{formatCurrency(b.harga)}</td>
-                                    <td style={{ padding: '3px 8px', textAlign: 'right', color: '#64748b' }}>{formatCurrency(b.qty * b.harga)}</td>
-                                    <td colSpan={2}></td>
-                                  </tr>
-                                ))}
-                               </>
-                             );
-                           })}
-                           {/* Sayuran Tambahan */}
-                           {(r.extraVegetables || []).length > 0 && (
-                             <>
-                               <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                                 <td colSpan={6} style={{ padding: '8px 8px 4px 8px', fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sayuran Tambahan (Global)</td>
-                               </tr>
-                               {(r.extraVegetables || []).map((v, vi) => (
-                                 <tr key={`extra-${vi}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                   <td style={{ padding: '5px 8px', fontWeight: 600, color: '#fbbf24' }}>+ {v.nama}</td>
-                                   <td style={{ padding: '5px 8px', textAlign: 'center' }}>{formatNumber(v.qty)}</td>
-                                   <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(v.harga)}</td>
-                                   <td style={{ padding: '5px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(v.qty * v.harga)}</td>
-                                   <td colSpan={2}></td>
-                                 </tr>
-                               ))}
-                             </>
-                           )}
-                         </tbody>
-                         <tfoot>
-                           <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)', fontWeight: 700 }}>
-                             <td colSpan={3} style={{ padding: '6px 8px', color: '#94a3b8' }}>
-                               Biaya Invoice (kirim: {formatCurrency(r.ongkosKirimBahan)}, delivery: {formatCurrency(r.ongkosPengiriman)}, TK: {formatCurrency(r.biayaTenagaKerja)}, lain: {formatCurrency(r.biayaLainnya)})
-                               {r.totalExtraVeg > 0 && ` + Sayuran Tambahan: ${formatCurrency(r.totalExtraVeg)}`}
-                               {r.totalBiayaOperasional > 0 && ` + Operasional (Shared): ${formatCurrency(r.totalBiayaOperasional)}`}
-                             </td>
-                             <td style={{ padding: '6px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(Number(r.totalBiayaInvoice || 0) + Number(r.totalExtraVeg || 0) + Number(r.totalBiayaOperasional || 0))}</td>
-                             <td style={{ padding: '6px 8px', textAlign: 'right' }}>{formatCurrency(r.invoiceTotal)}</td>
-                             <td style={{ padding: '6px 8px', textAlign: 'right', color: r.labaKotor >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(r.labaKotor)}</td>
-                           </tr>
-                         </tfoot>
-                      </table>
+              ) : filtered.map(r => (
+                <ViewModeItem key={r.id} r={r} expandedRow={expandedRow} setExpandedRow={setExpandedRow} handleExportPdf={handleExportPdf} openEdit={openEdit} handleDelete={handleDelete} printingId={printingId} />
+              ))}
+            </tbody>
+            {filtered.length > 0 && (
+              <tfoot>
+                <tr style={{ background: 'rgba(99,102,241,0.05)', fontWeight: 700 }}>
+                  <td colSpan={3}><strong>TOTAL ({filtered.length} invoice)</strong></td>
+                  <td className="text-right">{formatCurrency(totalRevenue)}</td>
+                  <td className="text-right" style={{ color: '#fbbf24' }}>{formatCurrency(filtered.reduce((s, r) => s + (r.totalModalBarang || 0), 0))}</td>
+                  <td className="text-right">{formatCurrency(filtered.reduce((s, r) => s + (r.totalBiayaInvoice || 0), 0))}</td>
+                  <td className="text-right" style={{ color: '#f87171' }}>{formatCurrency(totalHPPAll)}</td>
+                  <td className="text-right" style={{ color: totalLaba >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(totalLaba)}</td>
+                  <td className="text-right">{avgMargin}%</td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th style={{ textAlign: 'center' }}>Jumlah Invoice</th>
+                <th style={{ textAlign: 'right' }}>Total Penjualan</th>
+                <th style={{ textAlign: 'right' }}>Total HPP</th>
+                <th style={{ textAlign: 'right' }}>Total Laba Kotor</th>
+                <th style={{ textAlign: 'right' }}>Avg. Margin</th>
+                <th style={{ textAlign: 'center' }}>Status Kerugian</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dailyRecap.length === 0 ? (
+                <tr>
+                  <td colSpan={7}>
+                    <div className="empty-state">
+                      <div className="empty-state-icon"><FiDollarSign /></div>
+                      <h3>Data tidak ditemukan</h3>
+                      <p>Sesuaikan filter periode atau pencarian</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : dailyRecap.map((day, dIdx) => {
+                const dayMargin = day.revenue > 0 ? (day.labaKotor / day.revenue) * 100 : 0;
+                return (
+                  <tr key={dIdx}>
+                    <td><strong>{formatDateShort(day.date)}</strong></td>
+                    <td style={{ textAlign: 'center' }}>{day.count}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(day.revenue)}</td>
+                    <td style={{ textAlign: 'right', color: '#f87171' }}>{formatCurrency(day.totalHPP)}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: day.labaKotor >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(day.labaKotor)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <span style={{ fontWeight: 700, color: dayMargin >= 20 ? '#34d399' : dayMargin >= 10 ? '#fbbf24' : '#f87171' }}>
+                        {dayMargin.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      {day.rugiCount > 0 ? (
+                        <span className="badge badge-danger">
+                          <FiAlertTriangle style={{ marginRight: 4 }} /> {day.rugiCount} Rugi
+                        </span>
+                      ) : (
+                        <span className="badge badge-success">Aman</span>
+                      )}
                     </td>
                   </tr>
-                )}
-              </>
-            ))}
-          </tbody>
-          {filtered.length > 0 && (
-            <tfoot>
-              <tr style={{ background: 'rgba(99,102,241,0.05)', fontWeight: 700 }}>
-                <td colSpan={3}><strong>TOTAL ({filtered.length} invoice)</strong></td>
-                <td className="text-right">{formatCurrency(totalRevenue)}</td>
-                <td className="text-right" style={{ color: '#fbbf24' }}>{formatCurrency(filtered.reduce((s, r) => s + (r.totalModalBarang || 0), 0))}</td>
-                <td className="text-right">{formatCurrency(filtered.reduce((s, r) => s + (r.totalBiayaInvoice || 0), 0))}</td>
-                <td className="text-right" style={{ color: '#f87171' }}>{formatCurrency(totalHPPAll)}</td>
-                <td className="text-right" style={{ color: totalLaba >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(totalLaba)}</td>
-                <td className="text-right">{avgMargin}%</td>
-                <td colSpan={2}></td>
-              </tr>
-            </tfoot>
-          )}
-        </table>
+                );
+              })}
+            </tbody>
+            {dailyRecap.length > 0 && (
+              <tfoot>
+                <tr style={{ background: 'rgba(99,102,241,0.05)', fontWeight: 700 }}>
+                  <td><strong>TOTAL ({dailyRecap.length} Hari)</strong></td>
+                  <td style={{ textAlign: 'center' }}>{filtered.length} Inv</td>
+                  <td className="text-right">{formatCurrency(totalRevenue)}</td>
+                  <td className="text-right" style={{ color: '#f87171' }}>{formatCurrency(totalHPPAll)}</td>
+                  <td className="text-right" style={{ color: totalLaba >= 0 ? '#34d399' : '#f87171' }}>{formatCurrency(totalLaba)}</td>
+                  <td className="text-right">{avgMargin}%</td>
+                  <td style={{ textAlign: 'center' }}>
+                    {jumlahRugi > 0 ? (
+                      <span style={{ color: '#f87171' }}>{jumlahRugi} Total Rugi</span>
+                    ) : 'Semua Aman'}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        )}
       </div>
 
       {/* Modal Form */}
