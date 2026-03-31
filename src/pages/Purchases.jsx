@@ -37,101 +37,9 @@ export default function Purchases() {
     const invs = await InvoiceStore.getAll();
     const prods = await ProductStore.getAll();
     
-    // Auto-sync linked purchases (Smart Sync: maintain manual items)
-    const updatedPurchases = await Promise.all(ps.map(async p => {
-      const currentIds = p.invoiceIds || (p.invoiceId ? [p.invoiceId] : []);
-      if (currentIds.length === 0) return p;
-
-      const linkedInvs = invs.filter(i => currentIds.includes(i.id));
-      if (linkedInvs.length === 0) return p;
-
-      // Gabungkan semua item dari invoice-invoice terpilih
-      const combinedInvItemsMap = {};
-      linkedInvs.forEach(inv => {
-        (inv.items || []).forEach(it => {
-          const key = it.productId || it.productName;
-          if (combinedInvItemsMap[key]) {
-            combinedInvItemsMap[key].qty = Number(combinedInvItemsMap[key].qty) + Number(it.qty);
-          } else {
-            combinedInvItemsMap[key] = { ...it };
-          }
-        });
-      });
-      const combinedInvItems = Object.values(combinedInvItemsMap);
-      const pItems = p.items || [];
-
-      // ANALISA PERUBAHAN
-      // Kita ingin menyinkronkan item yang ADA di PO, namun TIDAK menghapus item manual.
-      let hasChange = false;
-      const newItems = [...pItems];
-      
-      // 1. Update atau tambah item dari PO
-      combinedInvItems.forEach(it => {
-        const idx = newItems.findIndex(pi => (pi.productId === it.productId) || (pi.productName === it.productName));
-        if (idx !== -1) {
-          // Jika ada, cek apakah qty berbeda
-          if (Number(newItems[idx].qty) !== Number(it.qty)) {
-            newItems[idx] = { ...newItems[idx], qty: it.qty };
-            hasChange = true;
-          }
-        } else {
-          // Jika tidak ada di pembelian, tambahkan sebagai item PO baru
-          newItems.push({
-            productId: it.productId,
-            productName: it.productName,
-            qty: it.qty,
-            unit: it.unit,
-            costPerUnit: it.purchaseCost || 0
-          });
-          hasChange = true;
-        }
-      });
-
-      // (Opsional) Jika Anda ingin Sinkronisasi "Balik": Menghapus item PO yang tadinya ada di pembelian tapi sekarang sudah dihapus dari PO aslinya.
-      // Kita lakukan ini hanya jika item tersebut BUKAN manual (yakni ada productId).
-      // Namun untuk keamanan data user, kita lewati dulu bagian "hapus" ini agar tidak membingungkan.
-
-      if (hasChange) {
-        const subtotal = newItems.reduce((sum, item) => sum + (item.costPerUnit * (Number(item.qty) || 0)), 0);
-        let discountAmount = 0;
-        if (p.discountType === 'percent') {
-          discountAmount = (subtotal * (Number(p.discountValue) || 0)) / 100;
-        } else {
-          discountAmount = Number(p.discountValue) || 0;
-        }
-        const totalCost = subtotal - discountAmount;
-
-        // reconciliation stock (Aman)
-        const stockDiffs = {}; // productId -> diff
-        pItems.forEach(it => {
-          if (it.productId) stockDiffs[it.productId] = (stockDiffs[it.productId] || 0) - (Number(it.qty) || 0);
-        });
-        newItems.forEach(it => {
-          if (it.productId) stockDiffs[it.productId] = (stockDiffs[it.productId] || 0) + (Number(it.qty) || 0);
-        });
-
-        for (const pid of Object.keys(stockDiffs)) {
-          const diff = stockDiffs[pid];
-          if (diff === 0) continue;
-          const prod = prods.find(pr => pr.id === pid);
-          if (prod) {
-            prod.stock = (Number(prod.stock) || 0) + diff;
-            await ProductStore.update(pid, { stock: prod.stock });
-          }
-        }
-
-        const updated = { ...p, invoiceIds: currentIds, items: newItems, totalCost };
-        if (updated.invoiceId) delete updated.invoiceId;
-        
-        await PurchaseStore.update(p.id, updated);
-        return updated;
-      }
-      return p;
-    }));
-
     setInvoices(invs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
     setProducts(prods);
-    setPurchases(updatedPurchases);
+    setPurchases(ps);
   }
 
   function getCustomerNames(p) {
@@ -342,7 +250,6 @@ export default function Purchases() {
     }
 
     setModalOpen(false);
-    await reload();
   }
 
   async function confirmDelete() {
@@ -362,7 +269,6 @@ export default function Purchases() {
     }
     await PurchaseStore.delete(deleteId);
     setDeleteId(null);
-    await reload();
   }
 
   return (
