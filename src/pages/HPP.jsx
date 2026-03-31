@@ -158,7 +158,8 @@ export default function HPP() {
       if (hasChange) {
         needsUpdate = true;
         // Sync mapping
-        const syncedItemCosts = invItems.map(invIt => {
+        const currentSisa = calculateSisa(r.id);
+        const syncedItemCosts = autoLinkSubItems(invItems.map(invIt => {
           const existing = currentItems.find(cIt => cIt.productId === invIt.productId);
           if (existing) {
             return {
@@ -179,7 +180,7 @@ export default function HPP() {
             ...newItem,
             totalModal: Number(newItem.hargaModalSatuan || 0) * Number(invIt.qty)
           };
-        });
+        }), currentSisa);
 
         const totalModalBarang = syncedItemCosts.reduce((s, it) => s + (it.totalModal || 0), 0);
         const totalBiayaInvoice = Number(r.ongkosKirimBahan||0) + Number(r.ongkosPengiriman||0) + Number(r.biayaTenagaKerja||0) + Number(r.biayaLainnya||0);
@@ -247,7 +248,7 @@ export default function HPP() {
     });
   }
 
-  const autoLinkSubItems = (itemsList, currentSisa) => {
+  function autoLinkSubItems(itemsList, currentSisa) {
     return itemsList.map(item => {
       let updatedItem = { ...item };
       
@@ -302,9 +303,9 @@ export default function HPP() {
       });
       return { ...item, subItems };
     });
-  };
+  }
 
-  const autoLinkExtraVeg = (extraVegs, currentSisa) => {
+  function autoLinkExtraVeg(extraVegs, currentSisa) {
     return extraVegs.map(v => {
       if (v.purchaseId) {
         const match = currentSisa.find(p => p.purchaseId === v.purchaseId && (p.productName || '').toLowerCase() === (v.nama || '').toLowerCase());
@@ -332,7 +333,7 @@ export default function HPP() {
       }
       return v;
     });
-  };
+  }
 
   async function handleExportPdf(r) {
     if (!r) return;

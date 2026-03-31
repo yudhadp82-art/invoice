@@ -154,55 +154,126 @@ export function exportHppToExcel(reports) {
   reports.forEach(r => {
     const items = r.itemCosts || [];
     if (items.length === 0) {
-      // Baris kosong jika tidak ada item
       rows.push({
         'Tanggal': r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID') : '',
         'No. Invoice': r.invoiceNumber,
         'Customer': r.customerName,
         'Produk': '-',
-        'Qty': 0,
-        'Satuan': '',
-        'Harga Jual/Unit': 0,
-        'Total Jual': 0,
-        'Modal/Unit': 0,
-        'Total Modal': 0,
-        'Laba Item': 0,
+        'Qty Pembelian Bahan': 0,
+        'Qty Item Invoice': 0,
+        'Penyusutan': 0,
+        'Harga Satuan Item': 0,
+        'Total Pembelian Item': 0,
+        'Harga Invoice': 0,
+        'Total Margin Pendapatan': 0,
         'Biaya Kirim Bahan': r.ongkosKirimBahan || 0,
         'Biaya Pengiriman': r.ongkosPengiriman || 0,
         'Biaya TK': r.biayaTenagaKerja || 0,
         'Biaya Lain': r.biayaLainnya || 0,
+        'Biaya Operasional': r.totalBiayaOperasional || 0,
         'Total HPP': r.totalHPP || 0,
         'Total Penjualan': r.invoiceTotal || 0,
         'Laba Kotor': r.labaKotor || 0,
       });
     } else {
       items.forEach((item, i) => {
-        const labaItem = (item.subtotalJual || 0) - (item.totalModal || 0);
+        // Jika ada subItems (Mix Veg), kita export rincian bahannya
+        if (item.useSubItems && item.subItems?.length > 0) {
+          item.subItems.forEach((b, si) => {
+            const purchasedQty = b.purchasedQty || 0;
+            const soldQty = b.qty || 0;
+            const penyusutan = purchasedQty - soldQty;
+            const unitCost = b.harga || 0;
+            const totalPurchase = purchasedQty * unitCost;
+            
+            // Untuk baris bahan, Harga Invoice dan Margin mungkin kurang relevan
+            // Tapi kita isi Harga Invoice di baris pertama saja untuk konteks
+            rows.push({
+              'Tanggal': (i === 0 && si === 0) && r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID') : '',
+              'No. Invoice': (i === 0 && si === 0) ? r.invoiceNumber : '',
+              'Customer': (i === 0 && si === 0) ? r.customerName : '',
+              'Produk': `${item.productName} (Bahan: ${b.nama})`,
+              'Qty Pembelian Bahan': purchasedQty,
+              'Qty Item Invoice': soldQty,
+              'Penyusutan': penyusutan,
+              'Harga Satuan Item': unitCost,
+              'Total Pembelian Item': totalPurchase,
+              'Harga Invoice': si === 0 ? (item.hargaJual || 0) : 0,
+              'Total Margin Pendapatan': si === 0 ? ((item.qty * item.hargaJual) - item.totalModal) : 0,
+              'Biaya Kirim Bahan': (i === 0 && si === 0) ? (r.ongkosKirimBahan || 0) : '',
+              'Biaya Pengiriman': (i === 0 && si === 0) ? (r.ongkosPengiriman || 0) : '',
+              'Biaya TK': (i === 0 && si === 0) ? (r.biayaTenagaKerja || 0) : '',
+              'Biaya Lain': (i === 0 && si === 0) ? (r.biayaLainnya || 0) : '',
+              'Biaya Operasional': (i === 0 && si === 0) ? (r.totalBiayaOperasional || 0) : '',
+              'Total HPP': (i === 0 && si === 0) ? (r.totalHPP || 0) : '',
+              'Total Penjualan': (i === 0 && si === 0) ? (r.invoiceTotal || 0) : '',
+              'Laba Kotor': (i === 0 && si === 0) ? (r.labaKotor || 0) : '',
+            });
+          });
+        } else {
+          // Item biasa tanpa subItems
+          const purchasedQty = item.purchasedQty || 0;
+          const soldQty = item.qty || 0;
+          const penyusutan = purchasedQty - soldQty;
+          const unitCost = item.hargaModalSatuan || 0;
+          const totalPurchase = purchasedQty * unitCost;
+          const margin = (item.qty * item.hargaJual) - totalPurchase;
+
+          rows.push({
+            'Tanggal': i === 0 && r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID') : '',
+            'No. Invoice': i === 0 ? r.invoiceNumber : '',
+            'Customer': i === 0 ? r.customerName : '',
+            'Produk': item.productName,
+            'Qty Pembelian Bahan': purchasedQty,
+            'Qty Item Invoice': soldQty,
+            'Penyusutan': penyusutan,
+            'Harga Satuan Item': unitCost,
+            'Total Pembelian Item': totalPurchase,
+            'Harga Invoice': item.hargaJual || 0,
+            'Total Margin Pendapatan': margin,
+            'Biaya Kirim Bahan': i === 0 ? (r.ongkosKirimBahan || 0) : '',
+            'Biaya Pengiriman': i === 0 ? (r.ongkosPengiriman || 0) : '',
+            'Biaya TK': i === 0 ? (r.biayaTenagaKerja || 0) : '',
+            'Biaya Lain': i === 0 ? (r.biayaLainnya || 0) : '',
+            'Biaya Operasional': i === 0 ? (r.totalBiayaOperasional || 0) : '',
+            'Total HPP': i === 0 ? (r.totalHPP || 0) : '',
+            'Total Penjualan': i === 0 ? (r.invoiceTotal || 0) : '',
+            'Laba Kotor': i === 0 ? (r.labaKotor || 0) : '',
+          });
+        }
+      });
+
+      // Tambahkan rincian sayuran tambahan jika ada
+      (r.extraVegetables || []).forEach(v => {
+        const purchasedQty = v.purchasedQty || 0;
+        const usedQty = v.qty || 0;
+        const penyusutan = purchasedQty - usedQty;
         rows.push({
-          'Tanggal': i === 0 && r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID') : '',
-          'No. Invoice': i === 0 ? r.invoiceNumber : '',
-          'Customer': i === 0 ? r.customerName : '',
-          'Produk': item.productName,
-          'Qty': item.qty,
-          'Satuan': item.unit || '',
-          'Harga Jual/Unit': item.hargaJual || 0,
-          'Total Jual': item.subtotalJual || 0,
-          'Modal/Unit': (item.totalModal || 0) / (item.qty || 1),
-          'Total Modal': item.totalModal || 0,
-          'Laba Item': labaItem,
-          'Biaya Kirim Bahan': i === 0 ? (r.ongkosKirimBahan || 0) : '',
-          'Biaya Pengiriman': i === 0 ? (r.ongkosPengiriman || 0) : '',
-          'Biaya TK': i === 0 ? (r.biayaTenagaKerja || 0) : '',
-          'Biaya Lain': i === 0 ? (r.biayaLainnya || 0) : '',
-          'Total HPP': i === 0 ? (r.totalHPP || 0) : '',
-          'Total Penjualan': i === 0 ? (r.invoiceTotal || 0) : '',
-          'Laba Kotor': i === 0 ? (r.labaKotor || 0) : '',
+          'Tanggal': '',
+          'No. Invoice': '',
+          'Customer': '',
+          'Produk': `Extra: ${v.nama}`,
+          'Qty Pembelian Bahan': purchasedQty,
+          'Qty Item Invoice': usedQty,
+          'Penyusutan': penyusutan,
+          'Harga Satuan Item': v.harga || 0,
+          'Total Pembelian Item': purchasedQty * (v.harga || 0),
+          'Harga Invoice': 0,
+          'Total Margin Pendapatan': -(purchasedQty * (v.harga || 0)), // Biaya murni
+          'Biaya Kirim Bahan': '',
+          'Biaya Pengiriman': '',
+          'Biaya TK': '',
+          'Biaya Lain': '',
+          'Biaya Operasional': '',
+          'Total HPP': '',
+          'Total Penjualan': '',
+          'Laba Kotor': '',
         });
       });
     }
   });
 
-  exportToExcel(rows, 'laporan_hpp_rincian_export', 'Rincian HPP');
+  exportToExcel(rows, 'laporan_hpp_lengkap_export', 'Rincian HPP');
 }
 
 /**
