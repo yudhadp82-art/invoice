@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiDollarSign, FiTruck, FiPackage, FiUsers, FiAlertTriangle, FiChevronDown, FiChevronUp, FiDownload, FiPrinter } from 'react-icons/fi';
 import Modal from '../components/Modal';
-import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore, ProductionNeeds } from '../utils/storage';
+import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore, ProductionNeeds, Customers } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumber, formatNumberInput } from '../utils/formatter';
 import { exportHppToExcel } from '../utils/excel';
 import { jsPDF } from 'jspdf';
@@ -161,7 +161,7 @@ export default function HPP() {
       if (hasChange) {
         needsUpdate = true;
         // Sync mapping
-        const currentSisa = calculateSisa(r.id);
+        const currentSisa = calculateSisa(r.id, allReports);
         const syncedItemCosts = autoLinkSubItems(
           invItems.map((invIt) => {
             const existing = currentItems.find((cIt) => cIt.productId === invIt.productId);
@@ -229,9 +229,9 @@ export default function HPP() {
   }
 
   // Hitung sisa qty pembelian dengan mengabaikan HPP yang sedang diedit (excludeId)
-  function calculateSisa(excludeId) {
+  function calculateSisa(excludeId, reportsList = reports) {
     const usedMap = {};
-    reports.forEach(r => {
+    reportsList.forEach(r => {
       if (excludeId && r.id === excludeId) return;
       (r.itemCosts || []).forEach(item => {
         if (item.useSubItems) {
