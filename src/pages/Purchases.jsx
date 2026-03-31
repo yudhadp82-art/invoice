@@ -507,7 +507,7 @@ export default function Purchases() {
         }
       `}</style>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? "Edit Pembelian" : "Catat Pembelian"} size="lg">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? "Edit Pembelian" : "Catat Pembelian"} size="lg" persistent={true}>
         <form onSubmit={handleSave}>
           <div className="modal-body" style={{ position: 'relative' }}>
             {openIndex !== null && (

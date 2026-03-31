@@ -18,6 +18,7 @@ export default function ConfirmModal({
       onClose={onClose} 
       title={title} 
       size="sm"
+      persistent={true}
     >
       <div className="modal-body text-center" style={{ padding: '24px 16px' }}>
         <div style={{ 
