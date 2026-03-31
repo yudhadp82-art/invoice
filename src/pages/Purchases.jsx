@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { FiPlus, FiSearch, FiShoppingCart, FiTrash2, FiDownload, FiEdit2, FiFolder, FiGrid } from 'react-icons/fi';
+import { useState, useEffect, useRef } from 'react';
+import { FiPlus, FiSearch, FiShoppingCart, FiTrash2, FiDownload, FiEdit2, FiFolder, FiGrid, FiChevronDown } from 'react-icons/fi';
 import Modal from '../components/Modal';
-import { Purchases as PurchaseStore, Products as ProductStore, Invoices as InvoiceStore } from '../utils/storage';
+import { Purchases as PurchaseStore, Products as ProductStore, Invoices as InvoiceStore, Suppliers as SupplierStore } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumber, formatNumberInput } from '../utils/formatter';
 import { exportPurchasesToExcel } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
@@ -10,6 +10,7 @@ export default function Purchases() {
   const [purchases, setPurchases] = useState([]);
   const [products, setProducts] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('All');
   const [modalOpen, setModalOpen] = useState(false);
@@ -36,10 +37,12 @@ export default function Purchases() {
     const ps = await PurchaseStore.getAll();
     const invs = await InvoiceStore.getAll();
     const prods = await ProductStore.getAll();
+    const sups = await SupplierStore.getAll();
     
     setInvoices(invs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
     setProducts(prods);
     setPurchases(ps);
+    setSuppliers(sups);
   }
 
   function getCustomerNames(p) {
@@ -544,7 +547,58 @@ export default function Purchases() {
 
             <div className="form-group">
               <label className="form-label">Nama Supplier</label>
-              <input name="supplier_4" className="form-input" value={form.supplier} onChange={e => setForm({...form, supplier: e.target.value})} placeholder="Nama supplier/toko" />
+              <div style={{ position: 'relative' }}>
+                <input 
+                  name="supplier_4" 
+                  className="form-input" 
+                  value={form.supplier} 
+                  onChange={e => {
+                    setForm({...form, supplier: e.target.value});
+                    setSearchQuery(e.target.value);
+                    setOpenIndex('supplier');
+                  }} 
+                  onFocus={() => {
+                    setOpenIndex('supplier');
+                    setSearchQuery(form.supplier || '');
+                  }}
+                  placeholder="Ketik nama supplier..." 
+                />
+                {openIndex === 'supplier' && (
+                  <div className="dropdown-panel" style={{ 
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, 
+                    background: '#1e293b', border: '1px solid #334155', borderRadius: 8, 
+                    maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', 
+                    marginTop: 4 
+                  }}>
+                    {suppliers
+                      .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || (s.company || '').toLowerCase().includes(searchQuery.toLowerCase()))
+                      .map(s => (
+                        <div
+                          key={s.id}
+                          className="dropdown-item"
+                          style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                          onClick={() => {
+                            setForm({...form, supplier: s.name});
+                            setOpenIndex(null);
+                            setSearchQuery('');
+                          }}
+                        >
+                          <div style={{ fontWeight: 600 }}>{s.name}</div>
+                          {s.company && <div style={{ fontSize: 11, color: '#94a3b8' }}>{s.company}</div>}
+                        </div>
+                      ))}
+                    {searchQuery && !suppliers.some(s => s.name.toLowerCase() === searchQuery.toLowerCase()) && (
+                      <div 
+                        className="dropdown-item" 
+                        style={{ padding: '8px 12px', cursor: 'pointer', color: '#818cf8', fontSize: 13, borderTop: '1px dashed #334155' }}
+                        onClick={() => setOpenIndex(null)}
+                      >
+                        Gunakan nama "{searchQuery}"
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex-between mb-md mt-lg">

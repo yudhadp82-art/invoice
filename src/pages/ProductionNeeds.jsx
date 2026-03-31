@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiTool, FiFileText } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
-import { ProductionNeeds as Store, Invoices } from '../utils/storage';
+import { ProductionNeeds as Store, Invoices, SupportingMaterialItems } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 
 const CATEGORY_OPTIONS = [
@@ -94,9 +94,24 @@ export default function ProductionNeedsPage() {
     const pricePerUnit = parseFloat(String(form.pricePerUnit).replace(/\./g, '').replace(',', '.')) || 0;
     const payload = { ...form, qty, pricePerUnit, totalCost: qty * pricePerUnit };
 
+    // Stock Sync
+    const allMats = await SupportingMaterialItems.getAll();
+    const match = allMats.find(m => (m.name || '').toLowerCase() === (form.itemName || '').toLowerCase());
+    
     if (editingId) {
+      const oldItem = items.find(it => it.id === editingId);
+      if (oldItem && match) {
+        const oldQty = Number(oldItem.qty) || 0;
+        const diff = oldQty - qty; // restore old, subtract new
+        if (diff !== 0) {
+          await SupportingMaterialItems.update(match.id, { stock: (match.stock || 0) + diff });
+        }
+      }
       await Store.update(editingId, payload);
     } else {
+      if (match) {
+        await SupportingMaterialItems.update(match.id, { stock: (match.stock || 0) - qty });
+      }
       await Store.create(payload);
     }
     setModalOpen(false);
@@ -105,6 +120,17 @@ export default function ProductionNeedsPage() {
 
   async function confirmDelete() {
     if (!deleteId) return;
+    
+    // Restore Stock
+    const oldItem = items.find(it => it.id === deleteId);
+    if (oldItem) {
+      const allMats = await SupportingMaterialItems.getAll();
+      const match = allMats.find(m => (m.name || '').toLowerCase() === (oldItem.itemName || '').toLowerCase());
+      if (match) {
+        await SupportingMaterialItems.update(match.id, { stock: (match.stock || 0) + (Number(oldItem.qty) || 0) });
+      }
+    }
+
     await Store.delete(deleteId);
     setDeleteId(null);
     await reload();

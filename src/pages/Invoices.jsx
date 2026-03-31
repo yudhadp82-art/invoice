@@ -107,7 +107,7 @@ export default function Invoices() {
       await DNStore.delete(note.id);
     }
     
-    // Rollback Stok Barang sebelum invoice dihapus
+    // Rollback Stok sebelum invoice dihapus
     const inv = invoices.find(i => i.id === deleteId);
     if (inv && inv.items) {
       for (const it of inv.items) {

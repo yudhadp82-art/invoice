@@ -769,11 +769,71 @@ export default function HPP() {
       rugi: labaKotor < 0,
     };
 
+    // 1. Calculate Stock Diffs for Ingredients (Products)
+    const stockDiffs = {};
+    const oldHpp = editId ? reports.find(r => r.id === editId) : null;
+
+    // Restore old stock if editing
+    if (oldHpp) {
+      const restoreStock = (items) => {
+        (items || []).forEach(it => {
+          if (it.useSubItems) {
+            (it.subItems || []).forEach(sub => {
+              const pid = sub.productId || allProds.find(p => (p.name || '').toLowerCase() === (sub.nama || '').toLowerCase())?.id;
+              if (pid) stockDiffs[pid] = (stockDiffs[pid] || 0) + (Number(sub.qty) || 0);
+            });
+          } else {
+            const pid = it.productId;
+            if (pid) stockDiffs[pid] = (stockDiffs[pid] || 0) + 0; // Usage based on modal, but wait...
+            // Actually, usually it's the sub-items or extra vegetables that are the raw materials.
+            // If it's a direct item cost (not mix veg), it's the finished product itself (HPP calculation).
+            // Usually we don't reduce stock for the finished product here because InvoiceForm already does it.
+            // We reduce stock for the INGREDIENTS used to make the finished product.
+          }
+        });
+        (oldHpp.extraVegetables || []).forEach(ex => {
+          const pid = ex.productId || allProds.find(p => (p.name || '').toLowerCase() === (ex.nama || '').toLowerCase())?.id;
+          if (pid) stockDiffs[pid] = (stockDiffs[pid] || 0) + (Number(ex.qty) || 0);
+        });
+      };
+      const allProds = await ProductStore.getAll();
+      restoreStock(oldHpp.itemCosts);
+    }
+
+    // Subtract new stock
+    const subtractStock = (items) => {
+      (items || []).forEach(it => {
+        if (it.useSubItems) {
+          (it.subItems || []).forEach(sub => {
+            const pid = sub.productId || allProds.find(p => (p.name || '').toLowerCase() === (sub.nama || '').toLowerCase())?.id;
+            if (pid) stockDiffs[pid] = (stockDiffs[pid] || 0) - (Number(sub.qty) || 0);
+          });
+        }
+      });
+      (data.extraVegetables || []).forEach(ex => {
+        const pid = ex.productId || allProds.find(p => (p.name || '').toLowerCase() === (ex.nama || '').toLowerCase())?.id;
+        if (pid) stockDiffs[pid] = (stockDiffs[pid] || 0) - (Number(ex.qty) || 0);
+      });
+    };
+    const allProds = await ProductStore.getAll();
+    subtractStock(data.itemCosts);
+
+    // Save To Store
     if (editId) {
       await HppReports.update(editId, data);
     } else {
       await HppReports.create(data);
     }
+
+    // Apply Stock Changes to DB
+    for (const pid of Object.keys(stockDiffs)) {
+      if (stockDiffs[pid] === 0) continue;
+      const product = await ProductStore.getById(pid);
+      if (product) {
+        await ProductStore.update(pid, { stock: (product.stock || 0) + stockDiffs[pid] });
+      }
+    }
+
     setModalOpen(false);
     await reload();
   }
@@ -784,6 +844,37 @@ export default function HPP() {
 
   async function confirmDelete() {
     if (!deleteId) return;
+    const oldHpp = reports.find(r => r.id === deleteId);
+    if (oldHpp) {
+      const stockDiffs = {};
+      const allProds = await ProductStore.getAll();
+      
+      const restoreStock = (items) => {
+        (items || []).forEach(it => {
+          if (it.useSubItems) {
+            (it.subItems || []).forEach(sub => {
+              const pid = sub.productId || allProds.find(p => (p.name || '').toLowerCase() === (sub.nama || '').toLowerCase())?.id;
+              if (pid) stockDiffs[pid] = (stockDiffs[pid] || 0) + (Number(sub.qty) || 0);
+            });
+          }
+        });
+        (oldHpp.extraVegetables || []).forEach(ex => {
+          const pid = ex.productId || allProds.find(p => (p.name || '').toLowerCase() === (ex.nama || '').toLowerCase())?.id;
+          if (pid) stockDiffs[pid] = (stockDiffs[pid] || 0) + (Number(ex.qty) || 0);
+        });
+      };
+      
+      restoreStock(oldHpp.itemCosts);
+      
+      for (const pid of Object.keys(stockDiffs)) {
+        if (stockDiffs[pid] === 0) continue;
+        const product = await ProductStore.getById(pid);
+        if (product) {
+          await ProductStore.update(pid, { stock: (product.stock || 0) + stockDiffs[pid] });
+        }
+      }
+    }
+
     await HppReports.delete(deleteId);
     setDeleteId(null);
     await reload();

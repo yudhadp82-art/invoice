@@ -9,7 +9,7 @@ import { addMutationListener, removeMutationListener, executeUndo } from '../uti
 const navItems = [
   { section: 'Menu Utama' },
   { path: '/dashboard', label: 'Dashboard', icon: FiHome },
-  { path: '/stock', label: 'Stok Barang', icon: FiPackage },
+  { path: '/stock', label: 'Daftar Stock', icon: FiPackage },
   { path: '/products', label: 'Produk', icon: FiPackage },
   { path: '/customers', label: 'Customer', icon: FiUsers },
   { path: '/suppliers', label: 'Supplier', icon: FiBriefcase },
