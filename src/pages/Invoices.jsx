@@ -93,22 +93,23 @@ export default function Invoices() {
   }
 
   async function confirmDelete() {
-    if (!deleteId) return;
+    const id = deleteId;
+    if (!id) return;
     
     // Hapus HPP terkait jika ada
-    const hpp = await HppReports.getByInvoiceId(deleteId);
+    const hpp = await HppReports.getByInvoiceId(id);
     if (hpp) {
       await HppReports.delete(hpp.id);
     }
 
     // Hapus Surat Jalan terkait jika ada
-    const note = deliveryNotes.find(n => n.invoiceId === deleteId);
+    const note = deliveryNotes.find(n => n.invoiceId === id);
     if (note) {
       await DNStore.delete(note.id);
     }
     
     // Rollback Stok sebelum invoice dihapus
-    const inv = invoices.find(i => i.id === deleteId);
+    const inv = invoices.find(i => i.id === id);
     if (inv && inv.items) {
       for (const it of inv.items) {
         if (it.productId) {
@@ -120,7 +121,7 @@ export default function Invoices() {
       }
     }
 
-    await InvoiceStore.delete(deleteId);
+    await InvoiceStore.delete(id);
     setDeleteId(null);
     await reload();
   }

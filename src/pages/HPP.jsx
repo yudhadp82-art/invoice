@@ -843,8 +843,9 @@ export default function HPP() {
   }
 
   async function confirmDelete() {
-    if (!deleteId) return;
-    const oldHpp = reports.find(r => r.id === deleteId);
+    const id = deleteId;
+    if (!id) return;
+    const oldHpp = reports.find(r => r.id === id);
     if (oldHpp) {
       const stockDiffs = {};
       const allProds = await ProductStore.getAll();
@@ -875,7 +876,7 @@ export default function HPP() {
       }
     }
 
-    await HppReports.delete(deleteId);
+    await HppReports.delete(id);
     setDeleteId(null);
     await reload();
   }

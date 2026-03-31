@@ -39,6 +39,36 @@ export default function Stock() {
   const lowStockProducts = products.filter(p => (p.stock || 0) <= 5);
   const lowStockMaterials = materials.filter(m => (m.stock || 0) <= 10);
 
+  async function handleResetAll() {
+    if (!window.confirm('PERINGATAN: Opsi ini akan mereset seluruh angka stok Master (Produk & Bahan) menjadi 0. Data riwayat transaksi (Invoice/Beli) TETAP ADA. Gunakan ini jika Anda ingin mengawali perhitungan stok baru. Lanjutkan?')) return;
+    
+    setIsSyncing(true);
+    try {
+      const [allProds, allMats] = await Promise.all([
+        Products.getAll(),
+        SupportingMaterialItems.getAll()
+      ]);
+
+      await Promise.all([
+        ...allProds.map(p => Products.update(p.id, { stock: 0 })),
+        ...allMats.map(m => SupportingMaterialItems.update(m.id, { stock: 0 }))
+      ]);
+
+      setSyncSuccess(true);
+      setTimeout(() => setSyncSuccess(false), 3000);
+      
+      setProducts(await Products.getAll());
+      setMaterials(await SupportingMaterialItems.getAll());
+      alert('Seluruh angka stok Master telah di-reset menjadi 0.');
+
+    } catch (error) {
+      console.error(error);
+      alert('Gagal mereset stok.');
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
   async function handleSyncAll() {
     if (!window.confirm('Apakah Anda yakin ingin menyinkronkan seluruh stok? Sistem akan menghitung ulang saldo stok dari seluruh riwayat pembelian dan pemakaian.')) return;
     
@@ -172,6 +202,9 @@ export default function Stock() {
           <p>Monitoring persediaan produk dan bahan pendukung</p>
         </div>
         <div className="flex gap-sm">
+          <button className="btn btn-ghost text-danger" onClick={handleResetAll} disabled={isSyncing} title="Reset semua angka stok menjadi 0">
+            <FiTrash2 /> Reset Angka Stok
+          </button>
           <button className={`btn ${syncSuccess ? 'btn-success' : 'btn-secondary'}`} onClick={handleSyncAll} disabled={isSyncing}>
             {isSyncing ? <FiRefreshCw className="spin" /> : syncSuccess ? <FiCheckCircle /> : <FiRefreshCw />}
             {isSyncing ? 'Menyinkronkan...' : syncSuccess ? 'Stok Sinkron!' : 'Sinkronisasi Stok'}

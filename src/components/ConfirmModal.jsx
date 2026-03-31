@@ -42,10 +42,11 @@ export default function ConfirmModal({
         </button>
         <button 
           className={`btn ${variant === 'danger' ? 'btn-danger' : 'btn-primary'}`} 
-          onClick={() => {
-            onConfirm();
+          onClick={async () => {
+            await onConfirm();
             onClose();
           }}
+          disabled={isOpen === false} // Prevent multiple clicks
           style={{ minWidth: '100px' }}
         >
           {confirmText}

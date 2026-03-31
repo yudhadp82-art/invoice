@@ -256,8 +256,9 @@ export default function Purchases() {
   }
 
   async function confirmDelete() {
-    if (!deleteId) return;
-    const oldP = purchases.find(p => p.id === deleteId);
+    const id = deleteId;
+    if (!id) return;
+    const oldP = purchases.find(p => p.id === id);
     if (oldP && oldP.items) {
       const stockDiffs = {};
       oldP.items.forEach(it => {
@@ -270,8 +271,9 @@ export default function Purchases() {
         }
       }
     }
-    await PurchaseStore.delete(deleteId);
+    await PurchaseStore.delete(id);
     setDeleteId(null);
+    await reload();
   }
 
   return (

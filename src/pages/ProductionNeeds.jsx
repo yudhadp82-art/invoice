@@ -119,10 +119,11 @@ export default function ProductionNeedsPage() {
   }
 
   async function confirmDelete() {
-    if (!deleteId) return;
+    const id = deleteId;
+    if (!id) return;
     
     // Restore Stock
-    const oldItem = items.find(it => it.id === deleteId);
+    const oldItem = items.find(it => it.id === id);
     if (oldItem) {
       const allMats = await SupportingMaterialItems.getAll();
       const match = allMats.find(m => (m.name || '').toLowerCase() === (oldItem.itemName || '').toLowerCase());
@@ -131,7 +132,7 @@ export default function ProductionNeedsPage() {
       }
     }
 
-    await Store.delete(deleteId);
+    await Store.delete(id);
     setDeleteId(null);
     await reload();
   }
