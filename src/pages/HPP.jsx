@@ -61,6 +61,10 @@ const emptyForm = {
   catatan: '',
 };
 
+const SIMILAR_GROUPS = [
+  ['SPPG SINDANGJAYA 2', 'SPPG SINDANGJAYA 5'], // SINDANGJAYA 2 & 5 are the same
+];
+
 // Komponen internal untuk baris tabel invoice agar tidak terlalu ramai di HPP()
 function ViewModeItem({ r, expandedRow, setExpandedRow, handleExportPdf, openEdit, handleDelete, printingId }) {
   const labaKotor = Number(r.labaKotor || 0);
@@ -542,6 +546,63 @@ export default function HPP() {
     setSisaPurchases(sisa); // Hitung instan
     setModalOpen(true);
   }
+  const copySimilarReport = async () => {
+    if (!form.customerName) return;
+
+    // 1. Cari grup kembaran (e.g. SINDANGJAYA 2 & 5)
+    let similarNames = [form.customerName];
+    for (const group of SIMILAR_GROUPS) {
+      if (group.includes(form.customerName)) {
+        similarNames = group;
+        break;
+      }
+    }
+
+    // 2. Ambil semua laporan HPP untuk grup ini
+    const allReports = await HppReports.getAll();
+    const sorted = allReports
+      .filter(r => 
+        r.id !== editId && 
+        similarNames.some(name => r.customerName.toLowerCase().includes(name.toLowerCase()))
+      )
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    if (sorted.length === 0) {
+      alert(`Tidak ditemukan laporan sebelumnya untuk ${form.customerName} atau grup kembarannya.`);
+      return;
+    }
+
+    const template = sorted[0];
+
+    // 3. Update form. Kita pertahankan produk invoice sekarang, tapi ambil rinciannya
+    const newItems = form.itemCosts.map(it => {
+      // Cari produk yang sama di template
+      const templateItem = template.itemCosts.find(ti => ti.productName === it.productName);
+      if (templateItem) {
+        return {
+          ...it,
+          qty: templateItem.qty,
+          hargaModalSatuan: templateItem.hargaModalSatuan,
+          useSubItems: templateItem.useSubItems,
+          subItems: (templateItem.subItems || []).map(s => ({ ...s })),
+        };
+      }
+      return it;
+    });
+
+    setForm(prev => ({
+      ...prev,
+      itemCosts: newItems,
+      extraVegetables: (template.extraVegetables || []).map(v => ({ ...v })),
+      ongkosKirimBahan: template.ongkosKirimBahan || 0,
+      ongkosPengiriman: template.ongkosPengiriman || 0,
+      biayaTenagaKerja: template.biayaTenagaKerja || 0,
+      biayaLainnya: template.biayaLainnya || 0,
+      totalBiayaOperasional: template.totalBiayaOperasional || 0,
+    }));
+
+    alert(`Data disalin dari ${template.customerName} (${formatDateShort(template.createdAt)})`);
+  };
 
   function handleInvoiceChange(invoiceId) {
     const inv = invoices.find(i => i.id === invoiceId);
@@ -1019,20 +1080,32 @@ export default function HPP() {
             )}
 
             {/* Pilih Invoice */}
-            <div className="form-group">
-              <label className="form-label">Invoice <span style={{ color: '#ef4444' }}>*</span></label>
-              {editId ? (
-                <input className="form-input" value={`${form.invoiceNumber} – ${form.customerName}`} disabled />
-              ) : (
-                <select className="form-select" value={form.invoiceId} onChange={e => handleInvoiceChange(e.target.value)} required>
-                  <option value="">-- Pilih Invoice --</option>
-                  {unlinkedInvoices.map(inv => (
-                    <option key={inv.id} value={inv.id}>
-                      {inv.invoiceNumber} – {inv.customerName} ({formatCurrency(inv.grandTotal)})
-                    </option>
-                  ))}
-                </select>
-              )}
+            <div className="form-group" style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label className="form-label">Invoice <span style={{ color: '#ef4444' }}>*</span></label>
+                {editId ? (
+                  <input className="form-input" value={`${form.invoiceNumber} – ${form.customerName}`} disabled />
+                ) : (
+                  <select className="form-select" value={form.invoiceId} onChange={e => handleInvoiceChange(e.target.value)} required>
+                    <option value="">-- Pilih Invoice --</option>
+                    {unlinkedInvoices.map(inv => (
+                      <option key={inv.id} value={inv.id}>
+                        {inv.invoiceNumber} – {inv.customerName} ({formatCurrency(inv.grandTotal)})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-ghost" 
+                onClick={copySimilarReport} 
+                disabled={!form.customerName}
+                title="Salin rincian dari laporan sebelumnya atau pelanggan serupa"
+                style={{ height: 42 }}
+              >
+                <FiPackage style={{ marginRight: 6 }} /> Salin Data Serupa
+              </button>
             </div>
 
             {/* ===== TABEL MODAL PER ITEM ===== */}
