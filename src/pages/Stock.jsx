@@ -12,11 +12,26 @@ export default function Stock() {
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
+  
+  // Data for Barang Keluar
+  const [invoices, setInvoices] = useState([]);
+  const [hppReports, setHppReports] = useState([]);
+  const [productionNeeds, setProductionNeeds] = useState([]);
 
   useEffect(() => {
     async function loadData() {
-      setProducts(await Products.getAll());
-      setMaterials(await SupportingMaterialItems.getAll());
+      const [allProds, allMats, allInvs, allHpps, allNeeds] = await Promise.all([
+        Products.getAll(),
+        SupportingMaterialItems.getAll(),
+        Invoices.getAll(),
+        HppReports.getAll(),
+        ProductionNeeds.getAll()
+      ]);
+      setProducts(allProds);
+      setMaterials(allMats);
+      setInvoices(allInvs);
+      setHppReports(allHpps);
+      setProductionNeeds(allNeeds);
       setLoading(false);
     }
     loadData();
@@ -31,6 +46,83 @@ export default function Stock() {
 
   const filteredMaterials = materials.filter(m => 
     m.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Process Barang Keluar
+  const barangKeluarList = [];
+
+  // 1. From Invoices (Product Sales)
+  invoices.forEach(inv => {
+    (inv.items || []).forEach(it => {
+      barangKeluarList.push({
+        id: `inv-${inv.id}-${it.productId || it.name}`,
+        date: inv.date || inv.createdAt,
+        type: 'Penjualan',
+        itemName: it.name || 'Produk Tidak Terdeteksi',
+        qty: it.qty,
+        unit: it.unit || '',
+        reference: inv.customerName || 'Pelanggan Umum',
+        invoiceId: inv.id
+      });
+    });
+  });
+
+  // 2. From HPP Reports (Ingredients Usage)
+  hppReports.forEach(hpp => {
+    (hpp.itemCosts || []).forEach(it => {
+      // Ingredients (Sub Items)
+      if (it.useSubItems) {
+        (it.subItems || []).forEach(sub => {
+          barangKeluarList.push({
+            id: `hpp-sub-${hpp.id}-${sub.nama}`,
+            date: hpp.createdAt,
+            type: 'Pemakaian HPP',
+            itemName: sub.nama,
+            qty: sub.qty,
+            unit: sub.satuan || '',
+            reference: `HPP: ${hpp.customerName || 'Umum'}`,
+            hppId: hpp.id
+          });
+        });
+      }
+    });
+
+    // Extra Vegetables
+    (hpp.extraVegetables || []).forEach(ex => {
+      barangKeluarList.push({
+        id: `hpp-ex-${hpp.id}-${ex.nama}`,
+        date: hpp.createdAt,
+        type: 'Sayuran Tambahan',
+        itemName: ex.nama,
+        qty: ex.qty,
+        unit: ex.satuan || '',
+        reference: `HPP: ${hpp.customerName || 'Umum'}`,
+        hppId: hpp.id
+      });
+    });
+  });
+
+  // 3. From Production Needs (Material Usage)
+  productionNeeds.forEach(pn => {
+    barangKeluarList.push({
+      id: `pn-${pn.id}`,
+      date: pn.createdAt,
+      type: 'Produksi',
+      itemName: pn.itemName,
+      qty: pn.qty,
+      unit: pn.unit || '',
+      reference: pn.note || 'Pemakaian Bahan',
+      needId: pn.id
+    });
+  });
+
+  // Sort by date newest first
+  const sortedBarangKeluar = barangKeluarList.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const filteredBarangKeluar = sortedBarangKeluar.filter(bk => 
+    bk.itemName.toLowerCase().includes(search.toLowerCase()) ||
+    bk.type.toLowerCase().includes(search.toLowerCase()) ||
+    bk.reference.toLowerCase().includes(search.toLowerCase())
   );
 
   const totalProductValue = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.purchaseCost || 0)), 0);
@@ -59,6 +151,9 @@ export default function Stock() {
       
       setProducts(await Products.getAll());
       setMaterials(await SupportingMaterialItems.getAll());
+      setInvoices(await Invoices.getAll());
+      setHppReports(await HppReports.getAll());
+      setProductionNeeds(await ProductionNeeds.getAll());
       alert('Seluruh angka stok Master telah di-reset menjadi 0.');
 
     } catch (error) {
@@ -164,6 +259,9 @@ export default function Stock() {
       // Reload current local state
       setProducts(await Products.getAll());
       setMaterials(await SupportingMaterialItems.getAll());
+      setInvoices(await Invoices.getAll());
+      setHppReports(await HppReports.getAll());
+      setProductionNeeds(await ProductionNeeds.getAll());
 
     } catch (error) {
       console.error(error);
@@ -183,7 +281,7 @@ export default function Stock() {
         { key: 'purchaseCost', header: 'Harga Beli', width: 15 },
       ];
       exportToExcel(products, 'stok_produk_export', 'Stok Produk Jadi', columns);
-    } else {
+    } else if (activeTab === 'materials') {
       const columns = [
         { key: 'name', header: 'Nama Bahan', width: 25 },
         { key: 'stock', header: 'Stok', width: 10 },
@@ -191,6 +289,21 @@ export default function Stock() {
         { key: 'defaultPrice', header: 'Harga Standar', width: 15 },
       ];
       exportToExcel(materials, 'stok_bahan_export', 'Stok Bahan Pendukung', columns);
+    } else if (activeTab === 'barang_keluar') {
+      const columns = [
+        { key: 'date', header: 'Tanggal', width: 20 },
+        { key: 'type', header: 'Jenis', width: 15 },
+        { key: 'itemName', header: 'Nama Barang', width: 25 },
+        { key: 'qty', header: 'Qty', width: 10 },
+        { key: 'unit', header: 'Satuan', width: 10 },
+        { key: 'reference', header: 'Keterangan', width: 30 },
+      ];
+      // Format date for excel
+      const exportData = filteredBarangKeluar.map(bk => ({
+        ...bk,
+        date: new Date(bk.date).toLocaleString('id-ID')
+      }));
+      exportToExcel(exportData, 'barang_keluar_export', 'Rincian Barang Keluar', columns);
     }
   }
 
@@ -246,6 +359,9 @@ export default function Stock() {
         <button className={`tab ${activeTab === 'materials' ? 'active' : ''}`} onClick={() => setActiveTab('materials')}>
           Bahan Pendukung
         </button>
+        <button className={`tab ${activeTab === 'barang_keluar' ? 'active' : ''}`} onClick={() => setActiveTab('barang_keluar')}>
+          Rinci Barang Keluar
+        </button>
       </div>
 
       <div className="toolbar">
@@ -253,7 +369,7 @@ export default function Stock() {
           <FiSearch className="search-icon" />
           <input 
             type="text" 
-            placeholder={`Cari ${activeTab === 'products' ? 'produk' : 'bahan'}...`} 
+            placeholder={`Cari ${activeTab === 'products' ? 'produk' : activeTab === 'materials' ? 'bahan' : 'transaksi'}...`} 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
           />
@@ -272,6 +388,15 @@ export default function Stock() {
                 <th style={{ textAlign: 'right' }}>Harga Beli</th>
                 <th style={{ textAlign: 'right' }}>Total Nilai</th>
                 <th>Status</th>
+              </tr>
+            ) : activeTab === 'barang_keluar' ? (
+              <tr>
+                <th>Tanggal</th>
+                <th>Jenis</th>
+                <th>Nama Barang</th>
+                <th style={{ textAlign: 'right' }}>Qty Keluar</th>
+                <th>Satuan</th>
+                <th>Keterangan</th>
               </tr>
             ) : (
               <tr>
@@ -310,6 +435,38 @@ export default function Stock() {
                         <span className="badge badge-success">Aman</span>
                       )}
                     </td>
+                  </tr>
+                ))
+              )
+            ) : activeTab === 'barang_keluar' ? (
+              filteredBarangKeluar.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center p-xl text-muted">Data barang keluar tidak ditemukan</td>
+                </tr>
+              ) : (
+                filteredBarangKeluar.map(bk => (
+                  <tr key={bk.id}>
+                    <td className="text-muted text-xs">
+                      {new Date(bk.date).toLocaleDateString('id-ID')}
+                      <br />
+                      <span style={{ fontSize: 10 }}>{new Date(bk.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </td>
+                    <td>
+                      <span className={`badge ${
+                        bk.type === 'Penjualan' ? 'badge-info' : 
+                        bk.type === 'Pemakaian HPP' ? 'badge-warning' : 
+                        bk.type === 'Sayuran Tambahan' ? 'badge-warning' :
+                        'badge-secondary'
+                      }`}>
+                        {bk.type}
+                      </span>
+                    </td>
+                    <td><strong>{bk.itemName}</strong></td>
+                    <td className="text-right">
+                      <span style={{ fontWeight: 700, color: '#f87171' }}>-{formatNumber(bk.qty)}</span>
+                    </td>
+                    <td><span className="badge" style={{ background: 'rgba(255,255,255,0.05)' }}>{bk.unit}</span></td>
+                    <td className="text-muted text-xs">{bk.reference}</td>
                   </tr>
                 ))
               )
