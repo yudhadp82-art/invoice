@@ -111,10 +111,9 @@ function ViewModeItem({ r, expandedRow, setExpandedRow, handleExportPdf, openEdi
                 <tr style={{ color: '#64748b', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   <th style={{ textAlign: 'left', padding: '4px 8px' }}>Produk</th>
                   <th style={{ textAlign: 'center', padding: '4px 8px' }}>Qty</th>
-                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Harga Jual/unit</th>
+                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Total Harga/Item</th>
                   <th style={{ textAlign: 'right', padding: '4px 8px' }}>Modal</th>
-                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Subtotal Jual</th>
-                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Laba Item</th>
+                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Margin Laba</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,9 +125,8 @@ function ViewModeItem({ r, expandedRow, setExpandedRow, handleExportPdf, openEdi
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                         <td style={{ padding: '5px 8px', fontWeight: 600 }}>{item.productName}</td>
                         <td style={{ padding: '5px 8px', textAlign: 'center' }}>{item.qty} {item.unit}</td>
-                        <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(item.hargaJual)}</td>
-                        <td style={{ padding: '5px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(modalItem)}</td>
                         <td style={{ padding: '5px 8px', textAlign: 'right' }}>{formatCurrency(item.subtotalJual)}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'right', color: '#fbbf24' }}>{formatCurrency(modalItem)}</td>
                         <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, color: itemLaba >= 0 ? '#34d399' : '#f87171' }}>
                           {itemLaba < 0 && <FiAlertTriangle style={{ marginRight: 3, fontSize: 10 }} />}
                           {formatCurrency(itemLaba)}
@@ -202,6 +200,7 @@ export default function HPP() {
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'daily'
 
   const [deleteId, setDeleteId] = useState(null);
+  const [activeTab, setActiveTab] = useState('Semua');
 
   useEffect(() => {
     reload();
@@ -887,6 +886,8 @@ export default function HPP() {
       const matchSearch = (r.invoiceNumber || '').toLowerCase().includes(q) ||
         (r.customerName || '').toLowerCase().includes(q);
       
+      const matchTab = activeTab === 'Semua' || r.customerName === activeTab;
+
       let matchDate = true;
       if (r.createdAt) {
         const rDate = new Date(r.createdAt);
@@ -901,9 +902,11 @@ export default function HPP() {
           matchDate = matchDate && rDate <= end;
         }
       }
-      return matchSearch && matchDate;
+      return matchSearch && matchDate && matchTab;
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const uniqueCustomers = Array.from(new Set(reports.map(r => r.customerName))).sort();
 
   // --- REKAP HARIAN LOGIC ---
   const dailyRecap = (() => {
@@ -1000,6 +1003,56 @@ export default function HPP() {
         </div>
       </div>
       
+      {/* Customer Tabs */}
+      <div className="custom-tabs-container mb-md" style={{ 
+        display: 'flex', 
+        gap: 8, 
+        overflowX: 'auto', 
+        paddingBottom: 8,
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        marginBottom: 20
+      }}>
+        <button 
+          className={`tab-item ${activeTab === 'Semua' ? 'active' : ''}`}
+          onClick={() => setActiveTab('Semua')}
+          style={{
+            padding: '8px 16px',
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            background: activeTab === 'Semua' ? 'rgba(129, 140, 248, 0.2)' : 'rgba(255,255,255,0.03)',
+            color: activeTab === 'Semua' ? '#818cf8' : '#94a3b8',
+            border: activeTab === 'Semua' ? '1px solid rgba(129, 140, 248, 0.3)' : '1px solid transparent',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          Semua Pelanggan
+        </button>
+        {uniqueCustomers.map(cust => (
+          <button 
+            key={cust}
+            className={`tab-item ${activeTab === cust ? 'active' : ''}`}
+            onClick={() => setActiveTab(cust)}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              background: activeTab === cust ? 'rgba(129, 140, 248, 0.2)' : 'rgba(255,255,255,0.03)',
+              color: activeTab === cust ? '#818cf8' : '#94a3b8',
+              border: activeTab === cust ? '1px solid rgba(129, 140, 248, 0.3)' : '1px solid transparent',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            {cust}
+          </button>
+        ))}
+      </div>
+
       {/* View Mode Toggle */}
       <div className="flex gap-sm mb-md" style={{ background: 'rgba(255,255,255,0.03)', padding: 4, borderRadius: 8, width: 'fit-content' }}>
         <button 

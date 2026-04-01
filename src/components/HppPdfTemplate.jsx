@@ -45,10 +45,9 @@ export default function HppPdfTemplate({ report }) {
           <tr style={{ background: '#f2f2f2' }}>
             <th style={{ border: '1px solid black', padding: '4px', width: '35%' }}>Nama Produk</th>
             <th style={{ border: '1px solid black', padding: '4px', width: '10%' }}>Qty</th>
-            <th style={{ border: '1px solid black', padding: '4px', width: '15%', textAlign: 'right' }}>Harga Jual</th>
-            <th style={{ border: '1px solid black', padding: '4px', width: '15%', textAlign: 'right' }}>Total Jual</th>
-            <th style={{ border: '1px solid black', padding: '4px', width: '15%', textAlign: 'right' }}>Modal Item</th>
-            <th style={{ border: '1px solid black', padding: '4px', width: '10%', textAlign: 'right' }}>Laba</th>
+            <th style={{ border: '1px solid black', padding: '4px', width: '22%', textAlign: 'right' }}>Total Harga/Item</th>
+            <th style={{ border: '1px solid black', padding: '4px', width: '18%', textAlign: 'right' }}>Modal Item</th>
+            <th style={{ border: '1px solid black', padding: '4px', width: '15%', textAlign: 'right' }}>Margin Laba</th>
           </tr>
         </thead>
         <tbody>
@@ -59,7 +58,6 @@ export default function HppPdfTemplate({ report }) {
                 <tr>
                   <td style={{ border: '1px solid black', padding: '4px', fontWeight: 'bold' }}>{item.productName}</td>
                   <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>{formatNumber(item.qty)} {item.unit}</td>
-                  <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>{formatCurrency(item.hargaJual)}</td>
                   <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>{formatCurrency(item.subtotalJual)}</td>
                   <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>{formatCurrency(item.totalModal)}</td>
                   <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right', fontWeight: 'bold', color: labaItem >= 0 ? 'green' : 'red' }}>{formatCurrency(labaItem)}</td>
