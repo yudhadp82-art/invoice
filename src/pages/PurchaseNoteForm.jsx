@@ -10,6 +10,7 @@ const emptyItem = {
   materialName: '',
   unit: '',
   qtyNota: 0,
+  invoiceQty: 0,
   pricePerUnit: 0,
   sellPrice: 0,
   splits: {
@@ -69,10 +70,11 @@ export default function PurchaseNoteForm() {
             materialName: it.productName,
             unit: it.unit,
             qtyNota: Number(it.qty) || 0,
+            invoiceQty: Number(it.qty) || 0,
             pricePerUnit: Number(it.unitPrice) || 0,
             sellPrice: Number(it.unitPrice) || 0,
             splits: {
-              s5: { qty: 0, shrinkage: 0, netQty: 0 },
+              s5: { qty: Number(it.qty) || 0, shrinkage: 0, netQty: Number(it.qty) || 0 },
               s3: { qty: 0, shrinkage: 0, netQty: 0 }
             },
             totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
@@ -121,7 +123,21 @@ export default function PurchaseNoteForm() {
     }
     
     if (field === 'qtyNota' || field === 'pricePerUnit') {
-      newItems[index].totalCost = (Number(newItems[index].qtyNota) || 0) * (Number(newItems[index].pricePerUnit) || 0);
+      const q = Number(newItems[index].qtyNota) || 0;
+      const p = Number(newItems[index].pricePerUnit) || 0;
+      newItems[index].totalCost = q * p;
+      
+      // Auto-calculate shrinkage if invoiceQty exists
+      if (field === 'qtyNota' && newItems[index].invoiceQty > 0) {
+        const invQty = newItems[index].invoiceQty;
+        const diff = q - invQty;
+        
+        // Default to assigning the note qty to S5 and the difference to shrinkage
+        // This makes netQty match invoiceQty automatically
+        newItems[index].splits.s5.qty = q;
+        newItems[index].splits.s5.shrinkage = diff;
+        newItems[index].splits.s5.netQty = q - diff;
+      }
     }
     
     setItems(newItems);
@@ -274,9 +290,16 @@ export default function PurchaseNoteForm() {
                       </select>
                     </td>
                     <td>
-                      <div className="flex-center gap-xs">
-                        <input type="number" className="form-input form-input-sm" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} style={{ width: '70px' }} />
-                        <span className="text-xs text-muted">{item.unit || ''}</span>
+                      <div>
+                        <div className="flex-center gap-xs">
+                          <input type="number" className="form-input form-input-sm" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} style={{ width: '70px' }} />
+                          <span className="text-xs text-muted">{item.unit || ''}</span>
+                        </div>
+                        {item.invoiceQty > 0 && (
+                          <div className="text-xs text-muted mt-xs" style={{ whiteSpace: 'nowrap' }}>
+                            Inv: <strong>{item.invoiceQty}</strong>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -396,10 +419,11 @@ export default function PurchaseNoteForm() {
                           materialName: mb.name,
                           unit: mb.unit,
                           qtyNota: Number(it.qty) || 0,
+                          invoiceQty: Number(it.qty) || 0,
                           pricePerUnit: Number(it.unitPrice) || 0,
                           sellPrice: Number(it.unitPrice) || 0,
                           splits: {
-                            s5: { qty: 0, shrinkage: 0, netQty: 0 },
+                            s5: { qty: Number(it.qty) || 0, shrinkage: 0, netQty: Number(it.qty) || 0 },
                             s3: { qty: 0, shrinkage: 0, netQty: 0 }
                           },
                           totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
