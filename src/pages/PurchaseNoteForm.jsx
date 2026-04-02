@@ -372,27 +372,19 @@ export default function PurchaseNoteForm() {
           <p className="text-muted text-sm mb-md">Pilih invoice untuk mengambil item kategori <strong>Bahan</strong>.</p>
           <div className="grid gap-sm">
             {(() => {
-              const invoicesWithBahan = invoices.filter(inv => 
-                (inv.items || []).some(it => 
-                  it.type === 'material' || 
-                  masterBahan.some(mb => mb.id === it.productId || mb.name === it.productName)
-                )
-              );
+              const invoicesWithBahan = invoices.filter(inv => (inv.items || []).length > 0);
 
               if (invoicesWithBahan.length === 0) {
                 return (
                   <div className="empty-state" style={{ padding: '40px 20px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12 }}>
                     <FiShoppingBag style={{ fontSize: 32, opacity: 0.3, marginBottom: 12 }} />
-                    <p className="text-muted">Tidak ada invoice yang mengandung item kategori <strong>Bahan</strong>.</p>
+                    <p className="text-muted">Tidak ada invoice yang ditemukan.</p>
                   </div>
                 );
               }
 
               return invoicesWithBahan.map(inv => {
-                const materialsInInv = (inv.items || []).filter(it => 
-                  it.type === 'material' || 
-                  masterBahan.some(mb => mb.id === it.productId || mb.name === it.productName)
-                );
+                const materialsInInv = inv.items || [];
                 
                 return (
                   <button 
@@ -453,7 +445,7 @@ export default function PurchaseNoteForm() {
                     <div>
                       <strong>{inv.invoiceNumber}</strong><br />
                       <span className="text-xs text-muted">{inv.customerName} - {new Date(inv.date || inv.createdAt).toLocaleDateString()}</span>
-                      <span className="badge badge-primary ml-sm" style={{marginLeft: 8}}>{materialsInInv.length} Bahan</span>
+                      <span className="badge badge-primary ml-sm" style={{marginLeft: 8}}>{materialsInInv.length} Item</span>
                     </div>
                   </button>
                 );
