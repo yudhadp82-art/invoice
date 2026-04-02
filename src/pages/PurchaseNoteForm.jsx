@@ -357,50 +357,71 @@ export default function PurchaseNoteForm() {
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
           <p className="text-muted text-sm mb-md">Pilih invoice untuk mengambil item kategori <strong>Bahan</strong>.</p>
           <div className="grid gap-sm">
-            {invoices.length === 0 ? (
-              <div className="empty-state">No Invoices found</div>
-            ) : invoices.map(inv => {
-              const bahanCount = (inv.items || []).filter(it => it.type === 'material').length;
-              if (bahanCount === 0) return null;
-              
-              return (
-                <button 
-                  key={inv.id} 
-                  className="btn btn-ghost" 
-                  style={{ justifyContent: 'flex-start', textAlign: 'left', padding: '12px', border: '1px solid rgba(255,255,255,0.05)' }}
-                  onClick={() => {
-                    const materials = (inv.items || [])
-                      .filter(it => it.type === 'material')
-                      .map(it => ({
-                        materialId: it.productId,
-                        materialName: it.productName,
-                        unit: it.unit,
-                        qtyNota: Number(it.qty) || 0,
-                        pricePerUnit: Number(it.unitPrice) || 0,
-                        sellPrice: Number(it.unitPrice) || 0,
-                        splits: {
-                          s5: { qty: 0, shrinkage: 0, netQty: 0 },
-                          s3: { qty: 0, shrinkage: 0, netQty: 0 }
-                        },
-                        totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
-                      }));
-                    
-                    if (materials.length > 0) {
-                      setItems(materials);
-                      setSupplierName(inv.customerName || '');
-                      setNotes(n => `${n}${n ? '\n' : ''}Tarik dari Invoice: ${inv.invoiceNumber}`);
-                    }
-                    setIsImportModalOpen(false);
-                  }}
-                >
-                  <div>
-                    <strong>{inv.invoiceNumber}</strong><br />
-                    <span className="text-xs text-muted">{inv.customerName} - {new Date(inv.date).toLocaleDateString()}</span>
-                    <span className="badge badge-primary ml-sm" style={{marginLeft: 8}}>{bahanCount} Bahan</span>
-                  </div>
-                </button>
+            {(() => {
+              const invoicesWithBahan = invoices.filter(inv => 
+                (inv.items || []).some(it => 
+                  it.type === 'material' || 
+                  masterBahan.some(mb => mb.id === it.productId || mb.name === it.productName)
+                )
               );
-            })}
+
+              if (invoicesWithBahan.length === 0) {
+                return (
+                  <div className="empty-state" style={{ padding: '40px 20px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12 }}>
+                    <FiShoppingBag style={{ fontSize: 32, opacity: 0.3, marginBottom: 12 }} />
+                    <p className="text-muted">Tidak ada invoice yang mengandung item kategori <strong>Bahan</strong>.</p>
+                  </div>
+                );
+              }
+
+              return invoicesWithBahan.map(inv => {
+                const materialsInInv = (inv.items || []).filter(it => 
+                  it.type === 'material' || 
+                  masterBahan.some(mb => mb.id === it.productId || mb.name === it.productName)
+                );
+                
+                return (
+                  <button 
+                    key={inv.id} 
+                    className="btn btn-ghost" 
+                    style={{ justifyContent: 'flex-start', textAlign: 'left', padding: '12px', border: '1px solid rgba(255,255,255,0.05)' }}
+                    onClick={() => {
+                      const materials = materialsInInv.map(it => {
+                        const mb = masterBahan.find(b => b.id === it.productId || b.name === it.productName);
+                        return {
+                          materialId: mb ? mb.id : (it.productId || ''),
+                          materialName: mb ? mb.name : it.productName,
+                          unit: mb ? mb.unit : it.unit,
+                          qtyNota: Number(it.qty) || 0,
+                          pricePerUnit: Number(it.unitPrice) || 0,
+                          sellPrice: Number(it.unitPrice) || 0,
+                          splits: {
+                            s5: { qty: 0, shrinkage: 0, netQty: 0 },
+                            s3: { qty: 0, shrinkage: 0, netQty: 0 }
+                          },
+                          totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
+                        };
+                      });
+                      
+                      if (materials.length > 0) {
+                        setItems(materials);
+                        setSupplierName(inv.customerName || '');
+                        setInvoiceId(inv.id);
+                        setInvoiceNumber(inv.invoiceNumber);
+                        setNotes(n => `${n}${n ? '\n' : ''}Tarik dari Invoice: ${inv.invoiceNumber}`);
+                      }
+                      setIsImportModalOpen(false);
+                    }}
+                  >
+                    <div>
+                      <strong>{inv.invoiceNumber}</strong><br />
+                      <span className="text-xs text-muted">{inv.customerName} - {new Date(inv.date || inv.createdAt).toLocaleDateString()}</span>
+                      <span className="badge badge-primary ml-sm" style={{marginLeft: 8}}>{materialsInInv.length} Bahan</span>
+                    </div>
+                  </button>
+                );
+              });
+            })()}
           </div>
         </div>
       </Modal>
