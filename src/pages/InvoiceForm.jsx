@@ -631,16 +631,29 @@ export default function InvoiceForm() {
       }
     }
     
-    // Update Telegram Order status and customer sync
-    if (!isEdit && telegramOrder && telegramOrder.id) {
-      await TelegramOrders.update(telegramOrder.id, { 
-        status: 'selesai',
-        customerName: form.customerName,
-        matchedCustomerId: form.customerId
-      });
+    // Auto-provision Master Bahan (Supporting Material Items)
+    try {
+      const currentMaterials = await SupportingMaterialItems.getAll();
+      for (const item of data.items) {
+        if (item.type === 'material') {
+          const exists = currentMaterials.some(m => 
+            (item.productId && m.id === item.productId) || 
+            m.name.toLowerCase() === item.productName.toLowerCase()
+          );
+          
+          if (!exists) {
+            await SupportingMaterialItems.create({
+              name: item.productName,
+              unit: item.unit || 'kg',
+              defaultPrice: Number(item.unitPrice) || 0,
+              stock: 0
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to auto-provision materials:', err);
     }
-
-    // Skip Drive Upload as per request
 
     navigate('/invoices');
   }

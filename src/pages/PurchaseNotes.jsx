@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2 } from 'react-icons/fi';
-import { PurchaseNotes as Store, Invoices } from '../utils/storage';
+import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -55,6 +55,52 @@ export default function PurchaseNotes() {
     await reload();
   }
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  async function handleSyncInvoices() {
+    if (!window.confirm('Sinkronkan Master Bahan dari seluruh data Invoice? Ini akan menambahkan item baru ke Master Bahan secara otomatis.')) return;
+    setIsSyncing(true);
+    try {
+      const [allInvs, allMaster] = await Promise.all([
+        Invoices.getAll(),
+        MasterItems.getAll()
+      ]);
+
+      let addedCount = 0;
+      for (const inv of allInvs) {
+        for (const item of (inv.items || [])) {
+          // Identify material by type or by being in the "Bahan" category names
+          const isMaterial = item.type === 'material';
+          if (!isMaterial) continue;
+
+          const exists = allMaster.some(m => 
+            (item.productId && m.id === item.productId) || 
+            m.name.toLowerCase() === item.productName.toLowerCase()
+          );
+
+          if (!exists) {
+            const newItem = {
+              name: item.productName,
+              unit: item.unit || 'kg',
+              defaultPrice: Number(item.unitPrice) || 0,
+              stock: 0
+            };
+            await MasterItems.create(newItem);
+            allMaster.push(newItem); // avoid duplicates in same sync
+            addedCount++;
+          }
+        }
+      }
+      alert(`Berhasil sinkronisasi. ${addedCount} item bahan baru ditambahkan ke Master Bahan.`);
+      await reload();
+    } catch (err) {
+      console.error(err);
+      alert('Gagal melakukan sinkronisasi.');
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
   const filtered = notes.filter(n => 
     (n.supplierName || '').toLowerCase().includes(search.toLowerCase()) ||
     (n.notes || '').toLowerCase().includes(search.toLowerCase())
@@ -67,9 +113,14 @@ export default function PurchaseNotes() {
           <h1>Nota Pembelian</h1>
           <p>Daftar nota pembelian bahan baku dan split S5/S3</p>
         </div>
-        <Link to="/purchase-notes/new" className="btn btn-primary">
-          <FiPlus /> Buat Nota Baru
-        </Link>
+        <div className="flex gap-sm">
+          <button className="btn btn-secondary" onClick={handleSyncInvoices} disabled={isSyncing}>
+            <FiPlus /> {isSyncing ? 'Sinkron Selesai...' : 'Sinkronisasi Bahan'}
+          </button>
+          <Link to="/purchase-notes/new" className="btn btn-primary">
+            <FiPlus /> Buat Nota Baru
+          </Link>
+        </div>
       </div>
 
       <div className="toolbar">
