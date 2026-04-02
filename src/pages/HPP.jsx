@@ -62,7 +62,7 @@ const emptyForm = {
 };
 
 const SIMILAR_GROUPS = [
-  ['SPPG SINDANGJAYA 2', 'SPPG SINDANGJAYA 5'], // SINDANGJAYA 2 & 5 are the same
+  ['SPPG SINDANGJAYA 5', 'SPPG2 SINDANGJAYA 2', 'SPPG3 SINDANGJAYA 3'], 
 ];
 
 // Komponen internal untuk baris tabel invoice agar tidak terlalu ramai di HPP()
@@ -242,7 +242,7 @@ export default function HPP() {
           purchaseId: pn.id,
           productName: it.materialName,
           productId: it.materialId,
-          qty: (it.splits?.s5?.netQty || 0) + (it.splits?.s3?.netQty || 0),
+          qty: (it.splits?.s5?.netQty || 0) + (it.splits?.s2?.netQty || 0) + (it.splits?.s3?.netQty || 0),
           costPerUnit: Number(it.pricePerUnit) || 0,
           isNewModel: true,
           splits: it.splits
@@ -422,7 +422,8 @@ export default function HPP() {
       });
     });
 
-    const bKey = (branch || '').toLowerCase().includes('3') ? 's3' : 's5';
+    const bLower = (branch || '').toLowerCase();
+    const bKey = bLower.includes('3') ? 's3' : bLower.includes('2') ? 's2' : 's5';
 
     return purchaseItems.map(p => {
       const key = `${p.purchaseId}-${p.productName}`;

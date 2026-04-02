@@ -246,8 +246,9 @@ export default function Stock() {
         (pn.items || []).forEach(it => {
           if (it.materialId && matStockMap[it.materialId] !== undefined) {
             const netS5 = Number(it.splits?.s5?.netQty) || 0;
+            const netS2 = Number(it.splits?.s2?.netQty) || 0;
             const netS3 = Number(it.splits?.s3?.netQty) || 0;
-            matStockMap[it.materialId] += (netS5 + netS3);
+            matStockMap[it.materialId] += (netS5 + netS2 + netS3);
           }
         });
       });

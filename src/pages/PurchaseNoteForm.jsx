@@ -15,6 +15,7 @@ const emptyItem = {
   sellPrice: 0,
   splits: {
     s5: { qty: 0, shrinkage: 0, netQty: 0 },
+    s2: { qty: 0, shrinkage: 0, netQty: 0 },
     s3: { qty: 0, shrinkage: 0, netQty: 0 }
   },
   totalCost: 0
@@ -28,7 +29,7 @@ export default function PurchaseNoteForm() {
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [supplierName, setSupplierName] = useState('');
-  const [items, setItems] = useState([ { ...emptyItem } ]);
+  const [items, setItems] = useState([{ ...emptyItem }]);
   const [notes, setNotes] = useState('');
   const [invoiceId, setInvoiceId] = useState(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -75,11 +76,12 @@ export default function PurchaseNoteForm() {
             sellPrice: Number(it.unitPrice) || 0,
             splits: {
               s5: { qty: Number(it.qty) || 0, shrinkage: 0, netQty: Number(it.qty) || 0 },
+              s2: { qty: 0, shrinkage: 0, netQty: 0 },
               s3: { qty: 0, shrinkage: 0, netQty: 0 }
             },
             totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
           }));
-        
+
         if (materials.length > 0) {
           setItems(materials);
           setSupplierName(inv.customerName || '');
@@ -102,7 +104,7 @@ export default function PurchaseNoteForm() {
 
   function updateItem(index, field, value) {
     const newItems = [...items];
-    
+
     if (field === 'materialId') {
       if (value === 'all-master') {
         setInvoiceId(null);
@@ -121,17 +123,17 @@ export default function PurchaseNoteForm() {
     } else {
       newItems[index][field] = value;
     }
-    
+
     if (field === 'qtyNota' || field === 'pricePerUnit') {
       const q = Number(newItems[index].qtyNota) || 0;
       const p = Number(newItems[index].pricePerUnit) || 0;
       newItems[index].totalCost = q * p;
-      
+
       // Auto-calculate shrinkage if invoiceQty exists
       if (field === 'qtyNota' && newItems[index].invoiceQty > 0) {
         const invQty = newItems[index].invoiceQty;
         const diff = q - invQty;
-        
+
         // Default to assigning the note qty to S5 and the difference to shrinkage
         // This makes netQty match invoiceQty automatically
         newItems[index].splits.s5.qty = q;
@@ -139,19 +141,30 @@ export default function PurchaseNoteForm() {
         newItems[index].splits.s5.netQty = q - diff;
       }
     }
-    
+
     setItems(newItems);
   }
 
   function updateSplit(itemIndex, branch, field, value) {
     const newItems = [...items];
     const item = newItems[itemIndex];
-    const split = { ...item.splits[branch], [field]: Number(value) || 0 };
-    
+    const val = Number(value) || 0;
+    const split = { ...item.splits[branch], [field]: val };
+
     if (field === 'qty' || field === 'shrinkage') {
-      split.netQty = split.qty - split.shrinkage;
+      if (field === 'qty' && item.invoiceQty > 0) {
+        // Auto-calculate shrinkage to match the invoice for this branch
+        const otherBranches = Object.keys(item.splits).filter(b => b !== branch);
+        const othersNet = otherBranches.reduce((sum, b) => sum + (item.splits[b].netQty || 0), 0);
+        const targetNetForThis = Math.max(0, item.invoiceQty - othersNet);
+
+        split.shrinkage = Math.max(0, val - targetNetForThis);
+        split.netQty = val - split.shrinkage;
+      } else {
+        split.netQty = split.qty - split.shrinkage;
+      }
     }
-    
+
     item.splits[branch] = split;
     setItems(newItems);
   }
@@ -178,7 +191,7 @@ export default function PurchaseNoteForm() {
             if (oldIt.materialId) {
               const master = await MasterItems.getById(oldIt.materialId);
               if (master) {
-                const oldTotalNet = (oldIt.splits.s5?.netQty || 0) + (oldIt.splits.s3?.netQty || 0);
+                const oldTotalNet = (oldIt.splits.s5?.netQty || 0) + (oldIt.splits.s2?.netQty || 0) + (oldIt.splits.s3?.netQty || 0);
                 await MasterItems.update(master.id, { stock: (master.stock || 0) - oldTotalNet });
               }
             }
@@ -188,17 +201,17 @@ export default function PurchaseNoteForm() {
       } else {
         await PurchaseNotes.create(payload);
       }
-      
+
       for (const it of items) {
         if (it.materialId) {
           const master = await MasterItems.getById(it.materialId);
           if (master) {
-            const totalNet = (it.splits.s5?.netQty || 0) + (it.splits.s3?.netQty || 0);
+            const totalNet = (it.splits.s5?.netQty || 0) + (it.splits.s2?.netQty || 0) + (it.splits.s3?.netQty || 0);
             await MasterItems.update(master.id, { stock: (master.stock || 0) + totalNet });
           }
         }
       }
-      
+
       navigate('/purchase-notes');
     } catch (err) {
       console.error(err);
@@ -218,7 +231,7 @@ export default function PurchaseNoteForm() {
           </Link>
           <div>
             <h1>{isEditing ? 'Edit Pembelian' : 'Pencatatan Pembelian Bahan'}</h1>
-            <p>Input detail pembelian dan split S5/S3</p>
+            <p>Input detail pembelian dan split S5 / S2 / S3</p>
           </div>
         </div>
         <div className="flex gap-sm">
@@ -256,8 +269,9 @@ export default function PurchaseNoteForm() {
                 <th style={{ width: '220px' }}>Bahan Baku</th>
                 <th style={{ width: '100px' }}>Qty Nota</th>
                 <th style={{ width: '130px' }}>Harga Beli</th>
-                <th style={{ width: '180px', backgroundColor: 'rgba(56, 189, 248, 0.05)' }}>Split S5 (Qty / Susut)</th>
-                <th style={{ width: '180px', backgroundColor: 'rgba(251, 146, 60, 0.05)' }}>Split S3 (Qty / Susut)</th>
+                <th style={{ width: '150px', backgroundColor: 'rgba(56, 189, 248, 0.05)' }}>S5 (SINDANGJAYA 5)</th>
+                <th style={{ width: '150px', backgroundColor: 'rgba(16, 185, 129, 0.05)' }}>S2 (SJ 2)</th>
+                <th style={{ width: '150px', backgroundColor: 'rgba(251, 146, 60, 0.05)' }}>S3 (SJ 3)</th>
                 <th style={{ width: '130px' }}>Harga Jual</th>
                 <th style={{ width: '130px' }}>Subtotal</th>
                 <th style={{ width: '50px' }}></th>
@@ -268,7 +282,7 @@ export default function PurchaseNoteForm() {
                 let selectableItems = masterBahan;
                 const currentInvoice = invoices.find(inv => inv.id === invoiceId);
                 if (currentInvoice) {
-                  selectableItems = masterBahan.filter(m => 
+                  selectableItems = masterBahan.filter(m =>
                     (currentInvoice.items || []).some(it => it.productId === m.id || it.productName === m.name)
                   );
                 }
@@ -311,6 +325,13 @@ export default function PurchaseNoteForm() {
                         <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s5.shrinkage} onChange={e => updateSplit(idx, 's5', 'shrinkage', e.target.value)} />
                       </div>
                       <div className="text-xs mt-xs text-primary font-bold">Net: {item.splits.s5.netQty}</div>
+                    </td>
+                    <td style={{ backgroundColor: 'rgba(16, 185, 129, 0.02)' }}>
+                      <div className="flex gap-xs">
+                        <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s2.qty} onChange={e => updateSplit(idx, 's2', 'qty', e.target.value)} />
+                        <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s2.shrinkage} onChange={e => updateSplit(idx, 's2', 'shrinkage', e.target.value)} />
+                      </div>
+                      <div className="text-xs mt-xs text-success font-bold">Net: {item.splits.s2.netQty}</div>
                     </td>
                     <td style={{ backgroundColor: 'rgba(251, 146, 60, 0.02)' }}>
                       <div className="flex gap-xs">
@@ -386,20 +407,20 @@ export default function PurchaseNoteForm() {
 
               return invoicesWithBahan.map(inv => {
                 const materialsInInv = inv.items || [];
-                
+
                 return (
-                  <button 
-                    key={inv.id} 
-                    className="btn btn-ghost" 
+                  <button
+                    key={inv.id}
+                    className="btn btn-ghost"
                     style={{ justifyContent: 'flex-start', textAlign: 'left', padding: '12px', border: '1px solid rgba(255,255,255,0.05)' }}
                     onClick={async () => {
                       const currentMaster = [...masterBahan];
                       let masterUpdated = false;
-                      
+
                       const materials = [];
                       for (const it of materialsInInv) {
                         let mb = currentMaster.find(b => b.id === it.productId || b.name === it.productName);
-                        
+
                         if (!mb) {
                           // Auto-provision missing material
                           const newMaster = {
@@ -424,16 +445,17 @@ export default function PurchaseNoteForm() {
                           sellPrice: Number(it.unitPrice) || 0,
                           splits: {
                             s5: { qty: Number(it.qty) || 0, shrinkage: 0, netQty: Number(it.qty) || 0 },
+                            s2: { qty: 0, shrinkage: 0, netQty: 0 },
                             s3: { qty: 0, shrinkage: 0, netQty: 0 }
                           },
                           totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
                         });
                       }
-                      
+
                       if (masterUpdated) {
                         setMasterBahan(currentMaster);
                       }
-                      
+
                       if (materials.length > 0) {
                         setItems(materials);
                         setSupplierName(inv.customerName || '');
@@ -447,7 +469,7 @@ export default function PurchaseNoteForm() {
                     <div>
                       <strong>{inv.invoiceNumber}</strong><br />
                       <span className="text-xs text-muted">{inv.customerName} - {new Date(inv.date || inv.createdAt).toLocaleDateString()}</span>
-                      <span className="badge badge-primary ml-sm" style={{marginLeft: 8}}>{materialsInInv.length} Item</span>
+                      <span className="badge badge-primary ml-sm" style={{ marginLeft: 8 }}>{materialsInInv.length} Item</span>
                     </div>
                   </button>
                 );
