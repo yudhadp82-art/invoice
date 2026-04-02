@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { FiTrendingUp, FiDollarSign, FiBarChart2, FiCalendar, FiFileText } from 'react-icons/fi';
-import { Invoices, Products, Purchases } from '../utils/storage';
+import { Invoices, Products } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumber, calculateMargin, isToday, isThisWeek, isThisMonth } from '../utils/formatter';
 
 const COLORS = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
@@ -23,13 +23,11 @@ export default function Reports() {
   const [period, setPeriod] = useState('month');
   const [invoices, setInvoices] = useState([]);
   const [products, setProducts] = useState([]);
-  const [purchases, setPurchases] = useState([]);
 
   useEffect(() => {
     async function loadData() {
       setInvoices(await Invoices.getAll());
       setProducts(await Products.getAll());
-      setPurchases(await Purchases.getAll());
     }
     loadData();
   }, []);
@@ -43,7 +41,6 @@ export default function Reports() {
   };
 
   const filteredInvoices = invoices.filter(inv => filterByPeriod(inv.createdAt));
-  const filteredPurchases = purchases.filter(p => filterByPeriod(p.createdAt));
 
   // ===== Revenue Analysis =====
   const productRevenueData = [];
@@ -81,7 +78,6 @@ export default function Reports() {
 
   // ===== Statistics =====
   const totalRevenue = filteredInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
-  const totalPurchases = filteredPurchases.reduce((sum, p) => sum + (p.totalCost || 0), 0);
 
   // ===== Daily Recap =====
   const dailyData = {};
@@ -108,7 +104,7 @@ export default function Reports() {
       <div className="page-header page-header-actions">
         <div>
           <h1>Laporan</h1>
-          <p>Analisa pendapatan, modal pembelian, dan rekap harian</p>
+          <p>Analisa pendapatan dan rekap harian</p>
         </div>
         <div className="flex gap-sm">
           <select name="period_select" className="form-select" style={{ width: 'auto' }} value={period} onChange={e => setPeriod(e.target.value)}>
@@ -124,9 +120,6 @@ export default function Reports() {
       <div className="tabs mb-lg">
         <button className={`tab ${activeTab === 'profit' ? 'active' : ''}`} onClick={() => setActiveTab('profit')}>
           <FiTrendingUp style={{ marginRight: 6 }} /> Analisis Pendapatan
-        </button>
-        <button className={`tab ${activeTab === 'cost' ? 'active' : ''}`} onClick={() => setActiveTab('cost')}>
-          <FiDollarSign style={{ marginRight: 6 }} /> Modal Pembelian
         </button>
         <button className={`tab ${activeTab === 'recap' ? 'active' : ''}`} onClick={() => setActiveTab('recap')}>
           <FiCalendar style={{ marginRight: 6 }} /> Rekap Harian
@@ -222,57 +215,6 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ===== Modal Pembelian Tab ===== */}
-      {activeTab === 'cost' && (
-        <div className="animate-in">
-          <div className="stats-grid">
-            <div className="stat-card orange">
-              <div className="stat-card-value">{formatCurrency(totalPurchases)}</div>
-              <div className="stat-card-label">Total Pembelian ({periodLabels[period]})</div>
-            </div>
-          </div>
-
-          {filteredPurchases.length === 0 ? (
-            <div className="card" style={{ padding: '40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
-              <div style={{ fontSize: '48px' }}>🛒</div>
-              <h3 style={{ margin: 0 }}>Belum Ada Data Pembelian</h3>
-              <p className="text-muted" style={{ maxWidth: '400px' }}>
-                Tidak ada data pembelian yang ditemukan untuk periode ini. Data pembelian dikelola dari menu Pembelian.
-              </p>
-            </div>
-          ) : (
-            <div className="animate-in">
-              <div className="card">
-                <div className="card-header">
-                  <h3 className="card-title">Histori Pembelian Terakhir</h3>
-                </div>
-                <div className="table-container" style={{ border: 'none' }}>
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Tanggal</th>
-                        <th>Supplier</th>
-                        <th>Items</th>
-                        <th style={{ textAlign: 'right' }}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPurchases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10).map((p, i) => (
-                        <tr key={i}>
-                          <td>{formatDateShort(p.createdAt)}</td>
-                          <td><strong>{p.supplier || '-'}</strong></td>
-                          <td className="text-sm">{(p.items || []).map(it => `${it.productName} ×${formatNumber(it.qty)}`).join(', ')}</td>
-                          <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.totalCost)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ===== Daily Recap Tab ===== */}
       {activeTab === 'recap' && (

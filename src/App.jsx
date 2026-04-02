@@ -8,7 +8,6 @@ import Invoices from './pages/Invoices';
 import InvoiceForm from './pages/InvoiceForm';
 import DeliveryNotes from './pages/DeliveryNotes';
 import DeliveryNoteForm from './pages/DeliveryNoteForm';
-import Purchases from './pages/Purchases';
 import Reports from './pages/Reports';
 import Pricing from './pages/Pricing';
 import Suppliers from './pages/Suppliers';
@@ -46,7 +45,6 @@ function App() {
           <Route path="/delivery-notes" element={<DeliveryNotes />} />
           <Route path="/delivery-notes/new" element={<DeliveryNoteForm />} />
           <Route path="/delivery-notes/:id/edit" element={<DeliveryNoteForm />} />
-          <Route path="/purchases" element={<Purchases />} />
           <Route path="/production/materials" element={<ProductionMaterials />} />
           <Route path="/production/salary" element={<SalaryCosts />} />
           <Route path="/production/needs" element={<ProductionNeeds />} />

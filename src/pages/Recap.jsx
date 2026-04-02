@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { FiBarChart2, FiCalendar, FiDownload, FiShoppingCart, FiFileText } from 'react-icons/fi';
-import { Invoices, Purchases } from '../utils/storage';
+import { Invoices } from '../utils/storage';
 import { formatCurrency, formatNumber, formatDateShort, isToday, isThisMonth } from '../utils/formatter';
 
 export default function Recap() {
   const [invoices, setInvoices] = useState([]);
-  const [purchases, setPurchases] = useState([]);
   const [filter, setFilter] = useState('month'); // 'today', 'month', 'all'
   const [loading, setLoading] = useState(true);
 
@@ -16,13 +15,8 @@ export default function Recap() {
   }, []);
 
   async function reload() {
-    setLoading(true);
-    const [invs, purs] = await Promise.all([
-      Invoices.getAll(),
-      Purchases.getAll()
-    ]);
+    const invs = await Invoices.getAll();
     setInvoices(invs);
-    setPurchases(purs);
     setLoading(false);
   }
 
@@ -36,7 +30,6 @@ export default function Recap() {
   };
 
   const filteredInvoices = filterData(invoices);
-  const filteredPurchases = filterData(purchases);
 
   // Aggregasi Penjualan (Invoices)
   const salesSummary = {};
@@ -51,21 +44,8 @@ export default function Recap() {
     });
   });
 
-  // Aggregasi Pembelian (Purchases)
-  const purchaseSummary = {};
-  filteredPurchases.forEach(pur => {
-    (pur.items || []).forEach(item => {
-      const key = item.productName || 'Tanpa Nama';
-      if (!purchaseSummary[key]) {
-        purchaseSummary[key] = { qty: 0, total: 0, unit: item.unit || '' };
-      }
-      purchaseSummary[key].qty += Number(item.qty) || 0;
-      purchaseSummary[key].total += (Number(item.qty) || 0) * (Number(item.costPerUnit) || 0);
-    });
-  });
 
   const totalSalesRevenue = Object.values(salesSummary).reduce((sum, item) => sum + item.total, 0);
-  const totalPurchaseExpense = Object.values(purchaseSummary).reduce((sum, item) => sum + item.total, 0);
 
   if (loading) return <div className="p-lg text-center">Memuat data...</div>;
 
@@ -73,8 +53,8 @@ export default function Recap() {
     <div className="animate-in">
       <div className="page-header page-header-actions">
         <div>
-          <h1>Rekap Penjualan & Pembelian</h1>
-          <p>Ringkasan pergerakan barang dan biaya</p>
+          <h1>Rekap Penjualan</h1>
+          <p>Ringkasan pergerakan barang terjual</p>
         </div>
         <div className="flex gap-sm">
           <div className="btn-group">
@@ -111,19 +91,9 @@ export default function Recap() {
             {filteredInvoices.length} Invoice ditemukan
           </div>
         </div>
-        <div className="stat-card orange">
-          <div className="stat-card-header">
-            <div className="stat-card-icon"><FiShoppingCart /></div>
-            <div className="stat-card-label">Total Pembelian</div>
-          </div>
-          <div className="stat-card-value">{formatCurrency(totalPurchaseExpense)}</div>
-          <div className="stat-card-footer text-sm">
-            {filteredPurchases.length} Transaksi pembelian
-          </div>
-        </div>
       </div>
 
-      <div className="grid grid-2 gap-lg">
+      <div className="grid grid-1 gap-lg">
         {/* Tabel Penjualan */}
         <div className="card shadow-sm">
           <div className="card-header flex-between">
@@ -157,44 +127,12 @@ export default function Recap() {
           </div>
         </div>
 
-        {/* Tabel Pembelian */}
-        <div className="card shadow-sm">
-          <div className="card-header flex-between">
-            <h3 className="flex-center gap-sm"><FiShoppingCart className="text-warning" /> Detail Pembelian Bahan</h3>
-          </div>
-          <div className="table-container p-0">
-            <table className="table table-hover">
-              <thead>
-                <tr>
-                  <th>Nama Barang</th>
-                  <th className="text-right">Qty Dibeli</th>
-                  <th className="text-right">Total Biaya</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(purchaseSummary).length === 0 ? (
-                  <tr><td colSpan="3" className="text-center text-muted p-md">Tidak ada data pembelian</td></tr>
-                ) : (
-                  Object.entries(purchaseSummary)
-                    .sort((a, b) => b[1].total - a[1].total)
-                    .map(([name, data]) => (
-                      <tr key={name}>
-                        <td><strong>{name}</strong></td>
-                        <td className="text-right">{formatNumber(data.qty)} {data.unit}</td>
-                        <td className="text-right font-medium text-warning">{formatCurrency(data.total)}</td>
-                      </tr>
-                    ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
 
       <style>{`
         .grid-2 {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr;
           gap: 24px;
         }
         @media (max-width: 992px) {

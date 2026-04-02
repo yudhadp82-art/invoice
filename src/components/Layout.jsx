@@ -17,7 +17,6 @@ const navItems = [
   { path: '/telegram-orders', label: 'Pesanan Telegram', icon: FiMessageCircle },
   { path: '/invoices', label: 'Invoice', icon: FiFileText },
   { path: '/delivery-notes', label: 'Surat Jalan', icon: FiTruck },
-  { path: '/purchases', label: 'Pembelian', icon: FiShoppingCart },
   { section: 'Biaya Produksi' },
   { path: '/production/materials', label: 'Bahan Pendukung', icon: FiPackage },
   { path: '/production/material-items', label: 'Master Bahan', icon: FiTag },
@@ -61,7 +60,7 @@ export default function Layout() {
   const getCollectionLabel = (col) => {
     const map = {
       products: 'Produk', customers: 'Customer', suppliers: 'Supplier',
-      invoices: 'Invoice', delivery_notes: 'Surat Jalan', purchases: 'Pembelian',
+      invoices: 'Invoice', delivery_notes: 'Surat Jalan',
       price_categories: 'Kategori Harga', hpp_reports: 'HPP',
       production_materials: 'Bahan Pendukung', salary_costs: 'Biaya Gaji',
       production_needs: 'Kebutuhan Produksi', employees: 'Daftar Pekerja',

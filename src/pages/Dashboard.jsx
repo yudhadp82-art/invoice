@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { FiDollarSign, FiFileText, FiTruck, FiTrendingUp, FiArrowUpRight, FiArrowDownRight } from 'react-icons/fi';
-import { Invoices, DeliveryNotes, Purchases, Products } from '../utils/storage';
+import { Invoices, DeliveryNotes, Products } from '../utils/storage';
 import { formatCurrency, formatDateShort, isToday, isThisMonth, getLast7Days, formatNumber } from '../utils/formatter';
 
 const CHART_COLORS = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -22,14 +22,12 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function Dashboard() {
   const [invoices, setInvoices] = useState([]);
   const [deliveryNotes, setDN] = useState([]);
-  const [purchases, setPurchases] = useState([]);
   const [products, setProducts] = useState([]);
 
   useEffect(() => {
     const load = async () => {
       setInvoices(await Invoices.getAll());
       setDN(await DeliveryNotes.getAll());
-      setPurchases(await Purchases.getAll());
       setProducts(await Products.getAll());
     };
     load();
@@ -41,11 +39,6 @@ export default function Dashboard() {
   const todayRevenue = todayInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
   const monthRevenue = monthInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
-  const monthPurchases = purchases.filter(p => isThisMonth(p.createdAt));
-  const monthTotalPurchases = monthPurchases.reduce((sum, p) => sum + (p.totalCost || 0), 0);
-  
-  const todayPurchases = purchases.filter(p => isToday(p.createdAt));
-  const todayTotalPurchases = todayPurchases.reduce((sum, p) => sum + (p.totalCost || 0), 0);
 
   // 7-day revenue chart
   const last7 = getLast7Days();
@@ -90,14 +83,6 @@ export default function Dashboard() {
           <div className="stat-card-label">Revenue Bulan Ini</div>
         </div>
 
-        <div className="stat-card green">
-          <div className="stat-card-header">
-            <div className="stat-card-icon"><FiTrendingUp /></div>
-            <span className="stat-card-trend">Aktual</span>
-          </div>
-          <div className="stat-card-value">{formatCurrency(monthTotalPurchases)}</div>
-          <div className="stat-card-label">Pembelian Bulan Ini</div>
-        </div>
 
         <div className="stat-card cyan">
           <div className="stat-card-header">
@@ -126,10 +111,6 @@ export default function Dashboard() {
           <div style={{ padding: '12px', background: 'rgba(99,102,241,0.08)', borderRadius: '12px' }}>
             <div className="text-sm text-muted">Total Penjualan</div>
             <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{formatCurrency(todayRevenue)}</div>
-          </div>
-          <div style={{ padding: '12px', background: 'rgba(245,158,11,0.08)', borderRadius: '12px' }}>
-            <div className="text-sm text-muted">Total Pembelian</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{formatCurrency(todayTotalPurchases)}</div>
           </div>
           <div style={{ padding: '12px', background: 'rgba(6,182,212,0.08)', borderRadius: '12px' }}>
             <div className="text-sm text-muted">Jumlah Invoice</div>
