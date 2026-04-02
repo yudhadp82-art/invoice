@@ -18,6 +18,8 @@ export default function TelegramOrdersPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [allInvoices, setAllInvoices] = useState([]);
   const [activeTab, setActiveTab] = useState('active');
+  const [failedUpdates, setFailedUpdates] = useState([]);
+  const [showFailed, setShowFailed] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -124,13 +126,24 @@ export default function TelegramOrdersPage() {
       }
     }
 
-    if (newOffset > offset) TelegramOrders.setOffset(newOffset);
+    const allOrdersAfter = await TelegramOrders.getAll();
+    const failures = updates
+      .filter(u => u.message?.text)
+      .filter(u => !allOrdersAfter.find(o => o.telegramMessageId === u.message.message_id))
+      .map(u => ({
+        id: u.update_id,
+        text: u.message.text,
+        from: u.message.from?.username || u.message.from?.first_name || 'Unknown',
+        date: new Date(u.message.date * 1000).toISOString()
+      }));
 
+    setFailedUpdates(failures);
     await loadOrders();
+    
     if (addedCount > 0) {
       alert(`Berhasil mengambil ${addedCount} pesanan baru`);
-    } else if (updates.length > 0) {
-      alert(`${updates.length} pesan diterima tapi format tidak sesuai.`);
+    } else if (failures.length > 0) {
+      alert(`${failures.length} pesan diterima tapi format tidak sesuai. Klik "Lihat Pesan Belum Terbaca" di bawah untuk melihat detailnya.`);
     } else {
       alert('Tidak ada pesan baru.');
     }
@@ -701,6 +714,43 @@ export default function TelegramOrdersPage() {
               <button className="btn btn-primary" onClick={saveEdit}><FiSave /> Simpan</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Failed Messages Section */}
+      {failedUpdates.length > 0 && (
+        <div className="card mt-lg" style={{ border: '1px dashed var(--accent-warning)', background: 'rgba(245,158,11,0.03)' }}>
+          <div className="card-header flex-between" onClick={() => setShowFailed(!showFailed)} style={{ cursor: 'pointer' }}>
+            <h3 className="flex-center gap-sm" style={{ color: 'var(--accent-warning)', margin: 0 }}>
+              <FiAlertCircle /> Ada {failedUpdates.length} Pesan Tidak Terbaca
+            </h3>
+            <button className="btn btn-ghost btn-sm">{showFailed ? 'Sembunyikan' : 'Lihat Detail'}</button>
+          </div>
+          {showFailed && (
+            <div className="table-container p-0">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Pengirim</th>
+                    <th>Isi Pesan</th>
+                    <th className="text-right">Jam</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {failedUpdates.map(u => (
+                    <tr key={u.id}>
+                      <td><strong>{u.from}</strong></td>
+                      <td><code style={{ fontSize: 12 }}>{u.text}</code></td>
+                      <td className="text-right text-sm text-muted">{new Date(u.date).toLocaleTimeString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="p-md text-sm text-muted">
+                <FiAlertCircle /> Pesan-pesan di atas diterima oleh bot tapi tidak mengandung format pesanan yang dikenali (misal: "Halo", atau format barang yang salah).
+              </div>
+            </div>
+          )}
         </div>
       )}
 

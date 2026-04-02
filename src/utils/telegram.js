@@ -210,29 +210,24 @@ function parseOrderMessageFallback(text) {
 
     let unit = 'kg';
     let qty = 0;
-    let productParts = [];
+    let productName = '';
 
-    if (parts.length >= 2 && UNIT_PATTERN.test(parts[parts.length - 1])) {
-      unit = parts[parts.length - 1].toLowerCase();
-      const qtyStr = parts[parts.length - 2];
-      qty = parseQuantity(qtyStr);
-      productParts = parts.slice(0, parts.length - 2);
-    } else {
-      const lastPart = parts[parts.length - 1];
-      // Regex yang mendukung pecahan: \d+/\d+ atau angka desimal biasa
-      const gluedMatch = lastPart.match(/^(\d+\/\d+|\d+(?:[.,]\d+)?)(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|liter|lt|pcs|lusin|jrg|jrigen|jerigen|dirigen|botol|btl|kaleng|bag|kotak|slice|lbr|lembar|renteng|sisir|tandan|slop|karton|tray|biji)?$/i);
-      if (gluedMatch) {
-        qty = parseQuantity(gluedMatch[1]);
-        unit = gluedMatch[2] ? gluedMatch[2].toLowerCase() : 'kg';
-        productParts = parts.slice(0, parts.length - 1);
-      } else {
-        continue;
-      }
-    }
+    // Cari angka + unit (misal 5kg atau 5 kg) di baris
+    // Regex ini mencari angka (bisa pecahan) diikuti oleh unit
+    const qtyUnitRegex = /(\d+(?:[.,]\d+)?|\d+\/\d+)\s*(kg|gr|g|ons|pack|ikat|bks|bungkus|dus|bal|karung|buah|liter|lt|pcs|lusin|jrg|jrigen|jerigen|dirigen|botol|btl|kaleng|bag|kotak|slice|lbr|lembar|renteng|sisir|tandan|slop|karton|tray|biji)?/i;
+    const match = clean.match(qtyUnitRegex);
 
-    if (!qty || productParts.length === 0) continue;
+    if (match) {
+      qty = parseQuantity(match[1]);
+      unit = match[2] ? match[2].toLowerCase() : 'kg';
+      // Nama produk adalah teks sebelum angka/unit tersebut
+      const qtyIndex = clean.indexOf(match[0]);
+      productName = clean.substring(0, qtyIndex).trim();
+    } 
 
-    items.push({ productName: productParts.join(' '), qty, unit });
+    if (!qty || !productName) continue;
+
+    items.push({ productName, qty, unit });
   }
 
   return { customerRaw, customerKeywords, sppgNumber, items };
