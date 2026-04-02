@@ -399,13 +399,32 @@ export default function PurchaseNoteForm() {
                     key={inv.id} 
                     className="btn btn-ghost" 
                     style={{ justifyContent: 'flex-start', textAlign: 'left', padding: '12px', border: '1px solid rgba(255,255,255,0.05)' }}
-                    onClick={() => {
-                      const materials = materialsInInv.map(it => {
-                        const mb = masterBahan.find(b => b.id === it.productId || b.name === it.productName);
-                        return {
-                          materialId: mb ? mb.id : (it.productId || ''),
-                          materialName: mb ? mb.name : it.productName,
-                          unit: mb ? mb.unit : it.unit,
+                    onClick={async () => {
+                      const currentMaster = [...masterBahan];
+                      let masterUpdated = false;
+                      
+                      const materials = [];
+                      for (const it of materialsInInv) {
+                        let mb = currentMaster.find(b => b.id === it.productId || b.name === it.productName);
+                        
+                        if (!mb) {
+                          // Auto-provision missing material
+                          const newMaster = {
+                            name: it.productName,
+                            unit: it.unit || 'kg',
+                            defaultPrice: Number(it.unitPrice) || 0,
+                            stock: 0
+                          };
+                          const saved = await MasterItems.create(newMaster);
+                          mb = saved;
+                          currentMaster.push(saved);
+                          masterUpdated = true;
+                        }
+
+                        materials.push({
+                          materialId: mb.id,
+                          materialName: mb.name,
+                          unit: mb.unit,
                           qtyNota: Number(it.qty) || 0,
                           pricePerUnit: Number(it.unitPrice) || 0,
                           sellPrice: Number(it.unitPrice) || 0,
@@ -414,8 +433,12 @@ export default function PurchaseNoteForm() {
                             s3: { qty: 0, shrinkage: 0, netQty: 0 }
                           },
                           totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
-                        };
-                      });
+                        });
+                      }
+                      
+                      if (masterUpdated) {
+                        setMasterBahan(currentMaster);
+                      }
                       
                       if (materials.length > 0) {
                         setItems(materials);
