@@ -100,19 +100,28 @@ export default function PurchaseNoteForm() {
 
   function updateItem(index, field, value) {
     const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
     
-    if (field === 'qtyNota' || field === 'pricePerUnit') {
-      newItems[index].totalCost = (Number(newItems[index].qtyNota) || 0) * (Number(newItems[index].pricePerUnit) || 0);
-    }
-
     if (field === 'materialId') {
+      if (value === 'all-master') {
+        setInvoiceId(null);
+        setInvoiceNumber('');
+        return;
+      }
       const m = masterBahan.find(b => b.id === value);
       if (m) {
+        newItems[index].materialId = value;
         newItems[index].materialName = m.name;
         newItems[index].unit = m.unit;
         newItems[index].sellPrice = m.defaultPrice || 0;
+      } else {
+        newItems[index].materialId = '';
       }
+    } else {
+      newItems[index][field] = value;
+    }
+    
+    if (field === 'qtyNota' || field === 'pricePerUnit') {
+      newItems[index].totalCost = (Number(newItems[index].qtyNota) || 0) * (Number(newItems[index].pricePerUnit) || 0);
     }
     
     setItems(newItems);
@@ -147,7 +156,6 @@ export default function PurchaseNoteForm() {
       };
 
       if (isEditing) {
-        // Reverse old stock impacts before applying new ones
         const oldNote = await PurchaseNotes.getById(id);
         if (oldNote && oldNote.items) {
           for (const oldIt of oldNote.items) {
@@ -165,7 +173,6 @@ export default function PurchaseNoteForm() {
         await PurchaseNotes.create(payload);
       }
       
-      // Apply new stock impacts
       for (const it of items) {
         if (it.materialId) {
           const master = await MasterItems.getById(it.materialId);
@@ -184,7 +191,7 @@ export default function PurchaseNoteForm() {
     }
   }
 
-  const grandTotal = items.reduce((s, it) => s + (it.totalCost || 0), 0);
+  const grandTotalValue = items.reduce((s, it) => s + (it.totalCost || 0), 0);
 
   return (
     <div className="animate-in">
@@ -210,8 +217,7 @@ export default function PurchaseNoteForm() {
         </div>
       </div>
 
-      <form className="grid gap-lg">
-        {/* Header Section */}
+      <form className="grid gap-lg" onSubmit={handleSave}>
         <div className="card">
           <div className="card-header"><h3 className="card-title">Informasi Utama</h3></div>
           <div className="grid grid-2 gap-md p-md">
@@ -226,97 +232,110 @@ export default function PurchaseNoteForm() {
           </div>
         </div>
 
-        {/* Items Section */}
-        {items.map((item, idx) => (
-          <div key={idx} className="card animate-in" style={{ borderColor: 'rgba(99,102,241,0.2)', borderLeftWidth: 4, borderLeftColor: '#6366f1' }}>
-            <div className="card-header flex-between" style={{ background: 'rgba(99,102,241,0.05)' }}>
-              <h3 className="card-title flex-center gap-sm">
-                <span className="badge badge-primary">{idx + 1}</span> Item Pembelian
-              </h3>
-              <button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => removeItem(idx)}>
-                <FiTrash2 /> Hapus
-              </button>
+        {(() => {
+          let selectableItems = masterBahan;
+          const currentInvoice = invoices.find(inv => inv.id === invoiceId);
+          if (currentInvoice) {
+            selectableItems = masterBahan.filter(m => 
+              (currentInvoice.items || []).some(it => it.productId === m.id || it.productName === m.name)
+            );
+          }
+
+          return items.map((item, idx) => (
+            <div key={idx} className="card animate-in" style={{ borderColor: 'rgba(99,102,241,0.2)', borderLeftWidth: 4, borderLeftColor: '#6366f1' }}>
+              <div className="card-header flex-between" style={{ background: 'rgba(99,102,241,0.05)' }}>
+                <h3 className="card-title flex-center gap-sm">
+                  <span className="badge badge-primary">{idx + 1}</span> Item Pembelian
+                </h3>
+                <button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => removeItem(idx)}>
+                  <FiTrash2 /> Hapus
+                </button>
+              </div>
+              
+              <div className="p-md grid gap-md">
+                <div className="grid grid-3 gap-md">
+                  <div className="form-group">
+                    <label className="form-label">Pilih Bahan Baku</label>
+                    <select className="form-select" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required>
+                      <option value="">-- {currentInvoice ? 'Pilih item dari invoice' : 'Pilih Master Bahan'} --</option>
+                      {selectableItems.map(m => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                      {currentInvoice && selectableItems.length < masterBahan.length && (
+                        <optgroup label="Pilihan Lain">
+                          <option value="all-master">Lihat Seluruh Master Bahan...</option>
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Total Qty di Nota ({item.unit || '-'})</label>
+                    <input type="number" className="form-input" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Harga Beli per Satuan (Rp)</label>
+                    <input type="number" className="form-input" value={item.pricePerUnit} onChange={e => updateItem(idx, 'pricePerUnit', e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="grid grid-2 gap-lg" style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div>
+                    <div className="flex-between mb-sm">
+                      <h4 style={{ margin: 0, color: '#38bdf8' }}>SPPG SINDANGJAYA 5</h4>
+                      <span className="badge badge-cyan">Split S5</span>
+                    </div>
+                    <div className="grid grid-2 gap-sm">
+                      <div className="form-group">
+                        <label className="form-label text-xs">Qty Split</label>
+                        <input type="number" className="form-input form-input-sm" value={item.splits.s5.qty} onChange={e => updateSplit(idx, 's5', 'qty', e.target.value)} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label text-xs">Penyusutan</label>
+                        <input type="number" className="form-input form-input-sm text-danger" value={item.splits.s5.shrinkage} onChange={e => updateSplit(idx, 's5', 'shrinkage', e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="mt-sm text-sm" style={{ fontWeight: 600 }}>
+                      Qty Bersih (Net): <span className="text-primary">{item.splits.s5.netQty} {item.unit || ''}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex-between mb-sm">
+                      <h4 style={{ margin: 0, color: '#fb923c' }}>SPPG SINDANGJAYA 3</h4>
+                      <span className="badge badge-orange">Split S3</span>
+                    </div>
+                    <div className="grid grid-2 gap-sm">
+                      <div className="form-group">
+                        <label className="form-label text-xs">Qty Split</label>
+                        <input type="number" className="form-input form-input-sm" value={item.splits.s3.qty} onChange={e => updateSplit(idx, 's3', 'qty', e.target.value)} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label text-xs">Penyusutan</label>
+                        <input type="number" className="form-input form-input-sm text-danger" value={item.splits.s3.shrinkage} onChange={e => updateSplit(idx, 's3', 'shrinkage', e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="mt-sm text-sm" style={{ fontWeight: 600 }}>
+                      Qty Bersih (Net): <span className="text-primary">{item.splits.s3.netQty} {item.unit || ''}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-2 gap-md">
+                  <div className="form-group">
+                    <label className="form-label">Harga Jual Direncanakan (Rp)</label>
+                    <input type="number" className="form-input" value={item.sellPrice} onChange={e => updateItem(idx, 'sellPrice', e.target.value)} />
+                  </div>
+                  <div className="flex-end">
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="text-xs text-muted mb-xs">Subtotal Item:</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#10b981' }}>{formatCurrency(item.totalCost)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div className="p-md grid gap-md">
-              <div className="grid grid-3 gap-md">
-                <div className="form-group">
-                  <label className="form-label">Pilih Bahan Baku</label>
-                  <select className="form-select" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required>
-                    <option value="">-- Pilih Master Bahan --</option>
-                    {masterBahan.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Total Qty di Nota ({item.unit || '-'})</label>
-                  <input type="number" className="form-input" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Harga Beli per Satuan (Rp)</label>
-                  <input type="number" className="form-input" value={item.pricePerUnit} onChange={e => updateItem(idx, 'pricePerUnit', e.target.value)} />
-                </div>
-              </div>
-
-              {/* Split Logic */}
-              <div className="grid grid-2 gap-lg" style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                {/* Branch S5 */}
-                <div>
-                  <div className="flex-between mb-sm">
-                    <h4 style={{ margin: 0, color: '#38bdf8' }}>SPPG SINDANGJAYA 5</h4>
-                    <span className="badge badge-cyan">Split S5</span>
-                  </div>
-                  <div className="grid grid-2 gap-sm">
-                    <div className="form-group">
-                      <label className="form-label text-xs">Qty Split</label>
-                      <input type="number" className="form-input form-input-sm" value={item.splits.s5.qty} onChange={e => updateSplit(idx, 's5', 'qty', e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label text-xs">Penyusutan</label>
-                      <input type="number" className="form-input form-input-sm text-danger" value={item.splits.s5.shrinkage} onChange={e => updateSplit(idx, 's5', 'shrinkage', e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="mt-sm text-sm" style={{ fontWeight: 600 }}>
-                    Qty Bersih (Net): <span className="text-primary">{item.splits.s5.netQty} {item.unit || ''}</span>
-                  </div>
-                </div>
-
-                {/* Branch S3 */}
-                <div>
-                  <div className="flex-between mb-sm">
-                    <h4 style={{ margin: 0, color: '#fb923c' }}>SPPG SINDANGJAYA 3</h4>
-                    <span className="badge badge-orange">Split S3</span>
-                  </div>
-                  <div className="grid grid-2 gap-sm">
-                    <div className="form-group">
-                      <label className="form-label text-xs">Qty Split</label>
-                      <input type="number" className="form-input form-input-sm" value={item.splits.s3.qty} onChange={e => updateSplit(idx, 's3', 'qty', e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label text-xs">Penyusutan</label>
-                      <input type="number" className="form-input form-input-sm text-danger" value={item.splits.s3.shrinkage} onChange={e => updateSplit(idx, 's3', 'shrinkage', e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="mt-sm text-sm" style={{ fontWeight: 600 }}>
-                    Qty Bersih (Net): <span className="text-primary">{item.splits.s3.netQty} {item.unit || ''}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-2 gap-md">
-                <div className="form-group">
-                  <label className="form-label">Harga Jual Direncanakan (Rp)</label>
-                  <input type="number" className="form-input" value={item.sellPrice} onChange={e => updateItem(idx, 'sellPrice', e.target.value)} />
-                </div>
-                <div className="flex-end">
-                  <div style={{ textAlign: 'right' }}>
-                    <div className="text-xs text-muted mb-xs">Subtotal Item:</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#10b981' }}>{formatCurrency(item.totalCost)}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+          ));
+        })()}
 
         <button type="button" className="btn btn-secondary btn-lg" onClick={addItem} style={{ borderStyle: 'dashed' }}>
           <FiPlus /> Tambah Item Lainnya
@@ -329,7 +348,7 @@ export default function PurchaseNoteForm() {
               <p className="text-muted text-sm">Akumulasi seluruh item pembelian</p>
             </div>
             <div style={{ fontSize: '2rem', fontWeight: 800, color: '#6366f1' }}>
-              {formatCurrency(grandTotal)}
+              {formatCurrency(grandTotalValue)}
             </div>
           </div>
         </div>
@@ -345,15 +364,10 @@ export default function PurchaseNoteForm() {
           <FiSave /> {saving ? 'Menyimpan...' : 'Simpan Seluruh Nota'}
         </button>
       </div>
-      
+
       <div style={{ height: 100 }}></div>
 
-      {/* Import Modal */}
-      <Modal 
-        isOpen={isImportModalOpen} 
-        onClose={() => setIsImportModalOpen(false)}
-        title="Tarik Item dari Invoice"
-      >
+      <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Tarik Item dari Invoice">
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
           <p className="text-muted text-sm mb-md">Pilih invoice untuk mengambil item kategori <strong>Bahan</strong>.</p>
           <div className="grid gap-sm">
