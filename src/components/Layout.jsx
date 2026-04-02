@@ -16,7 +16,7 @@ const navItems = [
   { path: '/telegram-orders', label: 'Pesanan Telegram', icon: FiMessageCircle },
   { path: '/invoices', label: 'Invoice', icon: FiFileText },
   { path: '/delivery-notes', label: 'Surat Jalan', icon: FiTruck },
-  { path: '/purchase-notes', label: 'Nota Pembelian', icon: FiShoppingCart },
+  { path: '/purchase-notes', label: 'Pembelian Bahan', icon: FiShoppingCart },
   { section: 'Analisa' },
   { path: '/hpp', label: 'HPP', icon: FiPieChart },
   { path: '/recap', label: 'Rekap', icon: FiBarChart2 },

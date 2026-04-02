@@ -194,7 +194,7 @@ export default function PurchaseNoteForm() {
             <FiArrowLeft />
           </Link>
           <div>
-            <h1>{isEditing ? 'Edit Nota Pembelian' : 'Nota Pembelian Baru'}</h1>
+            <h1>{isEditing ? 'Edit Pembelian' : 'Pencatatan Pembelian Bahan'}</h1>
             <p>Input detail pembelian dan split S5/S3</p>
           </div>
         </div>

@@ -110,7 +110,7 @@ export default function PurchaseNotes() {
     <div className="animate-in">
       <div className="page-header page-header-actions">
         <div>
-          <h1>Nota Pembelian</h1>
+          <h1>Pembelian Bahan</h1>
           <p>Daftar nota pembelian bahan baku dan split S5/S3</p>
         </div>
         <div className="flex gap-sm">
