@@ -323,6 +323,9 @@ export default function InvoiceForm() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
   const [syncData, setSyncData] = useState({ inv: null, note: null });
+  const [isMaterialsModalOpen, setIsMaterialsModalOpen] = useState(false);
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState([]);
+  const [materialSearch, setMaterialSearch] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -446,6 +449,34 @@ export default function InvoiceForm() {
         subtotal: unitPrice,
       }],
     }));
+  }
+
+  function toggleMaterialSelection(id) {
+    setSelectedMaterialIds(prev => 
+      prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]
+    );
+  }
+
+  function addSelectedMaterials() {
+    const selected = materials.filter(m => selectedMaterialIds.includes(m.id));
+    const newItems = selected.map(m => ({
+      productId: m.id,
+      productName: m.name,
+      unit: m.unit,
+      qty: 1,
+      unitPrice: Number(m.defaultPrice) || 0,
+      purchaseCost: Number(m.defaultPrice) || 0,
+      subtotal: Number(m.defaultPrice) || 0,
+      type: 'material'
+    }));
+
+    setForm(f => ({
+      ...f,
+      items: [...f.items, ...newItems]
+    }));
+
+    setIsMaterialsModalOpen(false);
+    setSelectedMaterialIds([]);
   }
 
   function updateItem(index, field, value) {
@@ -672,11 +703,16 @@ export default function InvoiceForm() {
 
       {/* Items */}
       <div className="card mb-lg">
-        <div className="card-header">
+        <div className="card-header flex-between">
           <h3 className="card-title">Item Invoice</h3>
-          <button className="btn btn-secondary btn-sm" onClick={addItem}>
-            <FiPlus /> Tambah Item
-          </button>
+          <div className="flex gap-sm">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setIsMaterialsModalOpen(true)}>
+              <FiPlus /> Tambah dari Master Bahan
+            </button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={addItem}>
+              <FiPlus /> Tambah Item
+            </button>
+          </div>
         </div>
 
         {form.items.length === 0 ? (
@@ -778,13 +814,89 @@ export default function InvoiceForm() {
           </div>
         </div>
       </div>
-      <ConfirmModal 
-        isOpen={!!deleteId} 
-        onClose={() => setDeleteId(null)} 
-        onConfirm={confirmDelete}
-        title="Hapus Invoice"
-        message="Apakah Anda yakin ingin menghapus invoice ini? Data Surat Jalan terkait tidak akan terhapus otomatis."
-      />
+      {/* Select Master Bahan Modal */}
+      <style>{`
+        .modal-body-scroll { max-height: 55vh; overflow-y: auto; }
+        .bahan-table tr:hover { background: rgba(99,102,241,0.05); }
+        .modal-overlay { 
+          position: fixed; inset: 0; background: rgba(0,0,0,0.7); 
+          display: flex; align-items: center; justify-content: center; z-index: 2000; 
+          backdrop-filter: blur(4px); 
+        }
+        .modal-content { 
+          width: 90%; max-width: 600px; background: var(--bg-card, #1e293b); 
+          border: 1px solid var(--border-color, #334155); border-radius: 12px; padding: 24px; 
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+      `}</style>
+      
+      {isMaterialsModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content animate-in">
+            <div className="flex-between mb-lg">
+              <h3 className="card-title" style={{ margin: 0 }}>Pilih Master Bahan</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setIsMaterialsModalOpen(false)}>×</button>
+            </div>
+
+            <div className="search-box mb-md">
+              <FiSearch className="search-icon" />
+              <input 
+                type="text" 
+                placeholder="Cari bahan baku..." 
+                className="form-input"
+                value={materialSearch} 
+                onChange={e => setMaterialSearch(e.target.value)} 
+              />
+            </div>
+
+            <div className="modal-body-scroll">
+              <table className="table bahan-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 40 }}></th>
+                    <th>Nama Bahan</th>
+                    <th>Unit</th>
+                    <th className="text-right">Harga</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {materials
+                    .filter(m => m.name.toLowerCase().includes(materialSearch.toLowerCase()))
+                    .map(m => (
+                    <tr key={m.id} onClick={() => toggleMaterialSelection(m.id)} style={{ cursor: 'pointer' }}>
+                      <td>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedMaterialIds.includes(m.id)} 
+                          readOnly
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </td>
+                      <td><strong>{m.name}</strong></td>
+                      <td>{m.unit}</td>
+                      <td className="text-right">{formatCurrency(m.defaultPrice)}</td>
+                    </tr>
+                  ))}
+                  {materials.length === 0 && (
+                    <tr><td colSpan="4" className="text-center text-muted p-md">Master Bahan belum tersedia.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 20 }}>
+              <button className="btn btn-ghost" onClick={() => setIsMaterialsModalOpen(false)}>Batal</button>
+              <button 
+                className="btn btn-primary" 
+                onClick={addSelectedMaterials} 
+                disabled={selectedMaterialIds.length === 0}
+              >
+                Tambah Ke Invoice ({selectedMaterialIds.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sync Overlay */}
       {isSyncing && (
