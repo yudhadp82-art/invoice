@@ -447,6 +447,29 @@ export default function PurchaseNoteForm() {
                           masterUpdated = true;
                         }
 
+                        const isSJ2 = (inv.customerName || '').toLowerCase().includes('sindangjaya 2');
+                        const isSJ5 = (inv.customerName || '').toLowerCase().includes('sindangjaya 5');
+                        const shouldSplit = isSJ2 || isSJ5;
+
+                        let qtyS5 = Number(it.qty) || 0;
+                        let qtyS2 = 0;
+
+                        if (shouldSplit) {
+                          const availS2 = mb.availableInS2 !== false;
+                          const availS5 = mb.availableInS5 !== false;
+
+                          if (availS2 && availS5) {
+                            qtyS5 = (Number(it.qty) || 0) / 2;
+                            qtyS2 = (Number(it.qty) || 0) / 2;
+                          } else if (availS2) {
+                            qtyS5 = 0;
+                            qtyS2 = Number(it.qty) || 0;
+                          } else if (availS5) {
+                            qtyS5 = Number(it.qty) || 0;
+                            qtyS2 = 0;
+                          }
+                        }
+
                         materials.push({
                           materialId: mb.id,
                           materialName: mb.name,
@@ -456,8 +479,8 @@ export default function PurchaseNoteForm() {
                           pricePerUnit: Number(it.unitPrice) || 0,
                           sellPrice: Number(it.unitPrice) || 0,
                           splits: {
-                            s5: { qty: Number(it.qty) || 0, shrinkage: 0, netQty: Number(it.qty) || 0 },
-                            s2: { qty: 0, shrinkage: 0, netQty: 0 },
+                            s5: { qty: qtyS5, shrinkage: 0, netQty: qtyS5 },
+                            s2: { qty: qtyS2, shrinkage: 0, netQty: qtyS2 },
                             s3: { qty: 0, shrinkage: 0, netQty: 0 }
                           },
                           totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)

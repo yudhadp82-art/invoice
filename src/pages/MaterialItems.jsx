@@ -6,7 +6,7 @@ import { exportToExcel } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
 import { formatCurrency } from '../utils/formatter';
 
-const emptyItem = { name: '', unit: '', defaultPrice: 0, stock: 0, notes: '' };
+const emptyItem = { name: '', unit: '', defaultPrice: 0, stock: 0, notes: '', availableInS2: true, availableInS5: true };
 
 export default function MaterialItems() {
   const [items, setItems] = useState([]);
@@ -39,6 +39,8 @@ export default function MaterialItems() {
       defaultPrice: item.defaultPrice || 0,
       stock: item.stock || 0,
       notes: item.notes || '',
+      availableInS2: item.availableInS2 !== false,
+      availableInS5: item.availableInS5 !== false,
     });
     setEditingId(item.id);
     setModalOpen(true);
@@ -170,6 +172,21 @@ export default function MaterialItems() {
                 <label className="form-label">Stok Awal</label>
                 <input className="form-input" type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="0" />
               </div>
+            </div>
+            
+            <div className="form-group mb-md" style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
+              <label className="form-label" style={{ marginBottom: '8px' }}>Ketersediaan di Cabang (Auto-Split)</label>
+              <div className="flex gap-lg">
+                <label className="flex-center gap-xs cursor-pointer">
+                  <input type="checkbox" checked={form.availableInS2} onChange={e => setForm({...form, availableInS2: e.target.checked})} />
+                  <span>Sedia di S2 (SJ 2)</span>
+                </label>
+                <label className="flex-center gap-xs cursor-pointer">
+                  <input type="checkbox" checked={form.availableInS5} onChange={e => setForm({...form, availableInS5: e.target.checked})} />
+                  <span>Sedia di S5 (SJ 5)</span>
+                </label>
+              </div>
+              <p className="text-xs text-muted mt-sm">Mempengaruhi pembagian otomatis qty saat import dari invoice SJ2/SJ5.</p>
             </div>
 
             <div className="form-group">
