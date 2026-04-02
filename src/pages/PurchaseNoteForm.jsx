@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiShoppingBag, FiInfo } from 'react-icons/fi';
 import { PurchaseNotes, SupportingMaterialItems as MasterItems, Invoices } from '../utils/storage';
 import { formatCurrency } from '../utils/formatter';
@@ -22,12 +22,15 @@ const emptyItem = {
 export default function PurchaseNoteForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const isEditing = !!id;
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [supplierName, setSupplierName] = useState('');
   const [items, setItems] = useState([ { ...emptyItem } ]);
   const [notes, setNotes] = useState('');
+  const [invoiceId, setInvoiceId] = useState(null);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [masterBahan, setMasterBahan] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -52,6 +55,36 @@ export default function PurchaseNoteForm() {
         setSupplierName(note.supplierName || '');
         setItems(note.items || []);
         setNotes(note.notes || '');
+        setInvoiceId(note.invoiceId || null);
+        setInvoiceNumber(note.invoiceNumber || '');
+      }
+    } else if (location.state?.invoiceId) {
+      const invId = location.state.invoiceId;
+      const inv = invs.find(i => i.id === invId);
+      if (inv) {
+        const materials = (inv.items || [])
+          .filter(it => it.type === 'material')
+          .map(it => ({
+            materialId: it.productId,
+            materialName: it.productName,
+            unit: it.unit,
+            qtyNota: Number(it.qty) || 0,
+            pricePerUnit: Number(it.unitPrice) || 0,
+            sellPrice: Number(it.unitPrice) || 0,
+            splits: {
+              s5: { qty: 0, shrinkage: 0, netQty: 0 },
+              s3: { qty: 0, shrinkage: 0, netQty: 0 }
+            },
+            totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
+          }));
+        
+        if (materials.length > 0) {
+          setItems(materials);
+          setSupplierName(inv.customerName || '');
+          setInvoiceId(inv.id);
+          setInvoiceNumber(inv.invoiceNumber);
+          setNotes(n => `${n}${n ? '\n' : ''}Otomatis dari Invoice: ${inv.invoiceNumber}`);
+        }
       }
     }
   }
@@ -108,7 +141,9 @@ export default function PurchaseNoteForm() {
         supplierName,
         items,
         notes,
-        grandTotal
+        grandTotal,
+        invoiceId,
+        invoiceNumber
       };
 
       if (isEditing) {

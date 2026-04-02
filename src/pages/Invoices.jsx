@@ -142,7 +142,13 @@ export default function Invoices() {
       return (inv.invoiceNumber || '').toLowerCase().includes(q) ||
         (inv.customerName || '').toLowerCase().includes(q);
     })
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    .sort((a, b) => {
+      const db = b.date || b.createdAt || 0;
+      const da = a.date || a.createdAt || 0;
+      const tb = db.seconds ? db.seconds * 1000 : new Date(db).getTime();
+      const ta = da.seconds ? da.seconds * 1000 : new Date(da).getTime();
+      return tb - ta;
+    });
 
   const printInvoice = printId ? invoices.find(i => i.id === printId) : null;
 

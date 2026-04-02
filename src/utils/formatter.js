@@ -17,7 +17,8 @@ export function formatNumber(num) {
 
 export function formatDate(dateStr) {
   if (!dateStr) return '-';
-  const date = new Date(dateStr);
+  const date = dateStr.seconds ? new Date(dateStr.seconds * 1000) : new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('id-ID', {
     day: 'numeric',
     month: 'long',
@@ -27,7 +28,8 @@ export function formatDate(dateStr) {
 
 export function formatDateShort(dateStr) {
   if (!dateStr) return '-';
-  const date = new Date(dateStr);
+  const date = dateStr.seconds ? new Date(dateStr.seconds * 1000) : new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('id-ID', {
     day: '2-digit',
     month: '2-digit',
@@ -37,7 +39,8 @@ export function formatDateShort(dateStr) {
 
 export function formatDateTime(dateStr) {
   if (!dateStr) return '-';
-  const date = new Date(dateStr);
+  const date = dateStr.seconds ? new Date(dateStr.seconds * 1000) : new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('id-ID', {
     day: 'numeric',
     month: 'short',

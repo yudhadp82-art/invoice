@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2 } from 'react-icons/fi';
-import { PurchaseNotes as Store } from '../utils/storage';
+import { PurchaseNotes as Store, Invoices } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
+  const [pendingInvoices, setPendingInvoices] = useState([]);
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
 
@@ -17,8 +18,34 @@ export default function PurchaseNotes() {
   }, []);
 
   async function reload() {
-    const all = await Store.getAll();
-    setNotes(all.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)));
+    const [allNotes, allInvoices] = await Promise.all([
+      Store.getAll(),
+      Invoices.getAll()
+    ]);
+    
+    setNotes(allNotes.sort((a, b) => {
+      const db = b.date || b.createdAt || 0;
+      const da = a.date || a.createdAt || 0;
+      const tb = db.seconds ? db.seconds * 1000 : new Date(db).getTime();
+      const ta = da.seconds ? da.seconds * 1000 : new Date(da).getTime();
+      return tb - ta;
+    }));
+    
+    // Filter pending invoices (those with materials that aren't linked to a Purchase Note)
+    const linkedInvoiceIds = allNotes.map(n => n.invoiceId).filter(id => !!id);
+    const pending = allInvoices.filter(inv => {
+      if (linkedInvoiceIds.includes(inv.id)) return false;
+      const hasMaterials = (inv.items || []).some(it => it.type === 'material');
+      return hasMaterials;
+    });
+    
+    setPendingInvoices(pending.sort((a, b) => {
+      const db = b.date || b.createdAt || 0;
+      const da = a.date || a.createdAt || 0;
+      const tb = db.seconds ? db.seconds * 1000 : new Date(db).getTime();
+      const ta = da.seconds ? da.seconds * 1000 : new Date(da).getTime();
+      return tb - ta;
+    }));
   }
 
   async function confirmDelete() {
@@ -56,6 +83,50 @@ export default function PurchaseNotes() {
           />
         </div>
       </div>
+
+      {pendingInvoices.length > 0 && (
+        <div className="card mb-lg animate-in" style={{ borderColor: 'var(--primary)', borderLeftWidth: 4 }}>
+          <div className="card-header flex-between">
+            <h3 className="card-title text-primary"><FiFileText /> Invoice Menunggu Nota Pembelian ({pendingInvoices.length})</h3>
+          </div>
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Tanggal</th>
+                  <th>No. Invoice</th>
+                  <th>Customer</th>
+                  <th>Materials</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingInvoices.map(inv => (
+                  <tr key={inv.id}>
+                    <td className="text-muted">{formatDateShort(inv.date)}</td>
+                    <td><strong>{inv.invoiceNumber}</strong></td>
+                    <td>{inv.customerName}</td>
+                    <td>
+                      <span className="badge badge-primary">
+                        {(inv.items || []).filter(it => it.type === 'material').length} Bahan
+                      </span>
+                    </td>
+                    <td className="text-right">
+                      <Link 
+                        to="/purchase-notes/new" 
+                        state={{ invoiceId: inv.id }} 
+                        className="btn btn-primary btn-sm"
+                      >
+                        <FiPlus /> Buat Nota Pembelian
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="table-container">
         <table className="table">
