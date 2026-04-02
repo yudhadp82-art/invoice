@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiDollarSign, FiTruck, FiPackage, FiUsers, FiAlertTriangle, FiChevronDown, FiChevronUp, FiDownload, FiPrinter } from 'react-icons/fi';
 import Modal from '../components/Modal';
-import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore, ProductionNeeds, Customers } from '../utils/storage';
+import { HppReports, Invoices as InvoiceStore, Purchases as PurchaseStore, Products as ProductStore, ProductionNeeds, Customers, PurchaseNotes, SupportingMaterialItems } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumber, formatNumberInput } from '../utils/formatter';
 import { exportHppToExcel } from '../utils/excel';
 import { jsPDF } from 'jspdf';
@@ -213,7 +213,9 @@ export default function HPP() {
     const allCusts = await Customers.getAll();
     let allReports = await HppReports.getAll();
     const allPurchases = await PurchaseStore.getAll();
+    const allPurchaseNotes = await PurchaseNotes.getAll();
     const allProducts = await ProductStore.getAll();
+    const allMaterials = await SupportingMaterialItems.getAll();
     const allProductionNeeds = await ProductionNeeds.getAll();
     setProducts(allProducts);
 
@@ -224,8 +226,26 @@ export default function HPP() {
         items.push({
           supplier: p.supplier,
           createdAt: p.createdAt,
-          purchaseId: p.id, // simpan ID
+          purchaseId: p.id,
+          costPerUnit: Number(it.costPerUnit) || Number(it.price) || 0,
           ...it
+        });
+      });
+    });
+
+    // Merge new PurchaseNotes (splitting model)
+    allPurchaseNotes.forEach(pn => {
+      (pn.items || []).forEach(it => {
+        items.push({
+          supplier: pn.supplierName,
+          createdAt: pn.date,
+          purchaseId: pn.id,
+          productName: it.materialName,
+          productId: it.materialId,
+          qty: (it.splits?.s5?.netQty || 0) + (it.splits?.s3?.netQty || 0),
+          costPerUnit: Number(it.pricePerUnit) || 0,
+          isNewModel: true,
+          splits: it.splits
         });
       });
     });
@@ -284,15 +304,17 @@ export default function HPP() {
       if (hasChange) {
         needsUpdate = true;
         // Sync mapping
-        const currentSisa = calculateSisa(r.id, allReports);
+        const currentSisa = calculateSisa(r.id, allReports, r.customerName);
         const syncedItemCosts = autoLinkSubItems(
           invItems.map((invIt) => {
             const existing = currentItems.find((cIt) => cIt.productId === invIt.productId);
-            const product = allProducts.find((p) => p.id === invIt.productId);
+            const product = allProducts.find((p) => p.id === invIt.productId) || allMaterials.find(m => m.id === invIt.productId);
+            const isMaterial = invIt.type === 'material' || allMaterials.some(m => m.id === invIt.productId);
+            
             const categoryModal = categoryId && product?.categoryModals?.[categoryId];
 
             if (existing) {
-              const baseModal = categoryModal ?? existing.hargaModalSatuan;
+              const baseModal = categoryModal ?? (isMaterial ? (product.defaultPrice || existing.hargaModalSatuan) : existing.hargaModalSatuan);
               return {
                 ...existing,
                 productName: invIt.productName,
@@ -301,7 +323,8 @@ export default function HPP() {
                 hargaJual: invIt.unitPrice,
                 subtotalJual: invIt.subtotal,
                 hargaModalSatuan: baseModal,
-                originalInvoiceQty: invIt.qty, // Update data asli jika invoice berubah
+                originalInvoiceQty: invIt.qty,
+                type: isMaterial ? 'material' : 'product',
                 totalModal:
                   existing.useSubItems && existing.subItems?.length
                     ? existing.subItems.reduce((s, b) => s + Number(b.qty) * Number(b.harga), 0)
@@ -310,11 +333,12 @@ export default function HPP() {
             }
 
             const newItem = emptyItemCost(invIt, allProducts);
-            const finalModal = categoryModal ?? newItem.hargaModalSatuan;
+            const baseModal = categoryModal ?? (isMaterial ? (product?.defaultPrice || 0) : newItem.hargaModalSatuan);
             return {
               ...newItem,
-              hargaModalSatuan: finalModal,
-              totalModal: Number(finalModal || 0) * Number(invIt.qty),
+              hargaModalSatuan: baseModal,
+              type: isMaterial ? 'material' : 'product',
+              totalModal: Number(baseModal || 0) * Number(invIt.qty),
             };
           }),
           currentSisa
@@ -370,7 +394,7 @@ export default function HPP() {
   }
 
   // Hitung sisa qty pembelian dengan mengabaikan HPP yang sedang diedit (excludeId)
-  function calculateSisa(excludeId, reportsList = reports) {
+  function calculateSisa(excludeId, reportsList = reports, branch = 's5') {
     const usedMap = {};
     reportsList.forEach(r => {
       if (excludeId && r.id === excludeId) return;
@@ -390,7 +414,6 @@ export default function HPP() {
         }
       });
       
-      // Hitung juga pemakaian dari sayuran tambahan
       (r.extraVegetables || []).forEach(v => {
         if (v.purchaseId && v.nama) {
           const key = `${v.purchaseId}-${v.nama}`;
@@ -399,10 +422,19 @@ export default function HPP() {
       });
     });
 
+    const bKey = (branch || '').toLowerCase().includes('3') ? 's3' : 's5';
+
     return purchaseItems.map(p => {
       const key = `${p.purchaseId}-${p.productName}`;
       const used = usedMap[key] || 0;
-      const sisaQty = Number(p.qty) - used;
+      
+      // Calculate total source qty based on branch split if new model
+      let sourceQty = Number(p.qty);
+      if (p.isNewModel && p.splits) {
+        sourceQty = Number(p.splits[bKey]?.netQty) || 0;
+      }
+      
+      const sisaQty = sourceQty - used;
       return { ...p, sisaQty: sisaQty < 0 ? 0 : sisaQty };
     });
   }
@@ -525,7 +557,7 @@ export default function HPP() {
 
   function openEdit(r) {
     setEditId(r.id);
-    const sisa = calculateSisa(r.id);
+    const sisa = calculateSisa(r.id, reports, r.customerName);
     const linkedItems = autoLinkSubItems(r.itemCosts || [], sisa);
     const linkedExtra = autoLinkExtraVeg(r.extraVegetables || [], sisa);
     setForm({
@@ -609,7 +641,7 @@ export default function HPP() {
       setForm(f => ({ ...f, invoiceId, invoiceNumber: '', customerName: '', invoiceTotal: 0, itemCosts: [] }));
       return;
     }
-    const sisa = calculateSisa(null);
+    const sisa = calculateSisa(null, reports, inv.customerName);
     const itemCosts = (inv.items || []).map(item => emptyItemCost(item, products));
     const linkedItems = autoLinkSubItems(itemCosts, sisa);
     setForm(f => ({

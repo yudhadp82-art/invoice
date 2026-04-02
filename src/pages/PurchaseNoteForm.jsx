@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiShoppingBag, FiInfo } from 'react-icons/fi';
-import { PurchaseNotes, SupportingMaterialItems as MasterItems } from '../utils/storage';
+import { PurchaseNotes, SupportingMaterialItems as MasterItems, Invoices } from '../utils/storage';
 import { formatCurrency } from '../utils/formatter';
 import Modal from '../components/Modal';
 
@@ -29,6 +29,8 @@ export default function PurchaseNoteForm() {
   const [items, setItems] = useState([ { ...emptyItem } ]);
   const [notes, setNotes] = useState('');
   const [masterBahan, setMasterBahan] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -36,8 +38,12 @@ export default function PurchaseNoteForm() {
   }, [id]);
 
   async function loadData() {
-    const master = await MasterItems.getAll();
+    const [master, invs] = await Promise.all([
+      MasterItems.getAll(),
+      Invoices.getAll()
+    ]);
     setMasterBahan(master);
+    setInvoices(invs.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)));
 
     if (isEditing) {
       const note = await PurchaseNotes.getById(id);
@@ -157,9 +163,16 @@ export default function PurchaseNoteForm() {
             <p>Input detail pembelian dan split S5/S3</p>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-          <FiSave /> {saving ? 'Menyimpan...' : 'Simpan Nota'}
-        </button>
+        <div className="flex gap-sm">
+          {!isEditing && (
+            <button className="btn btn-secondary" onClick={() => setIsImportModalOpen(true)}>
+              <FiShoppingBag /> Tarik dari Invoice
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            <FiSave /> {saving ? 'Menyimpan...' : 'Simpan Nota'}
+          </button>
+        </div>
       </div>
 
       <form className="grid gap-lg">
@@ -299,6 +312,63 @@ export default function PurchaseNoteForm() {
       </div>
       
       <div style={{ height: 100 }}></div>
+
+      {/* Import Modal */}
+      <Modal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)}
+        title="Tarik Item dari Invoice"
+      >
+        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          <p className="text-muted text-sm mb-md">Pilih invoice untuk mengambil item kategori <strong>Bahan</strong>.</p>
+          <div className="grid gap-sm">
+            {invoices.length === 0 ? (
+              <div className="empty-state">No Invoices found</div>
+            ) : invoices.map(inv => {
+              const bahanCount = (inv.items || []).filter(it => it.type === 'material').length;
+              if (bahanCount === 0) return null;
+              
+              return (
+                <button 
+                  key={inv.id} 
+                  className="btn btn-ghost" 
+                  style={{ justifyContent: 'flex-start', textAlign: 'left', padding: '12px', border: '1px solid rgba(255,255,255,0.05)' }}
+                  onClick={() => {
+                    const materials = (inv.items || [])
+                      .filter(it => it.type === 'material')
+                      .map(it => ({
+                        materialId: it.productId,
+                        materialName: it.productName,
+                        unit: it.unit,
+                        qtyNota: Number(it.qty) || 0,
+                        pricePerUnit: Number(it.unitPrice) || 0,
+                        sellPrice: Number(it.unitPrice) || 0,
+                        splits: {
+                          s5: { qty: 0, shrinkage: 0, netQty: 0 },
+                          s3: { qty: 0, shrinkage: 0, netQty: 0 }
+                        },
+                        totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
+                      }));
+                    
+                    if (materials.length > 0) {
+                      setItems(materials);
+                      setSupplierName(inv.customerName || '');
+                      setNotes(n => `${n}${n ? '\n' : ''}Tarik dari Invoice: ${inv.invoiceNumber}`);
+                    }
+                    setIsImportModalOpen(false);
+                  }}
+                >
+                  <div>
+                    <strong>{inv.invoiceNumber}</strong><br />
+                    <span className="text-xs text-muted">{inv.customerName} - {new Date(inv.date).toLocaleDateString()}</span>
+                    <span className="badge badge-primary ml-sm" style={{marginLeft: 8}}>{bahanCount} Bahan</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
