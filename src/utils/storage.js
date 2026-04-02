@@ -16,6 +16,7 @@ const COLLECTIONS = {
   PRODUCTION_NEEDS: 'production_needs',
   EMPLOYEES: 'employees',
   SUPPORTING_MATERIAL_ITEMS: 'supporting_material_items',
+  PURCHASE_NOTES: 'purchase_notes',
 };
 
 // Event listener untuk Undo
@@ -153,6 +154,14 @@ export const DeliveryNotes = {
   create: (item) => createInStore(COLLECTIONS.DELIVERY_NOTES, item),
   update: (id, updates) => updateInStore(COLLECTIONS.DELIVERY_NOTES, id, updates),
   delete: (id) => removeInStore(COLLECTIONS.DELIVERY_NOTES, id),
+};
+
+export const PurchaseNotes = {
+  getAll: () => getAllFromStore(COLLECTIONS.PURCHASE_NOTES),
+  getById: (id) => getByIdFromStore(COLLECTIONS.PURCHASE_NOTES, id),
+  create: (item) => createInStore(COLLECTIONS.PURCHASE_NOTES, item),
+  update: (id, updates) => updateInStore(COLLECTIONS.PURCHASE_NOTES, id, updates),
+  delete: (id) => removeInStore(COLLECTIONS.PURCHASE_NOTES, id),
 };
 
 export const Purchases = {

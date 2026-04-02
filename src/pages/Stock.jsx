@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Products, SupportingMaterialItems, Purchases, Invoices, ProductionMaterials, ProductionNeeds, HppReports } from '../utils/storage';
+import { Products, SupportingMaterialItems, Purchases, Invoices, ProductionMaterials, ProductionNeeds, HppReports, PurchaseNotes } from '../utils/storage';
 import { formatCurrency, formatNumber } from '../utils/formatter';
 import { exportToExcel } from '../utils/excel';
 import { FiPackage, FiSearch, FiAlertTriangle, FiTrendingUp, FiDollarSign, FiDownload, FiArrowRight, FiRefreshCw, FiCheckCircle, FiTrash2 } from 'react-icons/fi';
@@ -169,14 +169,15 @@ export default function Stock() {
     
     setIsSyncing(true);
     try {
-      const [allProds, allMats, allPurchs, allInvs, allProdMats, allProdNeeds, allHpps] = await Promise.all([
+      const [allProds, allMats, allPurchs, allInvs, allProdMats, allProdNeeds, allHpps, allPurchaseNotes] = await Promise.all([
         Products.getAll(),
         SupportingMaterialItems.getAll(),
         Purchases.getAll(),
         Invoices.getAll(),
         ProductionMaterials.getAll(),
         ProductionNeeds.getAll(),
-        HppReports.getAll()
+        HppReports.getAll(),
+        PurchaseNotes.getAll()
       ]);
 
       // 1. Sync Products (Finished Goods / Ingredients)
@@ -233,11 +234,22 @@ export default function Stock() {
       const matStockMap = {};
       allMats.forEach(m => { matStockMap[m.id] = 0; });
 
-      // In: Production Materials (Purchases)
+      // In: Production Materials (Old Purchases model)
       allProdMats.forEach(pm => {
         if (pm.materialItemId && matStockMap[pm.materialItemId] !== undefined) {
           matStockMap[pm.materialItemId] += (Number(pm.qty) || 0);
         }
+      });
+
+      // In: Purchase Notes (New model with splits and shrinkage)
+      allPurchaseNotes.forEach(pn => {
+        (pn.items || []).forEach(it => {
+          if (it.materialId && matStockMap[it.materialId] !== undefined) {
+            const netS5 = Number(it.splits?.s5?.netQty) || 0;
+            const netS3 = Number(it.splits?.s3?.netQty) || 0;
+            matStockMap[it.materialId] += (netS5 + netS3);
+          }
+        });
       });
 
       // Out: Production Needs (Usage)
