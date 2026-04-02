@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiArrowLeft, FiSave, FiSearch } from 'react-icons/fi';
-import { Invoices, Customers, Products, DeliveryNotes, TelegramOrders } from '../utils/storage';
+import { Invoices, Customers, Products, DeliveryNotes, TelegramOrders, SupportingMaterialItems } from '../utils/storage';
 import { formatCurrency, generateInvoiceNumber, generateDeliveryNoteNumber, getCustomerPrice, formatNumberInput, parseNumberInput } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 import CombinedPdfTemplates from '../components/CombinedPdfTemplates';
@@ -132,6 +132,7 @@ function ProductSearch({ value, products, onChange }) {
             >
               <span style={{ fontWeight: 600 }}>{p.name}</span>
               <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 11 }}>{p.unit}</span>
+              {p.type === 'material' && <span className="badge badge-secondary" style={{ marginLeft: 8, fontSize: 10 }}>Bahan</span>}
             </div>
           ))}
         </div>
@@ -306,6 +307,7 @@ export default function InvoiceForm() {
 
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [materials, setMaterials] = useState([]);
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
     customerId: '',
@@ -326,8 +328,10 @@ export default function InvoiceForm() {
     async function loadData() {
       const c = await Customers.getAll();
       const p = await Products.getAll();
+      const m = await SupportingMaterialItems.getAll();
       setCustomers(c);
       setProducts(p);
+      setMaterials(m);
 
       if (isEdit) {
         const invoice = await Invoices.getById(id);
@@ -450,15 +454,21 @@ export default function InvoiceForm() {
       const item = { ...items[index] };
 
       if (field === 'productId') {
-        const product = products.find(p => p.id === value);
+        const product = products.find(p => p.id === value) || materials.find(m => m.id === value);
         if (product) {
           const customer = customers.find(c => c.id === f.customerId);
-          const unitPrice = customer ? getCustomerPrice(product, customer) : product.sellPrice;
+          const isMaterial = materials.some(m => m.id === value);
+          
+          const unitPrice = isMaterial 
+            ? (product.defaultPrice || 0)
+            : (customer ? getCustomerPrice(product, customer) : product.sellPrice);
+
           item.productId = value;
           item.productName = product.name;
           item.unit = product.unit;
           item.unitPrice = unitPrice;
-          item.purchaseCost = product.purchaseCost;
+          item.purchaseCost = isMaterial ? (product.defaultPrice || 0) : product.purchaseCost;
+          item.type = isMaterial ? 'material' : 'product';
         }
       } else if (field === 'qty') {
         item.qty = value;
@@ -521,11 +531,16 @@ export default function InvoiceForm() {
       if (it.productId) stockDiffs[it.productId] = (stockDiffs[it.productId] || 0) - (Number(it.qty) || 0);
     });
 
-    for (const pid of Object.keys(stockDiffs)) {
-      if (stockDiffs[pid] === 0) continue;
-      const product = await Products.getById(pid);
-      if (product) {
-        await Products.update(pid, { stock: (product.stock || 0) + stockDiffs[pid] });
+    const allItems = [...products, ...materials];
+    for (const itemId of Object.keys(stockDiffs)) {
+      if (stockDiffs[itemId] === 0) continue;
+      
+      const isMaterial = materials.some(m => m.id === itemId);
+      const store = isMaterial ? SupportingMaterialItems : Products;
+      const itemRecord = allItems.find(it => it.id === itemId);
+      
+      if (itemRecord) {
+        await store.update(itemId, { stock: (itemRecord.stock || 0) + stockDiffs[itemId] });
       }
     }
 
@@ -599,7 +614,10 @@ export default function InvoiceForm() {
     navigate('/invoices');
   }
 
-  const availableProducts = products.filter(p => !p.customerId || p.customerId === form.customerId);
+  const combinedItems = [
+    ...products.filter(p => !p.customerId || p.customerId === form.customerId).map(p => ({ ...p, type: 'product' })),
+    ...materials.map(m => ({ ...m, type: 'material' }))
+  ];
 
   return (
     <div className="animate-in">
@@ -685,7 +703,7 @@ export default function InvoiceForm() {
                   <td>
                     <ProductSearch
                       value={item.productId || ''}
-                      products={availableProducts}
+                      products={combinedItems}
                       onChange={productId => updateItem(i, 'productId', productId)}
                     />
                   </td>
