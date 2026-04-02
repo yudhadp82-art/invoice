@@ -232,114 +232,92 @@ export default function PurchaseNoteForm() {
           </div>
         </div>
 
-        {(() => {
-          let selectableItems = masterBahan;
-          const currentInvoice = invoices.find(inv => inv.id === invoiceId);
-          if (currentInvoice) {
-            selectableItems = masterBahan.filter(m => 
-              (currentInvoice.items || []).some(it => it.productId === m.id || it.productName === m.name)
-            );
-          }
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <table className="table" style={{ minWidth: '1200px' }}>
+            <thead>
+              <tr>
+                <th style={{ width: '50px' }}>No</th>
+                <th style={{ width: '220px' }}>Bahan Baku</th>
+                <th style={{ width: '100px' }}>Qty Nota</th>
+                <th style={{ width: '130px' }}>Harga Beli</th>
+                <th style={{ width: '180px', backgroundColor: 'rgba(56, 189, 248, 0.05)' }}>Split S5 (Qty / Susut)</th>
+                <th style={{ width: '180px', backgroundColor: 'rgba(251, 146, 60, 0.05)' }}>Split S3 (Qty / Susut)</th>
+                <th style={{ width: '130px' }}>Harga Jual</th>
+                <th style={{ width: '130px' }}>Subtotal</th>
+                <th style={{ width: '50px' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                let selectableItems = masterBahan;
+                const currentInvoice = invoices.find(inv => inv.id === invoiceId);
+                if (currentInvoice) {
+                  selectableItems = masterBahan.filter(m => 
+                    (currentInvoice.items || []).some(it => it.productId === m.id || it.productName === m.name)
+                  );
+                }
 
-          return items.map((item, idx) => (
-            <div key={idx} className="card animate-in" style={{ borderColor: 'rgba(99,102,241,0.2)', borderLeftWidth: 4, borderLeftColor: '#6366f1' }}>
-              <div className="card-header flex-between" style={{ background: 'rgba(99,102,241,0.05)' }}>
-                <h3 className="card-title flex-center gap-sm">
-                  <span className="badge badge-primary">{idx + 1}</span> Item Pembelian
-                </h3>
-                <button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => removeItem(idx)}>
-                  <FiTrash2 /> Hapus
-                </button>
-              </div>
-              
-              <div className="p-md grid gap-md">
-                <div className="grid grid-3 gap-md">
-                  <div className="form-group">
-                    <label className="form-label">Pilih Bahan Baku</label>
-                    <select className="form-select" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required>
-                      <option value="">-- {currentInvoice ? 'Pilih item dari invoice' : 'Pilih Master Bahan'} --</option>
-                      {selectableItems.map(m => (
-                        <option key={m.id} value={m.id}>{m.name}</option>
-                      ))}
-                      {currentInvoice && selectableItems.length < masterBahan.length && (
-                        <optgroup label="Pilihan Lain">
-                          <option value="all-master">Lihat Seluruh Master Bahan...</option>
-                        </optgroup>
-                      )}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Total Qty di Nota ({item.unit || '-'})</label>
-                    <input type="number" className="form-input" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Harga Beli per Satuan (Rp)</label>
-                    <input type="number" className="form-input" value={item.pricePerUnit} onChange={e => updateItem(idx, 'pricePerUnit', e.target.value)} />
-                  </div>
-                </div>
-
-                <div className="grid grid-2 gap-lg" style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div>
-                    <div className="flex-between mb-sm">
-                      <h4 style={{ margin: 0, color: '#38bdf8' }}>SPPG SINDANGJAYA 5</h4>
-                      <span className="badge badge-cyan">Split S5</span>
-                    </div>
-                    <div className="grid grid-2 gap-sm">
-                      <div className="form-group">
-                        <label className="form-label text-xs">Qty Split</label>
-                        <input type="number" className="form-input form-input-sm" value={item.splits.s5.qty} onChange={e => updateSplit(idx, 's5', 'qty', e.target.value)} />
+                return items.map((item, idx) => (
+                  <tr key={idx} className="animate-in">
+                    <td className="text-center">
+                      <span className="badge badge-primary">{idx + 1}</span>
+                    </td>
+                    <td>
+                      <select className="form-select form-select-sm" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required>
+                        <option value="">-- {currentInvoice ? 'Invoice Item' : 'Pilih Bahan'} --</option>
+                        {selectableItems.map(m => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                        {currentInvoice && selectableItems.length < masterBahan.length && (
+                          <option value="all-master">Lainnya...</option>
+                        )}
+                      </select>
+                    </td>
+                    <td>
+                      <div className="flex-center gap-xs">
+                        <input type="number" className="form-input form-input-sm" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} style={{ width: '70px' }} />
+                        <span className="text-xs text-muted">{item.unit || ''}</span>
                       </div>
-                      <div className="form-group">
-                        <label className="form-label text-xs">Penyusutan</label>
-                        <input type="number" className="form-input form-input-sm text-danger" value={item.splits.s5.shrinkage} onChange={e => updateSplit(idx, 's5', 'shrinkage', e.target.value)} />
+                    </td>
+                    <td>
+                      <input type="number" className="form-input form-input-sm" value={item.pricePerUnit} onChange={e => updateItem(idx, 'pricePerUnit', e.target.value)} />
+                    </td>
+                    <td style={{ backgroundColor: 'rgba(56, 189, 248, 0.02)' }}>
+                      <div className="flex gap-xs">
+                        <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s5.qty} onChange={e => updateSplit(idx, 's5', 'qty', e.target.value)} />
+                        <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s5.shrinkage} onChange={e => updateSplit(idx, 's5', 'shrinkage', e.target.value)} />
                       </div>
-                    </div>
-                    <div className="mt-sm text-sm" style={{ fontWeight: 600 }}>
-                      Qty Bersih (Net): <span className="text-primary">{item.splits.s5.netQty} {item.unit || ''}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex-between mb-sm">
-                      <h4 style={{ margin: 0, color: '#fb923c' }}>SPPG SINDANGJAYA 3</h4>
-                      <span className="badge badge-orange">Split S3</span>
-                    </div>
-                    <div className="grid grid-2 gap-sm">
-                      <div className="form-group">
-                        <label className="form-label text-xs">Qty Split</label>
-                        <input type="number" className="form-input form-input-sm" value={item.splits.s3.qty} onChange={e => updateSplit(idx, 's3', 'qty', e.target.value)} />
+                      <div className="text-xs mt-xs text-primary font-bold">Net: {item.splits.s5.netQty}</div>
+                    </td>
+                    <td style={{ backgroundColor: 'rgba(251, 146, 60, 0.02)' }}>
+                      <div className="flex gap-xs">
+                        <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s3.qty} onChange={e => updateSplit(idx, 's3', 'qty', e.target.value)} />
+                        <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s3.shrinkage} onChange={e => updateSplit(idx, 's3', 'shrinkage', e.target.value)} />
                       </div>
-                      <div className="form-group">
-                        <label className="form-label text-xs">Penyusutan</label>
-                        <input type="number" className="form-input form-input-sm text-danger" value={item.splits.s3.shrinkage} onChange={e => updateSplit(idx, 's3', 'shrinkage', e.target.value)} />
-                      </div>
-                    </div>
-                    <div className="mt-sm text-sm" style={{ fontWeight: 600 }}>
-                      Qty Bersih (Net): <span className="text-primary">{item.splits.s3.netQty} {item.unit || ''}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-2 gap-md">
-                  <div className="form-group">
-                    <label className="form-label">Harga Jual Direncanakan (Rp)</label>
-                    <input type="number" className="form-input" value={item.sellPrice} onChange={e => updateItem(idx, 'sellPrice', e.target.value)} />
-                  </div>
-                  <div className="flex-end">
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="text-xs text-muted mb-xs">Subtotal Item:</div>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#10b981' }}>{formatCurrency(item.totalCost)}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ));
-        })()}
-
-        <button type="button" className="btn btn-secondary btn-lg" onClick={addItem} style={{ borderStyle: 'dashed' }}>
-          <FiPlus /> Tambah Item Lainnya
-        </button>
+                      <div className="text-xs mt-xs text-orange font-bold">Net: {item.splits.s3.netQty}</div>
+                    </td>
+                    <td>
+                      <input type="number" className="form-input form-input-sm" value={item.sellPrice} onChange={e => updateItem(idx, 'sellPrice', e.target.value)} />
+                    </td>
+                    <td className="text-right font-bold text-success">
+                      {formatCurrency(item.totalCost)}
+                    </td>
+                    <td>
+                      <button type="button" className="btn btn-ghost btn-sm text-danger btn-icon-only" onClick={() => removeItem(idx)}>
+                        <FiTrash2 />
+                      </button>
+                    </td>
+                  </tr>
+                ));
+              })()}
+            </tbody>
+          </table>
+          <div className="p-md" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <button type="button" className="btn btn-ghost btn-sm text-primary w-full" onClick={addItem} style={{ border: '1px dashed rgba(99,102,241,0.3)' }}>
+              <FiPlus /> Tambah Baris Baru
+            </button>
+          </div>
+        </div>
 
         <div className="card shadow-lg" style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' }}>
           <div className="p-lg flex-between">
