@@ -26,6 +26,7 @@ const navItems = [
   { path: '/production/needs', label: 'Kebutuhan Produksi', icon: FiTool },
   { section: 'Analisa' },
   { path: '/hpp', label: 'HPP', icon: FiPieChart },
+  { path: '/recap', label: 'Rekap', icon: FiBarChart2 },
   { path: '/reports', label: 'Laporan', icon: FiBarChart2 },
 ];
 
