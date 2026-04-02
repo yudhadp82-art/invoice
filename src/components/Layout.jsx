@@ -9,7 +9,6 @@ import { addMutationListener, removeMutationListener, executeUndo } from '../uti
 const navItems = [
   { section: 'Menu Utama' },
   { path: '/dashboard', label: 'Dashboard', icon: FiHome },
-  { path: '/products', label: 'Produk', icon: FiPackage },
   { path: '/customers', label: 'Customer', icon: FiUsers },
   { path: '/suppliers', label: 'Supplier', icon: FiBriefcase },
   { path: '/pricing', label: 'Kategori Harga', icon: FiTag },
@@ -20,7 +19,6 @@ const navItems = [
   { path: '/purchase-notes', label: 'Nota Pembelian', icon: FiShoppingCart },
   { section: 'Biaya Produksi' },
   { path: '/production/materials', label: 'Bahan Pendukung', icon: FiPackage },
-  { path: '/production/material-items', label: 'Master Bahan', icon: FiTag },
   { path: '/production/employees', label: 'Daftar Pekerja', icon: FiUsers },
   { path: '/production/salary', label: 'Biaya Gaji', icon: FiDollarSign },
   { path: '/production/needs', label: 'Kebutuhan Produksi', icon: FiTool },
