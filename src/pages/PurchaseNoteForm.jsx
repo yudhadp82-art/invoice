@@ -261,20 +261,20 @@ export default function PurchaseNoteForm() {
           </div>
         </div>
 
-        <div className="card" style={{ overflowX: 'auto' }}>
-          <table className="table" style={{ minWidth: '1200px' }}>
+        <div className="card" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table className="table table-compact" style={{ width: '100%', minWidth: '950px' }}>
             <thead>
               <tr>
-                <th style={{ width: '50px' }}>No</th>
-                <th style={{ width: '220px' }}>Bahan Baku</th>
-                <th style={{ width: '100px' }}>Qty Nota</th>
-                <th style={{ width: '130px' }}>Harga Beli</th>
-                <th style={{ width: '150px', backgroundColor: 'rgba(56, 189, 248, 0.05)' }}>S5 (SINDANGJAYA 5)</th>
-                <th style={{ width: '150px', backgroundColor: 'rgba(16, 185, 129, 0.05)' }}>S2 (SJ 2)</th>
-                <th style={{ width: '150px', backgroundColor: 'rgba(251, 146, 60, 0.05)' }}>S3 (SJ 3)</th>
-                <th style={{ width: '130px' }}>Harga Jual</th>
-                <th style={{ width: '130px' }}>Subtotal</th>
-                <th style={{ width: '50px' }}></th>
+                <th style={{ width: '40px', padding: '10px 4px' }}>No</th>
+                <th style={{ width: 'auto', minWidth: '180px' }}>Bahan Baku</th>
+                <th style={{ width: '85px', padding: '10px 4px' }}>Qty Nota</th>
+                <th style={{ width: '110px', padding: '10px 4px' }}>Harga Beli</th>
+                <th style={{ width: '135px', padding: '10px 4px', backgroundColor: 'rgba(56, 189, 248, 0.05)' }}>S5 (SJ 5)</th>
+                <th style={{ width: '135px', padding: '10px 4px', backgroundColor: 'rgba(16, 185, 129, 0.05)' }}>S2 (SJ 2)</th>
+                <th style={{ width: '135px', padding: '10px 4px', backgroundColor: 'rgba(251, 146, 60, 0.05)' }}>S3 (SJ 3)</th>
+                <th style={{ width: '110px', padding: '10px 4px' }}>Harga Jual</th>
+                <th style={{ width: '120px', padding: '10px 8px' }}>Subtotal</th>
+                <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
             <tbody>
@@ -306,7 +306,7 @@ export default function PurchaseNoteForm() {
                     <td>
                       <div>
                         <div className="flex-center gap-xs">
-                          <input type="number" className="form-input form-input-sm" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} style={{ width: '70px' }} />
+                          <input type="number" className="form-input form-input-sm" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} style={{ width: '60px' }} />
                           <span className="text-xs text-muted">{item.unit || ''}</span>
                         </div>
                         {item.invoiceQty > 0 && (
@@ -388,6 +388,18 @@ export default function PurchaseNoteForm() {
       </div>
 
       <div style={{ height: 100 }}></div>
+
+      <style>{`
+        .table-compact th, .table-compact td { padding: 8px 4px; font-size: 13px; }
+        .table-compact .form-input-sm, .table-compact .form-select-sm { padding: 4px; font-size: 13px; height: 32px; }
+        .table-compact .badge { padding: 2px 4px; font-size: 11px; }
+        .table-compact input[type="number"] { -moz-appearance: textfield; }
+        .table-compact input::-webkit-outer-spin-button, .table-compact input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        @media (max-width: 1366px) {
+          .table-compact { font-size: 12px; }
+          .table-compact .form-input-sm { padding: 2px; }
+        }
+      `}</style>
 
       <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Tarik Item dari Invoice">
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
