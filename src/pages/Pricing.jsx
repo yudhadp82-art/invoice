@@ -21,6 +21,7 @@ export default function Pricing() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [productPrices, setProductPrices] = useState({});
   const [productModals, setProductModals] = useState({});
+  const [productName, setProductName] = useState('');
 
   useEffect(() => {
     reload();
@@ -71,6 +72,7 @@ export default function Pricing() {
   // --- Pricing Handlers ---
   function openEditPrices(product) {
     setEditingProduct(product);
+    setProductName(product.name || '');
     setProductPrices(product.categoryPrices || {});
     setProductModals(product.categoryModals || {});
     setPriceModalOpen(true);
@@ -96,6 +98,7 @@ export default function Pricing() {
     });
 
     await ProductStore.update(editingProduct.id, { 
+      name: productName,
       categoryPrices: cleanPrices,
       categoryModals: cleanModals 
     });
@@ -285,6 +288,16 @@ export default function Pricing() {
         <Modal isOpen={priceModalOpen} onClose={() => setPriceModalOpen(false)} title={`Set Harga: ${editingProduct.name}`} size="fullscreen" persistent={true}>
           <form onSubmit={handleSavePrices}>
             <div className="modal-body">
+              <div className="form-group" style={{ marginBottom: 20 }}>
+                <label className="form-label">Nama Produk</label>
+                <input 
+                  className="form-input" 
+                  value={productName} 
+                  onChange={e => setProductName(e.target.value)} 
+                  placeholder="Nama produk" 
+                />
+              </div>
+
               <div style={{ marginBottom: 20, padding: 15, background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
                 <p className="mb-sm"><strong>Harga Modal:</strong> {formatCurrency(editingProduct.purchaseCost)}</p>
                 <p><strong>Harga Jual Utama (Default):</strong> <span className="text-success" style={{fontWeight: 600}}>{formatCurrency(editingProduct.sellPrice)}</span></p>
@@ -330,7 +343,7 @@ export default function Pricing() {
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setPriceModalOpen(false)}>Batal</button>
-              <button type="submit" className="btn btn-primary"><FiSave /> Simpan Harga</button>
+              <button type="submit" className="btn btn-primary"><FiSave /> Simpan Perubahan</button>
             </div>
           </form>
         </Modal>
