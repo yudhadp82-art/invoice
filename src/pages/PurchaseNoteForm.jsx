@@ -4,6 +4,9 @@ import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiShoppingBag, FiInfo, FiUsers }
 import { PurchaseNotes, SupportingMaterialItems as MasterItems, Invoices, Suppliers, Customers } from '../utils/storage';
 import { formatCurrency } from '../utils/formatter';
 import Modal from '../components/Modal';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
 
 const emptyItem = {
   materialId: '',
@@ -43,7 +46,10 @@ export default function PurchaseNoteForm() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isGroupImportModalOpen, setIsGroupImportModalOpen] = useState(false);
   const [groupRecapData, setGroupRecapData] = useState({}); // { groupName: [{ name, totalQty, unit }] }
+  const [groupInvoices, setGroupInvoices] = useState({}); // { groupName: [invoiceObjects] }
+  const [currentGroupName, setCurrentGroupName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -123,13 +129,18 @@ export default function PurchaseNoteForm() {
       if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group;
     });
     const groupAgg = {};
+    const groupInvs = {};
     invs.forEach(inv => {
       if (linkedIds.includes(inv.id)) return;
       const invDate = inv.date ? String(inv.date).slice(0, 10) : '';
       if (invDate !== todayStr) return;
       const grp = nameToGroup[(inv.customerName || '').toLowerCase()];
       if (!grp) return;
+      
       if (!groupAgg[grp]) groupAgg[grp] = {};
+      if (!groupInvs[grp]) groupInvs[grp] = [];
+      groupInvs[grp].push(inv);
+
       (inv.items || []).forEach(it => {
         const key = (it.productName || '').trim();
         if (!key) return;
@@ -142,6 +153,7 @@ export default function PurchaseNoteForm() {
       grpResult[grp] = Object.values(groupAgg[grp]).sort((a, b) => a.name.localeCompare(b.name));
     });
     setGroupRecapData(grpResult);
+    setGroupInvoices(groupInvs);
 
     if (isEditing) {
       const note = await PurchaseNotes.getById(id);
@@ -401,7 +413,36 @@ export default function PurchaseNoteForm() {
       setItems(expanded);
       setNotes(n => `${n}${n ? '\n' : ''}Rekap Grup: ${grp}`);
     }
+    setCurrentGroupName(grp);
     setIsGroupImportModalOpen(false);
+  }
+
+  async function handlePrintPdf() {
+    if (!currentGroupName) {
+      alert('Pilih grup (Tarik dari Rekap Grup) terlebih dahulu untuk membuat laporan ini.');
+      return;
+    }
+    setIsGeneratingPdf(true);
+    await new Promise(r => setTimeout(r, 600)); // Give time for hidden template to render
+    
+    try {
+      const element = document.getElementById('purchase-note-report-render');
+      if (!element) throw new Error('Render element not found');
+
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/jpeg', 0.8);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`Laporan_Pembelian_${currentGroupName}_${date}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal membuat PDF: ' + err.message);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   }
 
   const grandTotalValue = items.reduce((s, it) => s + (it.totalCost || 0), 0);
@@ -434,6 +475,11 @@ export default function PurchaseNoteForm() {
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
             <FiSave /> {saving ? 'Menyimpan...' : 'Simpan Nota'}
           </button>
+          {currentGroupName && (
+            <button className="btn btn-secondary" onClick={handlePrintPdf} disabled={isGeneratingPdf} style={{ background: 'var(--accent-purple)', borderColor: 'var(--accent-purple)', color: 'white' }}>
+              {isGeneratingPdf ? '⏳...' : <><FiFileText /> Cetak PDF</>}
+            </button>
+          )}
         </div>
       </div>
 
@@ -867,6 +913,18 @@ export default function PurchaseNoteForm() {
           </div>
         </div>
       </Modal>
+
+      {/* PDF Rendering Area (Hidden) */}
+      {currentGroupName && (
+        <PurchaseNoteReportPdf 
+          groupName={currentGroupName} 
+          date={date}
+          groupRecap={groupRecapData[currentGroupName]}
+          purchaseItems={items}
+          invoicesList={groupInvoices[currentGroupName]}
+          forPrint={false}
+        />
+      )}
     </div>
   );
 }
