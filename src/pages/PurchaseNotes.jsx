@@ -53,15 +53,11 @@ export default function PurchaseNotes() {
     });
     
     // All non-linked invoices (for group recap — broader scope, not limited to material type)
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const allPending = allInvoices.filter(inv => {
       if (linkedInvoiceIds.includes(inv.id)) return false;
-      // Only include today's invoices for the group recap
-      const dateObj = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
-      if (!dateObj) return false;
-      const invDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-      return invDateStr === todayStr;
+      // We no longer strictly filter by todayStr here to allow all pending
+      // invoices for the group to be seen in the recap card.
+      return true;
     });
 
     setPendingInvoices(pending.sort((a, b) => {

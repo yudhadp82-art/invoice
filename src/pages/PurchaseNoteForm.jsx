@@ -124,8 +124,6 @@ export default function PurchaseNoteForm() {
     // Build group recap from today's invoices (for "Tarik dari Rekap Grup")
     const allCustomers = await Customers.getAll();
     const linkedIds = history.map(n => n.invoiceId).filter(Boolean);
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const nameToGroup = {};
     allCustomers.forEach(c => {
       if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group;
@@ -134,10 +132,8 @@ export default function PurchaseNoteForm() {
     const groupInvs = {};
     invs.forEach(inv => {
       if (linkedIds.includes(inv.id)) return;
-      const dateObj = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
-      if (!dateObj) return;
-      const invDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-      if (invDateStr !== todayStr) return;
+      // We no longer strictly filter by todayStr here to allow all pending 
+      // invoices for the group to be recapped and seen in the PDF.
       
       const grp = nameToGroup[(inv.customerName || '').toLowerCase()];
       if (!grp) return;
