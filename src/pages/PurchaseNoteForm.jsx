@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
-import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiShoppingBag, FiInfo } from 'react-icons/fi';
-import { PurchaseNotes, SupportingMaterialItems as MasterItems, Invoices } from '../utils/storage';
+import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiShoppingBag, FiInfo, FiUsers } from 'react-icons/fi';
+import { PurchaseNotes, SupportingMaterialItems as MasterItems, Invoices, Suppliers, Customers } from '../utils/storage';
 import { formatCurrency } from '../utils/formatter';
 import Modal from '../components/Modal';
 
@@ -41,6 +41,8 @@ export default function PurchaseNoteForm() {
   const [purchaseHistory, setPurchaseHistory] = useState([]);
   const [supplierHistory, setSupplierHistory] = useState([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isGroupImportModalOpen, setIsGroupImportModalOpen] = useState(false);
+  const [groupRecapData, setGroupRecapData] = useState({}); // { groupName: [{ name, totalQty, unit }] }
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -48,21 +50,58 @@ export default function PurchaseNoteForm() {
   }, [id]);
 
   async function loadData() {
-    const [master, invs, history] = await Promise.all([
+    const [master, invs, history, officialSuppliers] = await Promise.all([
       MasterItems.getAll(),
       Invoices.getAll(),
-      PurchaseNotes.getAll()
+      PurchaseNotes.getAll(),
+      Suppliers.getAll()
     ]);
     setMasterBahan(master);
     setInvoices(invs.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)));
     setPurchaseHistory(history);
-    // Collect unique supplier names from history for suggestions
+    // Collect unique supplier names from official List and history for suggestions
     const supplierSet = new Set();
+    
+    // Add official suppliers first
+    officialSuppliers.forEach(s => {
+      if (s.name) supplierSet.add(s.name);
+      if (s.company) supplierSet.add(s.company);
+    });
+
     history.forEach(pn => {
       if (pn.supplierName) supplierSet.add(pn.supplierName);
       (pn.items || []).forEach(it => { if (it.supplier) supplierSet.add(it.supplier); });
     });
     setSupplierHistory(Array.from(supplierSet).sort());
+
+    // Build group recap from today's invoices (for "Tarik dari Rekap Grup")
+    const allCustomers = await Customers.getAll();
+    const linkedIds = history.map(n => n.invoiceId).filter(Boolean);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const nameToGroup = {};
+    allCustomers.forEach(c => {
+      if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group;
+    });
+    const groupAgg = {};
+    invs.forEach(inv => {
+      if (linkedIds.includes(inv.id)) return;
+      const invDate = inv.date ? String(inv.date).slice(0, 10) : '';
+      if (invDate !== todayStr) return;
+      const grp = nameToGroup[(inv.customerName || '').toLowerCase()];
+      if (!grp) return;
+      if (!groupAgg[grp]) groupAgg[grp] = {};
+      (inv.items || []).forEach(it => {
+        const key = (it.productName || '').trim();
+        if (!key) return;
+        if (!groupAgg[grp][key]) groupAgg[grp][key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
+        groupAgg[grp][key].totalQty += (Number(it.qty) || 0);
+      });
+    });
+    const grpResult = {};
+    Object.keys(groupAgg).sort().forEach(grp => {
+      grpResult[grp] = Object.values(groupAgg[grp]).sort((a, b) => a.name.localeCompare(b.name));
+    });
+    setGroupRecapData(grpResult);
 
     if (isEditing) {
       const note = await PurchaseNotes.getById(id);
@@ -316,6 +355,32 @@ export default function PurchaseNoteForm() {
       setSaving(false);
     }
   }
+  function importFromGroup(grp) {
+    const recapItems = groupRecapData[grp] || [];
+    if (recapItems.length === 0) return;
+    const newItems = recapItems.map(recap => {
+      const mb = masterBahan.find(b => b.name.toLowerCase() === recap.name.toLowerCase());
+      return {
+        ...emptyItem,
+        materialId: mb ? mb.id : '',
+        materialName: recap.name,
+        unit: recap.unit || (mb ? mb.unit : 'kg'),
+        qtyNota: recap.totalQty,
+        invoiceQty: recap.totalQty,
+        pricePerUnit: mb ? (mb.defaultPrice || 0) : 0,
+        sellPrice: mb ? (mb.defaultPrice || 0) : 0,
+        totalCost: recap.totalQty * (mb ? (mb.defaultPrice || 0) : 0),
+        splits: {
+          s5: { qty: 0, shrinkage: 0, netQty: 0 },
+          s2: { qty: 0, shrinkage: 0, netQty: 0 },
+          s3: { qty: 0, shrinkage: 0, netQty: 0 }
+        }
+      };
+    });
+    setItems(newItems);
+    setNotes(n => `${n}${n ? '\n' : ''}Rekap Grup: ${grp}`);
+    setIsGroupImportModalOpen(false);
+  }
 
   const grandTotalValue = items.reduce((s, it) => s + (it.totalCost || 0), 0);
 
@@ -333,9 +398,16 @@ export default function PurchaseNoteForm() {
         </div>
         <div className="flex gap-sm">
           {!isEditing && (
-            <button className="btn btn-secondary" onClick={() => setIsImportModalOpen(true)}>
-              <FiShoppingBag /> Tarik dari Invoice
-            </button>
+            <>
+              {Object.keys(groupRecapData).length > 0 && (
+                <button className="btn btn-secondary" onClick={() => setIsGroupImportModalOpen(true)}>
+                  <FiUsers /> Tarik dari Rekap Grup
+                </button>
+              )}
+              <button className="btn btn-secondary" onClick={() => setIsImportModalOpen(true)}>
+                <FiShoppingBag /> Tarik dari Invoice
+              </button>
+            </>
           )}
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
             <FiSave /> {saving ? 'Menyimpan...' : 'Simpan Nota'}
@@ -765,6 +837,37 @@ export default function PurchaseNoteForm() {
                 );
               });
             })()}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Group Recap Import Modal */}
+      <Modal isOpen={isGroupImportModalOpen} onClose={() => setIsGroupImportModalOpen(false)} title="Tarik dari Rekap Grup">
+        <div className="modal-body">
+          <p className="text-muted text-sm mb-md">Pilih grup untuk mengisi baris pembelian dari rekap invoice hari ini.</p>
+          <div className="grid gap-sm">
+            {Object.entries(groupRecapData).map(([grp, recapItems]) => (
+              <button
+                key={grp}
+                className="btn btn-ghost"
+                style={{ justifyContent: 'flex-start', textAlign: 'left', padding: '14px 16px', border: '1px solid rgba(99,102,241,0.3)' }}
+                onClick={() => importFromGroup(grp)}
+              >
+                <div style={{ width: '100%' }}>
+                  <div className="flex-between mb-xs">
+                    <strong style={{ color: 'var(--accent-primary-hover)', fontSize: 15 }}>{grp}</strong>
+                    <span className="badge badge-primary">{recapItems.length} produk</span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {recapItems.map((item, i) => (
+                      <span key={i} style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 6, fontSize: 12 }}>
+                        {item.name}: <strong>{Number(item.totalQty).toLocaleString('id-ID')}</strong> {item.unit}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       </Modal>
