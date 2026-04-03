@@ -53,12 +53,15 @@ export default function PurchaseNotes() {
     });
     
     // All non-linked invoices (for group recap — broader scope, not limited to material type)
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const allPending = allInvoices.filter(inv => {
       if (linkedInvoiceIds.includes(inv.id)) return false;
       // Only include today's invoices for the group recap
-      const invDate = inv.date ? String(inv.date).slice(0, 10) : '';
-      return invDate === todayStr;
+      const dateObj = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
+      if (!dateObj) return false;
+      const invDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+      return invDateStr === todayStr;
     });
 
     setPendingInvoices(pending.sort((a, b) => {
@@ -114,18 +117,21 @@ export default function PurchaseNotes() {
     const noteDateStr = note.date ? String(note.date).slice(0, 10) : '';
     const grp = note.groupName || '(Tanpa Grup)';
     
-    // Build the invoices list: TOP PRIORITY is sourceInvoiceIds
+    // Build the invoices list: 3-layer check
     let invsForGroup = [];
     if (note.sourceInvoiceIds && note.sourceInvoiceIds.length > 0) {
       invsForGroup = fullInvoices.filter(inv => note.sourceInvoiceIds.includes(inv.id));
+    } else if (note.invoiceId) {
+      invsForGroup = fullInvoices.filter(inv => inv.id === note.invoiceId);
     } else {
       // Fallback for old notes
       const nameToGroup = {};
       allCustomers.forEach(c => { if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group; });
       invsForGroup = fullInvoices.filter(inv => {
-        const invDate = inv.date ? String(inv.date).slice(0, 10) : '';
-        if (invDate !== noteDateStr) return false;
-        return nameToGroup[(inv.customerName || '').toLowerCase()] === grp;
+        const dateObj = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
+        if (!dateObj) return false;
+        const invDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+        return invDateStr === noteDateStr && nameToGroup[(inv.customerName || '').toLowerCase()] === grp;
       });
     }
 
@@ -412,7 +418,7 @@ export default function PurchaseNotes() {
       {/* PDF Rendering Area (Hidden) */}
       {printData && (
         <PurchaseNoteReportPdf 
-          groupName={printData.groupName} 
+          groupName={printData.groupName || printData.invoiceNumber || 'Pembelian Umum'} 
           date={printData.date}
           groupRecap={printData.groupRecap}
           purchaseItems={printData.purchaseItems}

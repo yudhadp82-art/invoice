@@ -124,7 +124,8 @@ export default function PurchaseNoteForm() {
     // Build group recap from today's invoices (for "Tarik dari Rekap Grup")
     const allCustomers = await Customers.getAll();
     const linkedIds = history.map(n => n.invoiceId).filter(Boolean);
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const nameToGroup = {};
     allCustomers.forEach(c => {
       if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group;
@@ -133,8 +134,11 @@ export default function PurchaseNoteForm() {
     const groupInvs = {};
     invs.forEach(inv => {
       if (linkedIds.includes(inv.id)) return;
-      const invDate = inv.date ? String(inv.date).slice(0, 10) : '';
-      if (invDate !== todayStr) return;
+      const dateObj = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
+      if (!dateObj) return;
+      const invDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+      if (invDateStr !== todayStr) return;
+      
       const grp = nameToGroup[(inv.customerName || '').toLowerCase()];
       if (!grp) return;
       
@@ -172,6 +176,9 @@ export default function PurchaseNoteForm() {
       const invId = location.state.invoiceId;
       const inv = invs.find(i => i.id === invId);
       if (inv) {
+        setInvoiceId(inv.id);
+        setInvoiceNumber(inv.invoiceNumber);
+        setSourceInvoiceIds([inv.id]);
         const materials = (inv.items || [])
           .filter(it => it.type === 'material')
           .map(it => ({
@@ -424,10 +431,6 @@ export default function PurchaseNoteForm() {
   }
 
   async function handlePrintPdf() {
-    if (!currentGroupName) {
-      alert('Pilih grup (Tarik dari Rekap Grup) terlebih dahulu untuk membuat laporan ini.');
-      return;
-    }
     setIsGeneratingPdf(true);
     await new Promise(r => setTimeout(r, 600)); // Give time for hidden template to render
     
@@ -442,7 +445,7 @@ export default function PurchaseNoteForm() {
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
       pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`Laporan_Pembelian_${currentGroupName}_${date}.pdf`);
+      pdf.save(`Laporan_Pembelian_${currentGroupName || invoiceNumber || 'NoRec'}_${date}.pdf`);
     } catch (err) {
       console.error(err);
       alert('Gagal membuat PDF: ' + err.message);
@@ -481,7 +484,7 @@ export default function PurchaseNoteForm() {
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
             <FiSave /> {saving ? 'Menyimpan...' : 'Simpan Nota'}
           </button>
-          {currentGroupName && (
+          {(currentGroupName || invoiceId) && (
             <button className="btn btn-secondary" onClick={handlePrintPdf} disabled={isGeneratingPdf} style={{ background: 'var(--accent-purple)', borderColor: 'var(--accent-purple)', color: 'white' }}>
               {isGeneratingPdf ? '⏳...' : <><FiFileText /> Cetak PDF</>}
             </button>
@@ -921,16 +924,18 @@ export default function PurchaseNoteForm() {
       </Modal>
 
       {/* PDF Rendering Area (Hidden) */}
-      {currentGroupName && (
+      {(currentGroupName || invoiceId) && (
         <PurchaseNoteReportPdf 
-          groupName={currentGroupName} 
+          groupName={currentGroupName || invoiceNumber || 'Pembelian Umum'} 
           date={date}
           groupRecap={groupRecapData[currentGroupName] || []}
           purchaseItems={items}
           invoicesList={
             sourceInvoiceIds && sourceInvoiceIds.length > 0 
               ? invoices.filter(inv => sourceInvoiceIds.includes(inv.id))
-              : (groupInvoices[currentGroupName] || [])
+              : invoiceId 
+                ? invoices.filter(inv => inv.id === invoiceId)
+                : (groupInvoices[currentGroupName] || [])
           }
           forPrint={false}
         />
