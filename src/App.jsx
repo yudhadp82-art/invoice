@@ -14,7 +14,6 @@ import Reports from './pages/Reports';
 import Pricing from './pages/Pricing';
 import Suppliers from './pages/Suppliers';
 import TelegramOrders from './pages/TelegramOrders';
-import HPP from './pages/HPP';
 import ProductionMaterials from './pages/ProductionMaterials';
 import SalaryCosts from './pages/SalaryCosts';
 import ProductionNeeds from './pages/ProductionNeeds';
@@ -55,7 +54,6 @@ function App() {
           <Route path="/production/needs" element={<ProductionNeeds />} />
           <Route path="/production/employees" element={<Employees />} />
           <Route path="/production/material-items" element={<MaterialItems />} />
-          <Route path="/hpp" element={<HPP />} />
           <Route path="/recap" element={<Recap />} />
           <Route path="/reports" element={<Reports />} />
         </Route>

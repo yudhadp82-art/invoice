@@ -35,6 +35,7 @@ export default function PurchaseNoteForm() {
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [masterBahan, setMasterBahan] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [purchaseHistory, setPurchaseHistory] = useState([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -43,12 +44,14 @@ export default function PurchaseNoteForm() {
   }, [id]);
 
   async function loadData() {
-    const [master, invs] = await Promise.all([
+    const [master, invs, history] = await Promise.all([
       MasterItems.getAll(),
-      Invoices.getAll()
+      Invoices.getAll(),
+      PurchaseNotes.getAll()
     ]);
     setMasterBahan(master);
     setInvoices(invs.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)));
+    setPurchaseHistory(history);
 
     if (isEditing) {
       const note = await PurchaseNotes.getById(id);
@@ -134,11 +137,42 @@ export default function PurchaseNoteForm() {
         const invQty = newItems[index].invoiceQty;
         const diff = q - invQty;
 
-        // Default to assigning the note qty to S5 and the difference to shrinkage
-        // This makes netQty match invoiceQty automatically
         newItems[index].splits.s5.qty = q;
         newItems[index].splits.s5.shrinkage = diff;
         newItems[index].splits.s5.netQty = q - diff;
+      }
+
+      // Auto-calculate split based on history if qtyNota is entered and splits are empty
+      if (field === 'qtyNota' && q > 0) {
+        const matId = newItems[index].materialId;
+        if (matId) {
+          const curS2 = Number(newItems[index].splits?.s2?.qty) || 0;
+          const curS5 = Number(newItems[index].splits?.s5?.qty) || 0;
+
+          if (curS2 === 0 && curS5 === 0) {
+            let histS2 = 0;
+            let histS5 = 0;
+            purchaseHistory.forEach(pn => {
+              (pn.items || []).forEach(hItem => {
+                if (hItem.materialId === matId) {
+                  histS2 += Number(hItem.splits?.s2?.netQty || 0);
+                  histS5 += Number(hItem.splits?.s5?.netQty || 0);
+                }
+              });
+            });
+
+            const totalHist = histS2 + histS5;
+            if (totalHist > 0) {
+              const ratioS2 = histS2 / totalHist;
+              const ratioS5 = histS5 / totalHist;
+              newItems[index].splits = {
+                ...newItems[index].splits,
+                s2: { ...newItems[index].splits.s2, qty: (q * ratioS2).toFixed(2), netQty: (q * ratioS2).toFixed(2) },
+                s5: { ...newItems[index].splits.s5, qty: (q * ratioS5).toFixed(2), netQty: (q * ratioS5).toFixed(2) }
+              };
+            }
+          }
+        }
       }
     }
 
@@ -459,8 +493,29 @@ export default function PurchaseNoteForm() {
                           const availS5 = mb.availableInS5 !== false;
 
                           if (availS2 && availS5) {
-                            qtyS5 = (Number(it.qty) || 0) / 2;
-                            qtyS2 = (Number(it.qty) || 0) / 2;
+                            // Calculate proportional split from history
+                            let totalS2 = 0;
+                            let totalS5 = 0;
+                            purchaseHistory.forEach(pn => {
+                              (pn.items || []).forEach(item => {
+                                if (item.materialId === mb.id) {
+                                  totalS2 += Number(item.splits?.s2?.netQty || 0);
+                                  totalS5 += Number(item.splits?.s5?.netQty || 0);
+                                }
+                              });
+                            });
+
+                            const total = totalS2 + totalS5;
+                            if (total > 0) {
+                              const ratioS2 = totalS2 / total;
+                              const ratioS5 = totalS5 / total;
+                              qtyS2 = (Number(it.qty) || 0) * ratioS2;
+                              qtyS5 = (Number(it.qty) || 0) * ratioS5;
+                            } else {
+                              // Default 50/50 if no history
+                              qtyS5 = (Number(it.qty) || 0) / 2;
+                              qtyS2 = (Number(it.qty) || 0) / 2;
+                            }
                           } else if (availS2) {
                             qtyS5 = 0;
                             qtyS2 = Number(it.qty) || 0;

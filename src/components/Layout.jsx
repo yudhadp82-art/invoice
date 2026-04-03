@@ -18,7 +18,6 @@ const navItems = [
   { path: '/delivery-notes', label: 'Surat Jalan', icon: FiTruck },
   { path: '/purchase-notes', label: 'Pembelian Bahan', icon: FiShoppingCart },
   { section: 'Analisa' },
-  { path: '/hpp', label: 'HPP', icon: FiPieChart },
   { path: '/recap', label: 'Rekap', icon: FiBarChart2 },
   { path: '/reports', label: 'Laporan', icon: FiBarChart2 },
 ];
