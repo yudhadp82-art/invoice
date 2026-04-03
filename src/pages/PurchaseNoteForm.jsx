@@ -9,6 +9,7 @@ const emptyItem = {
   materialId: '',
   materialName: '',
   unit: '',
+  supplier: '',
   qtyNota: 0,
   invoiceQty: 0,
   pricePerUnit: 0,
@@ -38,6 +39,7 @@ export default function PurchaseNoteForm() {
   const [masterBahan, setMasterBahan] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [purchaseHistory, setPurchaseHistory] = useState([]);
+  const [supplierHistory, setSupplierHistory] = useState([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -54,6 +56,13 @@ export default function PurchaseNoteForm() {
     setMasterBahan(master);
     setInvoices(invs.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)));
     setPurchaseHistory(history);
+    // Collect unique supplier names from history for suggestions
+    const supplierSet = new Set();
+    history.forEach(pn => {
+      if (pn.supplierName) supplierSet.add(pn.supplierName);
+      (pn.items || []).forEach(it => { if (it.supplier) supplierSet.add(it.supplier); });
+    });
+    setSupplierHistory(Array.from(supplierSet).sort());
 
     if (isEditing) {
       const note = await PurchaseNotes.getById(id);
@@ -343,8 +352,19 @@ export default function PurchaseNoteForm() {
               <input type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)} required />
             </div>
             <div className="form-group">
-              <label className="form-label">Nama Supplier / Toko</label>
-              <input className="form-input" value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Misal: Toko Sinar Jaya" />
+              <label className="form-label">Supplier Default
+                <span className="text-xs text-muted" style={{ fontWeight: 400, marginLeft: 8 }}>(Akan dipakai untuk baris baru)</span>
+              </label>
+              <input
+                className="form-input"
+                list="supplier-list-default"
+                value={supplierName}
+                onChange={e => setSupplierName(e.target.value)}
+                placeholder="Misal: Toko Sinar Jaya"
+              />
+              <datalist id="supplier-list-default">
+                {supplierHistory.map(s => <option key={s} value={s} />)}
+              </datalist>
             </div>
           </div>
         </div>
@@ -354,7 +374,8 @@ export default function PurchaseNoteForm() {
             <thead>
               <tr>
                 <th style={{ width: '40px', padding: '10px 4px' }}>No</th>
-                <th style={{ width: 'auto', minWidth: '180px' }}>Bahan Baku</th>
+                <th style={{ width: '130px', minWidth: '120px', padding: '10px 4px' }}>Supplier</th>
+                <th style={{ width: 'auto', minWidth: '160px' }}>Bahan Baku</th>
                 <th style={{ width: '85px', padding: '10px 4px' }}>Qty Nota</th>
                 <th style={{ width: '110px', padding: '10px 4px' }}>Harga Beli</th>
                 <th style={{ width: '135px', padding: '10px 4px', backgroundColor: 'rgba(56, 189, 248, 0.05)' }}>S5 (SJ 5)</th>
@@ -379,6 +400,20 @@ export default function PurchaseNoteForm() {
                   <tr key={idx} className="animate-in">
                     <td className="text-center">
                       <span className="badge badge-primary">{idx + 1}</span>
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="form-input form-input-sm"
+                        list={`supplier-list-${idx}`}
+                        value={item.supplier || ''}
+                        onChange={e => updateItem(idx, 'supplier', e.target.value)}
+                        placeholder={supplierName || 'Supplier...'}
+                        style={{ minWidth: 110 }}
+                      />
+                      <datalist id={`supplier-list-${idx}`}>
+                        {supplierHistory.map(s => <option key={s} value={s} />)}
+                      </datalist>
                     </td>
                     <td>
                       <div className="flex-center gap-xs">
@@ -459,6 +494,66 @@ export default function PurchaseNoteForm() {
             </button>
           </div>
         </div>
+
+        {/* Rekap per Supplier */}
+        {(() => {
+          const supplierMap = {};
+          items.forEach(item => {
+            const sup = (item.supplier || supplierName || '(Supplier Tidak Diisi)').trim();
+            if (!supplierMap[sup]) supplierMap[sup] = [];
+            supplierMap[sup].push(item);
+          });
+          const supplierGroups = Object.entries(supplierMap);
+          if (supplierGroups.length === 0) return null;
+          return (
+            <div className="card" style={{ border: '1px solid rgba(99,102,241,0.2)' }}>
+              <div className="card-header">
+                <h3 className="card-title">Rekap Pembelian per Supplier</h3>
+              </div>
+              <div className="table-container" style={{ border: 'none', overflowX: 'auto' }}>
+                <table className="table table-compact" style={{ whiteSpace: 'nowrap' }}>
+                  <thead>
+                    <tr>
+                      <th>Supplier</th>
+                      <th>Nama Bahan</th>
+                      <th className="text-right">Qty</th>
+                      <th>Satuan</th>
+                      <th className="text-right">Harga Satuan</th>
+                      <th className="text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {supplierGroups.map(([sup, supItems]) => {
+                      const supTotal = supItems.reduce((s, it) => s + (Number(it.totalCost) || 0), 0);
+                      return (
+                        <>
+                          {supItems.map((item, si) => (
+                            <tr key={`${sup}-${si}`}>
+                              {si === 0 && (
+                                <td rowSpan={supItems.length + 1} style={{ fontWeight: 700, color: 'var(--accent-primary-hover)', verticalAlign: 'top', borderRight: '1px solid rgba(255,255,255,0.05)', paddingTop: 10 }}>
+                                  {sup}
+                                </td>
+                              )}
+                              <td>{item.isSubItem ? <span className="text-muted" style={{ fontSize: 12 }}>↳ {item.materialName}</span> : item.materialName}</td>
+                              <td className="text-right">{Number(item.qtyNota).toLocaleString('id-ID')}</td>
+                              <td className="text-muted">{item.unit}</td>
+                              <td className="text-right">{formatCurrency(item.pricePerUnit)}</td>
+                              <td className="text-right font-medium">{formatCurrency(item.totalCost)}</td>
+                            </tr>
+                          ))}
+                          <tr style={{ background: 'rgba(99,102,241,0.06)', fontWeight: 700 }}>
+                            <td colSpan={4} className="text-right text-sm">Total {sup}</td>
+                            <td className="text-right" style={{ color: '#6366f1' }}>{formatCurrency(supTotal)}</td>
+                          </tr>
+                        </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="card shadow-lg" style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' }}>
           <div className="p-lg flex-between">
