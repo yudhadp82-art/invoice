@@ -313,6 +313,7 @@ export default function PurchaseNotes() {
         <div className="grid gap-md mb-lg">
           {Object.entries(groupRecap).map(([grp, items]) => {
             const invs = groupInvoices[grp] || [];
+            const isCollapsed = collapsedGroups[grp];
             return (
               <div key={grp} className="card animate-in" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.08) 100%)', border: '1px solid rgba(99,102,241,0.2)' }}>
                 <div className="card-header flex-between" style={{ padding: '12px 20px' }}>
