@@ -54,7 +54,7 @@ export default function Layout() {
     const map = {
       products: 'Produk', customers: 'Customer', suppliers: 'Supplier',
       invoices: 'Invoice', delivery_notes: 'Surat Jalan',
-      price_categories: 'Kategori Harga', hpp_reports: 'HPP',
+      price_categories: 'Kategori Harga',
       production_materials: 'Bahan Pendukung', salary_costs: 'Biaya Gaji',
       production_needs: 'Kebutuhan Produksi', employees: 'Daftar Pekerja',
       supporting_material_items: 'Master Bahan'
