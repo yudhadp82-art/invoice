@@ -157,11 +157,44 @@ export const DeliveryNotes = {
 };
 
 export const PurchaseNotes = {
-  getAll: () => getAllFromStore(COLLECTIONS.PURCHASE_NOTES),
-  getById: (id) => getByIdFromStore(COLLECTIONS.PURCHASE_NOTES, id),
+  getAll: async () => {
+    const [newNotes, oldPurchases] = await Promise.all([
+      getAllFromStore(COLLECTIONS.PURCHASE_NOTES),
+      getAllFromStore(COLLECTIONS.PURCHASES)
+    ]);
+    // Consolidate both collections to ensure no data is missing
+    const consolidated = [...newNotes];
+    oldPurchases.forEach(old => {
+      if (!consolidated.find(n => n.id === old.id)) {
+        consolidated.push(old);
+      }
+    });
+    return consolidated;
+  },
+  getById: async (id) => {
+    const note = await getByIdFromStore(COLLECTIONS.PURCHASE_NOTES, id);
+    if (note) return note;
+    return getByIdFromStore(COLLECTIONS.PURCHASES, id);
+  },
   create: (item) => createInStore(COLLECTIONS.PURCHASE_NOTES, item),
-  update: (id, updates) => updateInStore(COLLECTIONS.PURCHASE_NOTES, id, updates),
-  delete: (id) => removeInStore(COLLECTIONS.PURCHASE_NOTES, id),
+  update: async (id, updates) => {
+    const note = await getByIdFromStore(COLLECTIONS.PURCHASE_NOTES, id);
+    if (note) return updateInStore(COLLECTIONS.PURCHASE_NOTES, id, updates);
+    
+    const oldNote = await getByIdFromStore(COLLECTIONS.PURCHASES, id);
+    if (oldNote) return updateInStore(COLLECTIONS.PURCHASES, id, updates);
+    
+    return null;
+  },
+  delete: async (id) => {
+    const note = await getByIdFromStore(COLLECTIONS.PURCHASE_NOTES, id);
+    if (note) return removeInStore(COLLECTIONS.PURCHASE_NOTES, id);
+    
+    const oldNote = await getByIdFromStore(COLLECTIONS.PURCHASES, id);
+    if (oldNote) return removeInStore(COLLECTIONS.PURCHASES, id);
+    
+    return false;
+  },
 };
 
 export const Purchases = {
@@ -256,10 +289,7 @@ export async function seedDemoData() {
     await PriceCategories.create({ id: 'cat-vip', name: 'VIP' });
   }
 
-  const prods = await Products.getAll();
-  if (prods.length > 0) return;
-
-  const products = [
+  const demoProducts = [
     { name: 'Bawang Merah Brebes', sku: 'BMB-01', category: 'Bumbu', purchaseCost: 25000, sellPrice: 35000, stock: 50, unit: 'kg', categoryPrices: { 'cat-grosir': 32000, 'cat-vip': 30000 } },
     { name: 'Bawang Putih Kating', sku: 'BPK-01', category: 'Bumbu', purchaseCost: 32000, sellPrice: 42000, stock: 30, unit: 'kg', categoryPrices: { 'cat-grosir': 38000, 'cat-vip': 36000 } },
     { name: 'Cabe Rawit Merah', sku: 'CRM-01', category: 'Sayuran', purchaseCost: 65000, sellPrice: 80000, stock: 15, unit: 'kg', categoryPrices: { 'cat-grosir': 75000, 'cat-vip': 72000 } },
@@ -267,20 +297,77 @@ export async function seedDemoData() {
     { name: 'Sawi Hijau / Caisim', sku: 'SWH-01', category: 'Sayuran', purchaseCost: 4000, sellPrice: 7000, stock: 120, unit: 'ikat', categoryPrices: { 'cat-grosir': 6000, 'cat-vip': 5500 } },
   ];
 
-  const customers = [
+  const demoCustomers = [
     { name: 'Budi Santoso', company: 'Toko Segar Jaya', phone: '08123456789', email: 'budi@segarjaya.com', address: 'Jl. Pasar Baru No.10', priceCategoryId: 'cat-retail' },
     { name: 'Siti Aminah', company: 'Warung Barokah', phone: '08987654321', email: 'siti@barokah.com', address: 'Jl. Melati No. 5', priceCategoryId: 'cat-grosir' },
-    { name: 'Rumah Makan Padang Saiyo', company: '', phone: '08112233445', email: 'rm.saiyo@email.com', address: 'Komp. Ruko Indah Blok A', priceCategoryId: 'cat-vip' },
+    { name: 'Rumah Makan Padang Saiyo', company: '', phone: '08112233445', email: 'rm.saiyo@email.com', address: 'Komp. Ruko Indah Blok A', priceCategoryId: 'cat-vip', group: 'S5' },
   ];
 
-  const suppliers = [
+  const demoSuppliers = [
     { name: 'Agus Petani', company: 'Kelompok Tani Bersama', phone: '085511223344', email: 'agus.tani@email.com', address: 'Desa Sukamaju Lama' },
     { name: 'PT Bumbu Nusantara', company: 'PT Bumbu Nusantara', phone: '02199887766', email: 'sales@bumbunusa.co.id', address: 'Kawasan Industri Cikarang' },
   ];
 
-  for (const p of products) await Products.create(p);
-  for (const c of customers) await Customers.create(c);
-  for (const s of suppliers) await Suppliers.create(s);
+  const prods = await Products.getAll();
+  if (prods.length === 0) {
+    for (const p of demoProducts) await Products.create(p);
+  }
+
+  const custs = await Customers.getAll();
+  if (custs.length === 0) {
+    for (const c of demoCustomers) await Customers.create(c);
+  }
+
+  const supps = await Suppliers.getAll();
+  if (supps.length === 0) {
+    for (const s of demoSuppliers) await Suppliers.create(s);
+  }
+
+  const materialItems = [
+    { name: 'Wortel', unit: 'kg', defaultPrice: 12000, stock: 0, availableInS2: true, availableInS5: true },
+    { name: 'Buncis', unit: 'kg', defaultPrice: 15000, stock: 0, availableInS2: true, availableInS5: true },
+    { name: 'Jagung', unit: 'kg', defaultPrice: 8000, stock: 0, availableInS2: true, availableInS5: true },
+    { name: 'Plastik PE 5kg', unit: 'pack', defaultPrice: 25000, stock: 0, availableInS2: true, availableInS5: true },
+    { name: 'Label Stiker', unit: 'pcs', defaultPrice: 500, stock: 0, availableInS2: true, availableInS5: true },
+  ];
+
+  // These were duplicates calling create outside the check blocks, causing ReferenceError
+  // for (const p of products) await Products.create(p);
+  // for (const c of customers) await Customers.create(c);
+  // for (const s of suppliers) await Suppliers.create(s);
+
+  const materials = await SupportingMaterialItems.getAll();
+  if (materials.length === 0) {
+    for (const m of materialItems) await SupportingMaterialItems.create(m);
+  }
+
+  // Seed one sample purchase note if empty
+  const pNotes = await PurchaseNotes.getAll();
+  if (pNotes.length === 0) {
+    const allm = await SupportingMaterialItems.getAll();
+    const wortel = allm.find(m => m.name === 'Wortel');
+    if (wortel) {
+      await PurchaseNotes.create({
+        date: new Date().toISOString().slice(0, 10),
+        supplierName: 'Agus Petani',
+        items: [{
+          materialId: wortel.id,
+          materialName: wortel.name,
+          unit: wortel.unit,
+          qtyNota: 50,
+          pricePerUnit: 11000,
+          totalCost: 550000,
+          splits: {
+            s5: { qty: 30, shrinkage: 0, netQty: 30 },
+            s2: { qty: 20, shrinkage: 0, netQty: 20 },
+            s3: { qty: 0, shrinkage: 0, netQty: 0 }
+          }
+        }],
+        grandTotal: 550000,
+        notes: 'Demo: Pembelian awal wortel'
+      });
+    }
+  }
 }
 
 // Fungsi Eksekusi Undo

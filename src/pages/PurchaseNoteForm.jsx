@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
-import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiShoppingBag, FiInfo, FiUsers } from 'react-icons/fi';
+import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiShoppingBag, FiInfo, FiUsers, FiFileText } from 'react-icons/fi';
 import { PurchaseNotes, SupportingMaterialItems as MasterItems, Invoices, Suppliers, Customers } from '../utils/storage';
 import { formatCurrency } from '../utils/formatter';
 import Modal from '../components/Modal';
@@ -186,11 +186,17 @@ export default function PurchaseNoteForm() {
         setInvoiceNumber(inv.invoiceNumber);
         setSourceInvoiceIds([inv.id]);
         const materials = (inv.items || [])
-          .filter(it => it.type === 'material')
-          .map(it => ({
-            materialId: it.productId,
-            materialName: it.productName,
-            unit: it.unit,
+          .filter(it => {
+            if (it.type === 'material') return true;
+            // Fallback: check if it exists in Master Bahan by name
+            return master.some(m => m.name.toLowerCase() === (it.productName || '').toLowerCase());
+          })
+          .map(it => {
+            const mb = master.find(m => m.name.toLowerCase() === (it.productName || '').toLowerCase());
+            return {
+              materialId: it.productId || (mb ? mb.id : ''),
+              materialName: it.productName,
+              unit: it.unit || (mb ? mb.unit : 'kg'),
             qtyNota: Number(it.qty) || 0,
             invoiceQty: Number(it.qty) || 0,
             pricePerUnit: Number(it.unitPrice) || 0,
@@ -201,7 +207,8 @@ export default function PurchaseNoteForm() {
               s3: { qty: 0, shrinkage: 0, netQty: 0 }
             },
             totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
-          }));
+            };
+          });
 
         const expanded = expandItems(materials, masterBahan);
 
@@ -376,15 +383,17 @@ export default function PurchaseNoteForm() {
             if (oldIt.materialId) {
               const master = await MasterItems.getById(oldIt.materialId);
               if (master) {
-                const oldTotalNet = (oldIt.splits.s5?.netQty || 0) + (oldIt.splits.s2?.netQty || 0) + (oldIt.splits.s3?.netQty || 0);
+                const oldTotalNet = (Number(oldIt.splits.s5?.netQty) || 0) + (Number(oldIt.splits.s2?.netQty) || 0) + (Number(oldIt.splits.s3?.netQty) || 0);
                 await MasterItems.update(master.id, { stock: (master.stock || 0) - oldTotalNet });
               }
             }
           }
         }
-        await PurchaseNotes.update(id, payload);
+        const result = await PurchaseNotes.update(id, payload);
+        if (!result) throw new Error('Gagal mengupdate nota di Database');
       } else {
-        await PurchaseNotes.create(payload);
+        const result = await PurchaseNotes.create(payload);
+        if (!result) throw new Error('Gagal menyimpan nota baru ke Database');
       }
 
       for (const it of items) {
@@ -754,7 +763,13 @@ export default function PurchaseNoteForm() {
           <p className="text-muted text-sm mb-md">Pilih invoice untuk mengambil item kategori <strong>Bahan</strong> (Hanya menampilkan invoice yang belum terpakai).</p>
           <div className="grid gap-sm">
             {(() => {
-              const invoicesWithBahan = invoices.filter(inv => !usedInvoiceIds.has(inv.id) && (inv.items || []).length > 0);
+              const invoicesWithBahan = invoices.filter(inv => {
+                if (usedInvoiceIds.has(inv.id)) return false;
+                return (inv.items || []).some(it => 
+                  it.type === 'material' || 
+                  masterBahan.some(m => m.name.toLowerCase() === (it.productName || '').toLowerCase())
+                );
+              });
 
               if (invoicesWithBahan.length === 0) {
                 return (

@@ -29,24 +29,34 @@ export default function PurchaseNotes() {
   }, []);
 
   async function reload() {
-    const [allNotes, allInvoices, allCustomers, allSupps] = await Promise.all([
+    const [allNotes, allInvoices, allCustomers, allSupps, master] = await Promise.all([
       Store.getAll(),
       Invoices.getAll(),
       Customers.getAll(),
-      Suppliers.getAll()
+      Suppliers.getAll(),
+      MasterItems.getAll()
     ]);
     
-    setNotes(allNotes.sort((a, b) => {
+    const sortFn = (a, b) => {
       const db = b.date || b.createdAt || 0;
       const da = a.date || a.createdAt || 0;
-      const tb = db.seconds ? db.seconds * 1000 : new Date(db).getTime();
-      const ta = da.seconds ? da.seconds * 1000 : new Date(da).getTime();
-      return tb - ta;
-    }));
+      const tb = db.seconds ? db.seconds * 1000 : (db ? new Date(db).getTime() : 0);
+      const ta = da.seconds ? da.seconds * 1000 : (da ? new Date(da).getTime() : 0);
+      
+      const tbValid = isNaN(tb) ? 0 : tb;
+      const taValid = isNaN(ta) ? 0 : ta;
+      
+      return tbValid - taValid;
+    };
+
+    setNotes(allNotes.sort(sortFn));
     setFullInvoices(allInvoices);
     setAllCustomers(allCustomers);
     setAllSuppliers(allSupps);
     
+    // Build material names set for faster lookup
+    const masterNames = new Set(master.map(m => m.name.toLowerCase()));
+
     // Filter pending invoices (those with materials that aren't linked to a Purchase Note)
     const linkedInvoiceIds = new Set();
     allNotes.forEach(n => {
@@ -58,7 +68,10 @@ export default function PurchaseNotes() {
 
     const pending = allInvoices.filter(inv => {
       if (linkedInvoiceIds.has(inv.id)) return false;
-      const hasMaterials = (inv.items || []).some(it => it.type === 'material');
+      const hasMaterials = (inv.items || []).some(it => 
+        it.type === 'material' || 
+        masterNames.has((it.productName || '').toLowerCase())
+      );
       return hasMaterials;
     });
     
@@ -70,13 +83,7 @@ export default function PurchaseNotes() {
       return true;
     });
 
-    setPendingInvoices(pending.sort((a, b) => {
-      const db = b.date || b.createdAt || 0;
-      const da = a.date || a.createdAt || 0;
-      const tb = db.seconds ? db.seconds * 1000 : new Date(db).getTime();
-      const ta = da.seconds ? da.seconds * 1000 : new Date(da).getTime();
-      return tb - ta;
-    }));
+    setPendingInvoices(pending.sort(sortFn));
 
     // Build customer name → group mapping (case-insensitive match)
     const nameToGroup = {};
@@ -335,7 +342,7 @@ export default function PurchaseNotes() {
                     <td>{inv.customerName}</td>
                     <td>
                       <span className="badge badge-primary">
-                        {(inv.items || []).filter(it => it.type === 'material').length} Bahan
+                        {(inv.items || []).filter(it => it.type === 'material' || masterNames.has((it.productName || '').toLowerCase())).length} Item
                       </span>
                     </td>
                     <td className="text-right">
@@ -373,8 +380,8 @@ export default function PurchaseNotes() {
                 <td colSpan={6}>
                   <div className="empty-state">
                     <div className="empty-state-icon"><FiFileText /></div>
-                    <h3>Belum ada nota pembelian</h3>
-                    <p>Klik "Buat Nota Baru" untuk mencatat pembelian pertama Anda.</p>
+                    <h3>{search ? 'Tidak ada hasil pencarian' : 'Belum ada nota pembelian'}</h3>
+                    <p>{search ? `Tidak ditemukan hasil untuk "${search}"` : 'Klik "Buat Nota Baru" untuk mencatat pembelian pertama Anda.'}</p>
                   </div>
                 </td>
               </tr>
@@ -383,8 +390,17 @@ export default function PurchaseNotes() {
                 <td className="text-muted"><FiCalendar style={{marginRight: 4}} /> {formatDateShort(note.date)}</td>
                 <td><strong>{note.supplierName || 'General Supplier'}</strong></td>
                 <td>
-                  <div className="text-sm">
-                    {(note.items || []).length} Item Bahan
+                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {(note.items || []).slice(0, 3).map((it, i) => (
+                      <span key={i} className="badge badge-secondary" style={{ fontSize: '10px', opacity: 0.8 }}>
+                        {it.materialName}
+                      </span>
+                    ))}
+                    {(note.items || []).length > 3 && (
+                      <span className="text-xs text-muted" style={{ padding: '2px 4px' }}>
+                        +{note.items.length - 3} lainnya
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="text-right font-medium">{formatCurrency(note.grandTotal)}</td>
