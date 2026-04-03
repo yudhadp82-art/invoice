@@ -43,7 +43,13 @@ export default function PurchaseNotes() {
     });
     
     // All non-linked invoices (for group recap — broader scope, not limited to material type)
-    const allPending = allInvoices.filter(inv => !linkedInvoiceIds.includes(inv.id));
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const allPending = allInvoices.filter(inv => {
+      if (linkedInvoiceIds.includes(inv.id)) return false;
+      // Only include today's invoices for the group recap
+      const invDate = inv.date ? String(inv.date).slice(0, 10) : '';
+      return invDate === todayStr;
+    });
 
     setPendingInvoices(pending.sort((a, b) => {
       const db = b.date || b.createdAt || 0;
