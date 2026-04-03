@@ -19,6 +19,7 @@ export default function PurchaseNotes() {
   const [fullInvoices, setFullInvoices] = useState([]);
   const [allCustomers, setAllCustomers] = useState([]);
   const [allSuppliers, setAllSuppliers] = useState([]);
+  const [masterBahan, setMasterBahan] = useState([]);
   const [printData, setPrintData] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -53,9 +54,10 @@ export default function PurchaseNotes() {
     setFullInvoices(allInvoices);
     setAllCustomers(allCustomers);
     setAllSuppliers(allSupps);
+    setMasterBahan(master);
     
     // Build material names set for faster lookup
-    const masterNames = new Set(master.map(m => m.name.toLowerCase()));
+    const masterNamesLocal = new Set(master.map(m => m.name.toLowerCase()));
 
     // Filter pending invoices (those with materials that aren't linked to a Purchase Note)
     const linkedInvoiceIds = new Set();
@@ -70,7 +72,7 @@ export default function PurchaseNotes() {
       if (linkedInvoiceIds.has(inv.id)) return false;
       const hasMaterials = (inv.items || []).some(it => 
         it.type === 'material' || 
-        masterNames.has((it.productName || '').toLowerCase())
+        masterNamesLocal.has((it.productName || '').toLowerCase())
       );
       return hasMaterials;
     });
@@ -342,7 +344,11 @@ export default function PurchaseNotes() {
                     <td>{inv.customerName}</td>
                     <td>
                       <span className="badge badge-primary">
-                        {(inv.items || []).filter(it => it.type === 'material' || masterNames.has((it.productName || '').toLowerCase())).length} Item
+                        {(inv.items || []).filter(it => {
+                          if (it.type === 'material') return true;
+                          const name = (it.productName || '').toLowerCase();
+                          return masterBahan.some(m => (m.name || '').toLowerCase() === name);
+                        }).length} Item
                       </span>
                     </td>
                     <td className="text-right">

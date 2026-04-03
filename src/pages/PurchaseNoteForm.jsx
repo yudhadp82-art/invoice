@@ -210,7 +210,7 @@ export default function PurchaseNoteForm() {
             };
           });
 
-        const expanded = expandItems(materials, masterBahan);
+        const expanded = expandItems(materials, master);
 
         if (expanded.length > 0) {
           setItems(expanded);
