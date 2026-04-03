@@ -1,6 +1,17 @@
 import { createPortal } from 'react-dom';
+import { useEffect } from 'react';
 
 export default function Modal({ isOpen, onClose, title, children, size = '', persistent = false }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleOverlayClick = () => {
@@ -10,7 +21,7 @@ export default function Modal({ isOpen, onClose, title, children, size = '', per
   };
 
   return createPortal(
-    <div className="modal-overlay" onClick={handleOverlayClick}>
+    <div className={`modal-overlay ${size === 'fullscreen' ? 'overlay-fullscreen' : ''}`} onClick={handleOverlayClick}>
       <div className={`modal ${size ? `modal-${size}` : ''}`} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{title}</h2>

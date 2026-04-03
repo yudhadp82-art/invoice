@@ -571,6 +571,25 @@ body {
 
 .modal-lg { max-width: 800px; }
 .modal-xl { max-width: 1000px; }
+.modal-fullscreen {
+  max-width: 100vw;
+  max-height: 100vh;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-fullscreen .modal-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.modal-overlay.overlay-fullscreen {
+  padding: 0;
+}
 
 .modal-header {
   padding: var(--space-lg);

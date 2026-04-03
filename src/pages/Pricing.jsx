@@ -281,9 +281,8 @@ export default function Pricing() {
         </form>
       </Modal>
 
-      {/* Modal Set Harga Produk */}
       {editingProduct && (
-        <Modal isOpen={priceModalOpen} onClose={() => setPriceModalOpen(false)} title={`Set Harga: ${editingProduct.name}`}>
+        <Modal isOpen={priceModalOpen} onClose={() => setPriceModalOpen(false)} title={`Set Harga: ${editingProduct.name}`} size="fullscreen" persistent={true}>
           <form onSubmit={handleSavePrices}>
             <div className="modal-body">
               <div style={{ marginBottom: 20, padding: 15, background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
