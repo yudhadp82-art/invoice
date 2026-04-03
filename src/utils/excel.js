@@ -97,7 +97,7 @@ export function exportInvoicesToExcel(invoices) {
   const columns = [
     { key: 'invoiceNumber', header: 'No. Invoice', width: 20 },
     { key: 'customerName', header: 'Customer', width: 25 },
-    { key: 'createdAt', header: 'Tanggal', width: 15, format: (v) => v ? new Date(v).toLocaleDateString('id-ID') : '' },
+    { key: 'createdAt', header: 'Tanggal', width: 25, format: (v) => v ? new Date(v).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : '' },
     { key: 'subtotal', header: 'Subtotal', width: 18, format: (v) => v || 0 },
     { key: 'grandTotal', header: 'Grand Total', width: 18, format: (v) => v || 0 },
     { key: 'totalCost', header: 'Modal', width: 18, format: (v) => v || 0 },
@@ -117,7 +117,7 @@ export function exportDeliveryNotesToExcel(notes) {
     { key: 'invoiceNumber', header: 'Ref. Invoice', width: 20 },
     { key: 'driver', header: 'Driver', width: 18 },
     { key: 'vehicleNumber', header: 'No. Kendaraan', width: 15 },
-    { key: 'createdAt', header: 'Tanggal', width: 15, format: (v) => v ? new Date(v).toLocaleDateString('id-ID') : '' },
+    { key: 'createdAt', header: 'Tanggal', width: 25, format: (v) => v ? new Date(v).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : '' },
   ];
   exportToExcel(notes, 'surat_jalan_export', 'Surat Jalan', columns);
 }
@@ -131,14 +131,16 @@ export function exportPurchasesToExcel(purchases) {
   purchases.forEach(p => {
     (p.items || []).forEach((item, i) => {
       rows.push({
-        'Tanggal': p.createdAt ? new Date(p.createdAt).toLocaleDateString('id-ID') : '',
-        'Supplier': i === 0 ? (p.supplier || '-') : '',
-        'Produk': item.productName,
-        'Qty': item.qty,
+        'Tanggal': p.createdAt ? new Date(p.createdAt).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : '',
+        'Supplier': i === 0 ? (p.supplierName || p.supplier || '-') : '',
+        'Pelanggan': i === 0 ? (p.customerName || '-') : '',
+        'Ref Invoice': i === 0 ? (p.invoiceNumber || '-') : '',
+        'Produk': item.materialName || item.productName,
+        'Qty': item.qtyNota || item.qty,
         'Satuan': item.unit || '',
-        'Harga/Unit': item.costPerUnit || 0,
-        'Subtotal': (item.costPerUnit || 0) * (item.qty || 0),
-        'Total Pembelian': i === 0 ? (p.totalCost || 0) : '',
+        'Harga/Unit': item.pricePerUnit || item.costPerUnit || 0,
+        'Subtotal': item.totalCost || ((item.costPerUnit || 0) * (item.qty || 0)),
+        'Total Pembelian': i === 0 ? (p.totalCost || p.grandTotal || 0) : '',
       });
     });
   });
@@ -155,7 +157,7 @@ export function exportHppToExcel(reports) {
     const items = r.itemCosts || [];
     if (items.length === 0) {
       rows.push({
-        'Tanggal': r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID') : '',
+        'Tanggal': r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : '',
         'No. Invoice': r.invoiceNumber,
         'Customer': r.customerName,
         'Produk': '-',
@@ -189,7 +191,7 @@ export function exportHppToExcel(reports) {
             // Untuk baris bahan, Harga Invoice dan Margin mungkin kurang relevan
             // Tapi kita isi Harga Invoice di baris pertama saja untuk konteks
             rows.push({
-              'Tanggal': (i === 0 && si === 0) && r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID') : '',
+              'Tanggal': (i === 0 && si === 0) && r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : '',
               'No. Invoice': (i === 0 && si === 0) ? r.invoiceNumber : '',
               'Customer': (i === 0 && si === 0) ? r.customerName : '',
               'Produk': `${item.productName} (Bahan: ${b.nama})`,
@@ -220,7 +222,7 @@ export function exportHppToExcel(reports) {
           const margin = (item.qty * item.hargaJual) - totalPurchasePerInvoice;
 
           rows.push({
-            'Tanggal': i === 0 && r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID') : '',
+            'Tanggal': i === 0 && r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : '',
             'No. Invoice': i === 0 ? r.invoiceNumber : '',
             'Customer': i === 0 ? r.customerName : '',
             'Produk': item.productName,
