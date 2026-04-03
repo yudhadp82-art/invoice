@@ -7,6 +7,15 @@ export default function PurchaseNoteReportPdf({ groupName, date, groupRecap, pur
   const containerStyle = forPrint 
     ? { width: '800px', margin: '0 auto', background: 'white', color: 'black', padding: '20px' }
     : { position: 'absolute', top: -20000, left: -20000, width: '1000px', background: 'white', color: 'black', padding: '40px' };
+ 
+  // Aggregate by Supplier
+  const supplierAgg = {};
+  (purchaseItems || []).forEach(it => {
+    const s = it.supplier || 'Penyedia Barang';
+    if (!supplierAgg[s]) supplierAgg[s] = 0;
+    supplierAgg[s] += (Number(it.totalCost) || 0);
+  });
+  const supplierSummary = Object.entries(supplierAgg).sort((a, b) => a[0].localeCompare(b[0]));
 
   return (
     <div id="purchase-note-report-render" style={containerStyle}>
@@ -121,7 +130,34 @@ export default function PurchaseNoteReportPdf({ groupName, date, groupRecap, pur
           </tbody>
         </table>
       </div>
-
+ 
+      {/* SECTION 4: RINGKASAN PEMBAYARAN PER SUPPLIER */}
+      <div style={{ marginBottom: 40, width: '50%', marginLeft: 'auto' }}>
+        <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #f59e0b', paddingLeft: 10, textTransform: 'uppercase' }}>4. Ringkasan per Supplier</h4>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <thead>
+            <tr style={{ background: '#fffbeb' }}>
+              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left' }}>Nama Supplier</th>
+              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', width: '40%' }}>Total Tagihan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {supplierSummary.map(([s, total], idx) => (
+              <tr key={idx}>
+                <td style={{ border: '1px solid #ddd', padding: '6px', fontWeight: '500' }}>{s}</td>
+                <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(total)}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
+              <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>REKAP TOTAL:</td>
+              <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', color: '#b45309' }}>
+                {formatCurrency(supplierSummary.reduce((s, it) => s + it[1], 0))}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+ 
       {/* Signatures */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 10 }}>
         <div style={{ textAlign: 'center', width: 200 }}>
