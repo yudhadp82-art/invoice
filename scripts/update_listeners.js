@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const dir = 'c:/antigravity/src/pages';
+const dir = './src/pages';
 const files = fs.readdirSync(dir).filter(f => f.endsWith('.jsx'));
 
 files.forEach(file => {
