@@ -295,38 +295,38 @@ export default function Pricing() {
               <h4 className="mb-sm">Harga Jual &amp; Modal per Kategori</h4>
               <p className="text-sm text-muted mb-md">Masukkan harga jual dan modal khusus untuk setiap kategori. Kosongkan untuk mengikuti harga utama/modal utama.</p>
               
-              <div className="modal-items-container">
-                <div style={{ minWidth: '420px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 15, fontWeight: 'bold', fontSize: 12, marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div>Kategori</div>
-                    <div className="text-right">Harga Jual (Rp)</div>
-                    <div className="text-right">Harga Modal (Rp)</div>
-                  </div>
-
-                  <div className="flex flex-col gap-sm">
-                    {categories.map(c => (
-                      <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 15, alignItems: 'center' }}>
-                        <div className="text-sm">{c.name}</div>
+              <div className="flex flex-col gap-md">
+                {categories.map(c => (
+                  <div key={c.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--accent-primary-hover)', marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 6 }}>
+                      {c.name}
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group mb-0">
+                        <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Harga Jual (Rp)</label>
                         <input 
                           type="number" 
-                          className="form-input text-right" 
+                          className="form-input" 
                           min="0"
-                          placeholder="Default"
+                          placeholder="Default (Ikut Harga Utama)"
                           value={productPrices[c.id] || ''}
                           onChange={e => setProductPrices({ ...productPrices, [c.id]: e.target.value })}
                         />
+                      </div>
+                      <div className="form-group mb-0">
+                        <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Harga Modal (Rp)</label>
                         <input 
                           type="number" 
-                          className="form-input text-right" 
+                          className="form-input" 
                           min="0"
-                          placeholder="Default"
+                          placeholder="Default (Ikut Modal Utama)"
                           value={productModals[c.id] || ''}
                           onChange={e => setProductModals({ ...productModals, [c.id]: e.target.value })}
                         />
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
             <div className="modal-footer">
