@@ -564,6 +564,7 @@ export default function TelegramOrdersPage() {
                   <p style={{ fontWeight: 600 }}>Item Pesanan</p>
                   <button className="btn btn-secondary btn-sm" onClick={addEditItem}>+ Tambah</button>
                 </div>
+              <div className="modal-items-container">
                 {editOrder.items.map((item, i) => {
                   const isExact = item.productId && item.productName.toLowerCase().trim() === (item.matchedName || '').toLowerCase().trim();
                   const needsAttention = !item.productId || !isExact;
@@ -574,7 +575,7 @@ export default function TelegramOrdersPage() {
                   return (
                     <div key={i} style={{
                       display: 'grid',
-                      gridTemplateColumns: '24px 1fr 1.5fr 80px 100px 140px 36px',
+                      gridTemplateColumns: '24px 1fr 1.5fr 60px 80px 100px 32px',
                       gap: 8,
                       alignItems: 'flex-end',
                       background: needsAttention ? 'rgba(239,68,68,0.07)' : 'rgba(255,255,255,0.03)',
@@ -582,6 +583,7 @@ export default function TelegramOrdersPage() {
                       borderRadius: 10,
                       padding: '12px',
                       marginBottom: 8,
+                      minWidth: '600px'
                     }}>
                       {/* Item index */}
                       <span style={{ fontSize: 13, color: needsAttention ? '#ef4444' : 'var(--text-muted)', fontWeight: 600, textAlign: 'center', marginBottom: 12 }}>{i + 1}</span>
@@ -694,8 +696,8 @@ export default function TelegramOrdersPage() {
                         <FiTrash2 />
                       </button>
                     </div>
-
                 )})}
+              </div>
                 {/* Price category info */}
                 {editOrder.matchedCustomerId && (() => {
                   const cust = allCustomers.find(c => c.id === editOrder.matchedCustomerId);

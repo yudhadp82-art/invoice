@@ -975,6 +975,8 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
   background: rgba(255, 255, 255, 0.01);
 }
 
@@ -988,7 +990,14 @@ body {
   border-top: 1px solid var(--border-color);
   display: flex;
   gap: var(--space-sm);
+  flex-wrap: wrap;
   background: rgba(0, 0, 0, 0.1);
+}
+
+.modal-items-container {
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .item-match {
