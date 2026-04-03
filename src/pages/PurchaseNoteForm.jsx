@@ -46,9 +46,9 @@ export default function PurchaseNoteForm() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isGroupImportModalOpen, setIsGroupImportModalOpen] = useState(false);
   const [groupRecapData, setGroupRecapData] = useState({}); // { groupName: [{ name, totalQty, unit }] }
-  const [groupInvoices, setGroupInvoices] = useState({}); // { groupName: [invoiceObjects] }
   const [currentGroupName, setCurrentGroupName] = useState('');
   const [sourceInvoiceIds, setSourceInvoiceIds] = useState([]);
+  const [usedInvoiceIds, setUsedInvoiceIds] = useState(new Set()); // <--- Add this
   const [allSuppliers, setAllSuppliers] = useState([]); // <--- Add this
   const [saving, setSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -123,9 +123,17 @@ export default function PurchaseNoteForm() {
     });
     setSupplierHistory(Array.from(supplierSet).sort());
 
+    const usedIds = new Set();
+    history.forEach(pn => {
+      if (pn.invoiceId) usedIds.add(pn.invoiceId);
+      if (Array.isArray(pn.sourceInvoiceIds)) {
+        pn.sourceInvoiceIds.forEach(sid => usedIds.add(sid));
+      }
+    });
+    setUsedInvoiceIds(usedIds);
+
     // Build group recap from today's invoices (for "Tarik dari Rekap Grup")
     const allCustomers = await Customers.getAll();
-    const linkedIds = history.map(n => n.invoiceId).filter(Boolean);
     const nameToGroup = {};
     allCustomers.forEach(c => {
       if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group;
@@ -133,7 +141,7 @@ export default function PurchaseNoteForm() {
     const groupAgg = {};
     const groupInvs = {};
     invs.forEach(inv => {
-      if (linkedIds.includes(inv.id)) return;
+      if (usedIds.has(inv.id)) return;
       // We no longer strictly filter by todayStr here to allow all pending 
       // invoices for the group to be recapped and seen in the PDF.
       
@@ -743,10 +751,10 @@ export default function PurchaseNoteForm() {
 
       <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Tarik Item dari Invoice">
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          <p className="text-muted text-sm mb-md">Pilih invoice untuk mengambil item kategori <strong>Bahan</strong>.</p>
+          <p className="text-muted text-sm mb-md">Pilih invoice untuk mengambil item kategori <strong>Bahan</strong> (Hanya menampilkan invoice yang belum terpakai).</p>
           <div className="grid gap-sm">
             {(() => {
-              const invoicesWithBahan = invoices.filter(inv => (inv.items || []).length > 0);
+              const invoicesWithBahan = invoices.filter(inv => !usedInvoiceIds.has(inv.id) && (inv.items || []).length > 0);
 
               if (invoicesWithBahan.length === 0) {
                 return (
