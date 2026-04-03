@@ -42,6 +42,9 @@ export default function PurchaseNotes() {
       return hasMaterials;
     });
     
+    // All non-linked invoices (for group recap — broader scope, not limited to material type)
+    const allPending = allInvoices.filter(inv => !linkedInvoiceIds.includes(inv.id));
+
     setPendingInvoices(pending.sort((a, b) => {
       const db = b.date || b.createdAt || 0;
       const da = a.date || a.createdAt || 0;
@@ -58,16 +61,15 @@ export default function PurchaseNotes() {
       }
     });
 
-    // Aggregate items per group from pending invoices
-    // Only include invoices whose customer has a group
+    // Aggregate ALL items per group from ALL non-linked invoices whose customer has a group
     const groupAgg = {}; // { groupName: { productName: { totalQty, unit } } }
-    pending.forEach(inv => {
+    allPending.forEach(inv => {
       const custGroup = nameToGroup[(inv.customerName || '').toLowerCase()];
       if (!custGroup) return; // skip customers with no group
       if (!groupAgg[custGroup]) groupAgg[custGroup] = {};
 
       (inv.items || []).forEach(it => {
-        if (it.type !== 'material') return;
+        // Include ALL item types (product, material, etc.)
         const key = (it.productName || '').trim();
         if (!key) return;
         if (!groupAgg[custGroup][key]) {
