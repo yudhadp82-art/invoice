@@ -348,7 +348,8 @@ export default function PurchaseNoteForm() {
         notes,
         grandTotal,
         invoiceId,
-        invoiceNumber
+        invoiceNumber,
+        groupName: currentGroupName
       };
 
       if (isEditing) {

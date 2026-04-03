@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2 } from 'react-icons/fi';
-import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems, Customers } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
+import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter } from 'react-icons/fi';
 
 export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
@@ -12,6 +14,11 @@ export default function PurchaseNotes() {
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
+  
+  const [fullInvoices, setFullInvoices] = useState([]);
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [printData, setPrintData] = useState(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
     reload();
@@ -33,6 +40,8 @@ export default function PurchaseNotes() {
       const ta = da.seconds ? da.seconds * 1000 : new Date(da).getTime();
       return tb - ta;
     }));
+    setFullInvoices(allInvoices);
+    setAllCustomers(allCustomers);
     
     // Filter pending invoices (those with materials that aren't linked to a Purchase Note)
     const linkedInvoiceIds = allNotes.map(n => n.invoiceId).filter(id => !!id);
@@ -91,6 +100,70 @@ export default function PurchaseNotes() {
       result[grp] = Object.values(groupAgg[grp]).sort((a, b) => a.name.localeCompare(b.name));
     });
     setGroupRecap(result);
+  }
+
+  async function handlePrintPdf(note) {
+    if (!note.groupName) {
+      if (!window.confirm('Nota ini tidak memiliki data grup tersimpan (nota lama). Ingin tetap mencetak laporan hanya rincian pembelian?')) return;
+    }
+    
+    setIsGeneratingPdf(true);
+    
+    // Prepare data for the PDF template
+    const noteDateStr = note.date ? String(note.date).slice(0, 10) : '';
+    const grp = note.groupName || '(Tanpa Grup)';
+    
+    // Build the invoices list for that date and group
+    const nameToGroup = {};
+    allCustomers.forEach(c => { if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group; });
+    
+    const invsForGroup = fullInvoices.filter(inv => {
+      const invDate = inv.date ? String(inv.date).slice(0, 10) : '';
+      if (invDate !== noteDateStr) return false;
+      return nameToGroup[(inv.customerName || '').toLowerCase()] === grp;
+    });
+
+    // Reconstruct group recap aggregates
+    const groupAgg = {};
+    invsForGroup.forEach(inv => {
+      (inv.items || []).forEach(it => {
+        const key = (it.productName || '').trim();
+        if (!key) return;
+        if (!groupAgg[key]) groupAgg[key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
+        groupAgg[key].totalQty += (Number(it.qty) || 0);
+      });
+    });
+    const recapArray = Object.values(groupAgg).sort((a, b) => a.name.localeCompare(b.name));
+
+    setPrintData({
+      groupName: grp,
+      date: note.date,
+      groupRecap: recapArray,
+      purchaseItems: note.items || [],
+      invoicesList: invsForGroup
+    });
+
+    // Generate PDF
+    await new Promise(r => setTimeout(r, 600)); // Allow render
+    try {
+      const element = document.getElementById('purchase-note-report-render');
+      if (!element) throw new Error('Render element not found');
+
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/jpeg', 0.8);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mencetak PDF: ' + err.message);
+    } finally {
+      setIsGeneratingPdf(false);
+      setPrintData(null);
+    }
   }
 
   async function confirmDelete() {
@@ -302,6 +375,9 @@ export default function PurchaseNotes() {
                 </td>
                 <td>
                   <div className="table-actions">
+                    <button className="btn btn-ghost btn-sm text-info" onClick={() => handlePrintPdf(note)} disabled={isGeneratingPdf && printData?.id === note.id}>
+                      <FiPrinter style={{ animation: (isGeneratingPdf && printData?.groupName === note.groupName) ? 'spin 1s linear infinite' : 'none' }} />
+                    </button>
                     <Link to={`/purchase-notes/${note.id}/edit`} className="btn btn-ghost btn-sm">
                       <FiEdit2 />
                     </Link>
@@ -326,6 +402,20 @@ export default function PurchaseNotes() {
         title="Hapus Nota Pembelian"
         message="Menghapus nota ini tidak akan mengoreksi stok secara otomatis. Apakah Anda yakin?"
       />
+
+      {/* PDF Rendering Area (Hidden) */}
+      {printData && (
+        <PurchaseNoteReportPdf 
+          groupName={printData.groupName} 
+          date={printData.date}
+          groupRecap={printData.groupRecap}
+          purchaseItems={printData.purchaseItems}
+          invoicesList={printData.invoicesList}
+          forPrint={false}
+        />
+      )}
+      
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
