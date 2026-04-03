@@ -137,6 +137,8 @@ export default function PurchaseNoteForm() {
 
             expandedItems.push({
               ...emptyItem,
+              isSubItem: true,
+              parentName: 'Mix Vegetable',
               materialId: ingM ? ingM.id : '',
               materialName: ingName,
               unit: ingM ? ingM.unit : 'kg',
@@ -145,7 +147,7 @@ export default function PurchaseNoteForm() {
               pricePerUnit: basePrice,
               totalCost: qty * basePrice,
               splits: {
-                s5: { qty: qty, shrinkage: Math.max(0, qty - invQty), netQty: invQty },
+                s5: { qty: qty, shrinkage: Math.max(0, (qty - invQty).toFixed(2)), netQty: invQty },
                 s2: { qty: 0, shrinkage: 0, netQty: 0 },
                 s3: { qty: 0, shrinkage: 0, netQty: 0 }
               }
@@ -165,14 +167,24 @@ export default function PurchaseNoteForm() {
       } else {
         newItems[index].materialId = '';
       }
+    } else if (field === 'totalCost') {
+      const subtotal = Number(value) || 0;
+      const q = Number(newItems[index].qtyNota) || 0;
+      newItems[index].totalCost = subtotal;
+      if (q > 0) {
+        newItems[index].pricePerUnit = (subtotal / q).toFixed(2);
+      }
     } else {
       newItems[index][field] = value;
     }
 
-    if (field === 'qtyNota' || field === 'pricePerUnit') {
+    if (field === 'qtyNota' || field === 'pricePerUnit' || field === 'totalCost') {
       const q = Number(newItems[index].qtyNota) || 0;
       const p = Number(newItems[index].pricePerUnit) || 0;
-      newItems[index].totalCost = q * p;
+      
+      if (field !== 'totalCost') {
+        newItems[index].totalCost = q * p;
+      }
 
       // Auto-calculate shrinkage if invoiceQty exists
       if (field === 'qtyNota' && newItems[index].invoiceQty > 0) {
@@ -369,15 +381,18 @@ export default function PurchaseNoteForm() {
                       <span className="badge badge-primary">{idx + 1}</span>
                     </td>
                     <td>
-                      <select className="form-select form-select-sm" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required>
-                        <option value="">-- {currentInvoice ? 'Invoice Item' : 'Pilih Bahan'} --</option>
-                        {selectableItems.map(m => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                        {currentInvoice && selectableItems.length < masterBahan.length && (
-                          <option value="all-master">Lainnya...</option>
-                        )}
-                      </select>
+                      <div className="flex-center gap-xs">
+                        {item.isSubItem && <span style={{ color: 'var(--primary)', fontWeight: 800, marginRight: 2 }}>↳ </span>}
+                        <select className="form-select form-select-sm" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required style={{ paddingLeft: item.isSubItem ? '16px' : undefined }}>
+                          <option value="">-- {currentInvoice ? 'Invoice Item' : 'Pilih Bahan'} --</option>
+                          {selectableItems.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                          {currentInvoice && selectableItems.length < masterBahan.length && (
+                            <option value="all-master">Lainnya...</option>
+                          )}
+                        </select>
+                      </div>
                     </td>
                     <td>
                       <div>
@@ -386,8 +401,8 @@ export default function PurchaseNoteForm() {
                           <span className="text-xs text-muted">{item.unit || ''}</span>
                         </div>
                         {item.invoiceQty > 0 && (
-                          <div className="text-xs text-muted mt-xs" style={{ whiteSpace: 'nowrap' }}>
-                            Inv: <strong>{item.invoiceQty}</strong>
+                          <div className="text-xs text-muted mt-xs" style={{ whiteSpace: 'nowrap', fontStyle: 'italic' }}>
+                            {item.isSubItem ? `Inv: ${item.parentName}` : 'Inv'}: <strong>{item.invoiceQty}</strong>
                           </div>
                         )}
                       </div>
@@ -419,8 +434,14 @@ export default function PurchaseNoteForm() {
                     <td>
                       <input type="number" className="form-input form-input-sm" value={item.sellPrice} onChange={e => updateItem(idx, 'sellPrice', e.target.value)} />
                     </td>
-                    <td className="text-right font-bold text-success">
-                      {formatCurrency(item.totalCost)}
+                    <td>
+                      <input 
+                        type="number" 
+                        className="form-input form-input-sm font-bold text-success" 
+                        value={item.totalCost} 
+                        onChange={e => updateItem(idx, 'totalCost', e.target.value)} 
+                        style={{ textAlign: 'right' }}
+                      />
                     </td>
                     <td>
                       <button type="button" className="btn btn-ghost btn-sm text-danger btn-icon-only" onClick={() => removeItem(idx)}>
@@ -591,6 +612,8 @@ export default function PurchaseNoteForm() {
                             materials.push({
                               materialId: ingM.id,
                               materialName: ingM.name,
+                              isSubItem: true,
+                              parentName: it.productName || 'Mix Vegetable',
                               unit: ingM.unit,
                               qtyNota: q.toFixed(2),
                               invoiceQty: q.toFixed(2),
@@ -601,7 +624,7 @@ export default function PurchaseNoteForm() {
                                 s2: { qty: 0, shrinkage: 0, netQty: 0 },
                                 s3: { qty: 0, shrinkage: 0, netQty: 0 }
                               },
-                              totalCost: q * p
+                              totalCost: (q * p).toFixed(2)
                             });
                           }
                           continue; // Jump to next item in materialsInInv
