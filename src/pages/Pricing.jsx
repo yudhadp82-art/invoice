@@ -5,6 +5,10 @@ import { PriceCategories as CategoryStore, Products as ProductStore } from '../u
 import { formatCurrency } from '../utils/formatter';
 import { exportPricingToExcel, downloadPricingTemplate, triggerImportExcel } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
+import { formatNumberInput } from '../utils/formatter';
+
+const emptyProduct = { name: '', sku: '', category: '', purchaseCost: '', sellPrice: '', unit: 'kg' };
+const UNIT_OPTIONS = ['kg', 'gram', 'ons', 'pcs', 'ikat', 'bungkus', 'pack', 'liter', 'ml', 'kardus', 'karung', 'botol', 'renteng'];
 
 export default function Pricing() {
   const [categories, setCategories] = useState([]);
@@ -22,6 +26,11 @@ export default function Pricing() {
   const [productPrices, setProductPrices] = useState({});
   const [productModals, setProductModals] = useState({});
   const [productName, setProductName] = useState('');
+
+  // New Product Modal State
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [newProductForm, setNewProductForm] = useState(emptyProduct);
+  const [isCustomUnit, setIsCustomUnit] = useState(false);
 
   useEffect(() => {
     reload();
@@ -69,13 +78,36 @@ export default function Pricing() {
     await reload();
   }
 
-  // --- Pricing Handlers ---
   function openEditPrices(product) {
     setEditingProduct(product);
     setProductName(product.name || '');
     setProductPrices(product.categoryPrices || {});
     setProductModals(product.categoryModals || {});
     setPriceModalOpen(true);
+  }
+
+  function openAddProduct() {
+    setNewProductForm(emptyProduct);
+    setIsCustomUnit(false);
+    setProductModalOpen(true);
+  }
+
+  async function handleSaveProduct(e) {
+    e.preventDefault();
+    const data = {
+      ...newProductForm,
+      purchaseCost: Number(newProductForm.purchaseCost) || 0,
+      sellPrice: Number(newProductForm.sellPrice) || 0,
+      stock: 0
+    };
+    const saved = await ProductStore.create(data);
+    setProductModalOpen(false);
+    await reload();
+    
+    // Auto-open price editor for the new product
+    if (saved) {
+      openEditPrices(saved);
+    }
   }
 
   async function handleSavePrices(e) {
@@ -153,9 +185,14 @@ export default function Pricing() {
           <h1>Kategori Harga</h1>
           <p>Kelola tingkatan harga dan set harga fix per produk</p>
         </div>
-        <button className="btn btn-primary" onClick={openAddCategory}>
-          <FiPlus /> Tambah Kategori
-        </button>
+        <div className="flex gap-sm">
+          <button className="btn btn-secondary" onClick={openAddProduct}>
+            <FiPlus /> Tambah Produk
+          </button>
+          <button className="btn btn-primary" onClick={openAddCategory}>
+            <FiPlus /> Tambah Kategori
+          </button>
+        </div>
       </div>
 
       <div className="card mb-lg">
@@ -355,6 +392,79 @@ export default function Pricing() {
         title="Hapus Kategori Harga"
         message="Hapus kategori harga ini? Peringatan: Customer yang menggunakan kategori ini bisa jadi error."
       />
+
+      {/* Modal Tambah Produk */}
+      <Modal isOpen={productModalOpen} onClose={() => setProductModalOpen(false)} title="Tambah Produk Baru">
+        <form onSubmit={handleSaveProduct}>
+          <div className="modal-body">
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Nama Produk</label>
+                <input className="form-input" required value={newProductForm.name} onChange={e => setNewProductForm({...newProductForm, name: e.target.value})} placeholder="Nama produk" />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">SKU</label>
+                <input className="form-input" value={newProductForm.sku} onChange={e => setNewProductForm({...newProductForm, sku: e.target.value})} placeholder="Kode SKU" />
+              </div>
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Kategori</label>
+                <input className="form-input" value={newProductForm.category} onChange={e => setNewProductForm({...newProductForm, category: e.target.value})} placeholder="Sayuran, Bumbu, dll" />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Satuan</label>
+                {isCustomUnit ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input className="form-input" required autoFocus value={newProductForm.unit} onChange={e => setNewProductForm({...newProductForm, unit: e.target.value})} placeholder="Ketik satuan" />
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setIsCustomUnit(false); setNewProductForm({...newProductForm, unit: 'kg'}); }}>Batal</button>
+                  </div>
+                ) : (
+                  <select className="form-select" value={newProductForm.unit} onChange={e => {
+                    if (e.target.value === 'custom') {
+                      setIsCustomUnit(true);
+                      setNewProductForm({...newProductForm, unit: ''});
+                    } else {
+                      setNewProductForm({...newProductForm, unit: e.target.value});
+                    }
+                  }}>
+                    {UNIT_OPTIONS.map(u => (
+                      <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>
+                    ))}
+                    <option value="custom">+ Satuan Baru...</option>
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Modal Utama (Rp)</label>
+                <input className="form-input" type="text" required value={formatNumberInput(newProductForm.purchaseCost)} onChange={e => {
+                  const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                  if (/^\d*\.?\d*$/.test(val) || val === '') {
+                    setNewProductForm({...newProductForm, purchaseCost: val});
+                  }
+                }} placeholder="0" />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Jual Utama (Rp)</label>
+                <input className="form-input" type="text" required value={formatNumberInput(newProductForm.sellPrice)} onChange={e => {
+                  const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                  if (/^\d*\.?\d*$/.test(val) || val === '') {
+                    setNewProductForm({...newProductForm, sellPrice: val});
+                  }
+                }} placeholder="0" />
+              </div>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={() => setProductModalOpen(false)}>Batal</button>
+            <button type="submit" className="btn btn-primary">Simpan &amp; Lanjut Set Harga</button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
