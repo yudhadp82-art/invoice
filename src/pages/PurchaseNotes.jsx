@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter } from 'react-icons/fi';
+import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems, Customers } from '../utils/storage';
 
 export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
