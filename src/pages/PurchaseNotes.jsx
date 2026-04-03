@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter } from 'react-icons/fi';
-import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems, Customers } from '../utils/storage';
+import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems, Customers, Suppliers } from '../utils/storage';
 
 export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
@@ -18,6 +18,7 @@ export default function PurchaseNotes() {
   
   const [fullInvoices, setFullInvoices] = useState([]);
   const [allCustomers, setAllCustomers] = useState([]);
+  const [allSuppliers, setAllSuppliers] = useState([]);
   const [printData, setPrintData] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -28,10 +29,11 @@ export default function PurchaseNotes() {
   }, []);
 
   async function reload() {
-    const [allNotes, allInvoices, allCustomers] = await Promise.all([
+    const [allNotes, allInvoices, allCustomers, allSupps] = await Promise.all([
       Store.getAll(),
       Invoices.getAll(),
-      Customers.getAll()
+      Customers.getAll(),
+      Suppliers.getAll()
     ]);
     
     setNotes(allNotes.sort((a, b) => {
@@ -43,6 +45,7 @@ export default function PurchaseNotes() {
     }));
     setFullInvoices(allInvoices);
     setAllCustomers(allCustomers);
+    setAllSuppliers(allSupps);
     
     // Filter pending invoices (those with materials that aren't linked to a Purchase Note)
     const linkedInvoiceIds = allNotes.map(n => n.invoiceId).filter(id => !!id);
@@ -419,6 +422,7 @@ export default function PurchaseNotes() {
           groupRecap={printData.groupRecap}
           purchaseItems={printData.purchaseItems}
           invoicesList={printData.invoicesList}
+          suppliersData={allSuppliers}
           forPrint={false}
         />
       )}

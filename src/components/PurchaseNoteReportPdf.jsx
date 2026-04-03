@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 
-export default function PurchaseNoteReportPdf({ groupName, date, groupRecap, purchaseItems, invoicesList, forPrint = false }) {
+export default function PurchaseNoteReportPdf({ groupName, date, groupRecap, purchaseItems, invoicesList, suppliersData = [], forPrint = false }) {
   if (!groupName) return null;
 
   const containerStyle = forPrint 
@@ -132,25 +132,42 @@ export default function PurchaseNoteReportPdf({ groupName, date, groupRecap, pur
       </div>
  
       {/* SECTION 4: RINGKASAN PEMBAYARAN PER SUPPLIER */}
-      <div style={{ marginBottom: 40, width: '50%', marginLeft: 'auto' }}>
+      <div style={{ marginBottom: 40 }}>
         <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #f59e0b', paddingLeft: 10, textTransform: 'uppercase' }}>4. Ringkasan per Supplier</h4>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
           <thead>
             <tr style={{ background: '#fffbeb' }}>
               <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left' }}>Nama Supplier</th>
-              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', width: '40%' }}>Total Tagihan</th>
+              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left' }}>Info Rekening (Bank / A.N / Nomor)</th>
+              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', width: '25%' }}>Total Tagihan</th>
             </tr>
           </thead>
           <tbody>
-            {supplierSummary.map(([s, total], idx) => (
-              <tr key={idx}>
-                <td style={{ border: '1px solid #ddd', padding: '6px', fontWeight: '500' }}>{s}</td>
-                <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(total)}</td>
-              </tr>
-            ))}
+            {supplierSummary.map(([s, total], idx) => {
+              const suppInfo = (suppliersData || []).find(sd => 
+                (sd.name || '').toLowerCase() === s.toLowerCase() || 
+                (sd.company || '').toLowerCase() === s.toLowerCase()
+              );
+              return (
+                <tr key={idx}>
+                  <td style={{ border: '1px solid #ddd', padding: '6px', fontWeight: 'bold' }}>{s}</td>
+                  <td style={{ border: '1px solid #ddd', padding: '6px', fontSize: 10 }}>
+                    {suppInfo && suppInfo.bankName ? (
+                      <div>
+                        <strong>{suppInfo.bankName}</strong> - {suppInfo.accountName} <br/>
+                        <span style={{ fontSize: 12, fontWeight: 'bold', color: '#111' }}>{suppInfo.accountNumber}</span>
+                      </div>
+                    ) : (
+                      <span style={{ color: '#999', fontStyle: 'italic' }}>Informasi rekening tidak tersedia</span>
+                    )}
+                  </td>
+                  <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(total)}</td>
+                </tr>
+              );
+            })}
             <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
-              <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>REKAP TOTAL:</td>
-              <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', color: '#b45309' }}>
+              <td colSpan="2" style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>REKAP TOTAL PEMBAYARAN:</td>
+              <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', color: '#b45309', fontSize: 13 }}>
                 {formatCurrency(supplierSummary.reduce((s, it) => s + it[1], 0))}
               </td>
             </tr>

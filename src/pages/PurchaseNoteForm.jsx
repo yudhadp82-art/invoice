@@ -49,6 +49,7 @@ export default function PurchaseNoteForm() {
   const [groupInvoices, setGroupInvoices] = useState({}); // { groupName: [invoiceObjects] }
   const [currentGroupName, setCurrentGroupName] = useState('');
   const [sourceInvoiceIds, setSourceInvoiceIds] = useState([]);
+  const [allSuppliers, setAllSuppliers] = useState([]); // <--- Add this
   const [saving, setSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -105,6 +106,7 @@ export default function PurchaseNoteForm() {
     ]);
     setMasterBahan(master);
     setInvoices(invs.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)));
+    setAllSuppliers(officialSuppliers);
     setPurchaseHistory(history);
     // Collect unique supplier names from official List and history for suggestions
     const supplierSet = new Set();
@@ -933,6 +935,7 @@ export default function PurchaseNoteForm() {
                 ? invoices.filter(inv => inv.id === invoiceId)
                 : (groupInvoices[currentGroupName] || [])
           }
+          suppliersData={allSuppliers}
           forPrint={false}
         />
       )}

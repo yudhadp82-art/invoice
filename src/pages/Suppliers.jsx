@@ -5,7 +5,7 @@ import { Suppliers as SupplierStore } from '../utils/storage';
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
 
-const emptySupplier = { name: '', company: '', phone: '', email: '', address: '', notes: '' };
+const emptySupplier = { name: '', company: '', phone: '', email: '', address: '', notes: '', bankName: '', accountName: '', accountNumber: '' };
 
 export default function Suppliers() {
   const [suppliers, setSuppliers] = useState([]);
@@ -37,6 +37,9 @@ export default function Suppliers() {
       email: supplier.email || '',
       address: supplier.address || '',
       notes: supplier.notes || '',
+      bankName: supplier.bankName || '',
+      accountName: supplier.accountName || '',
+      accountNumber: supplier.accountNumber || '',
     });
     setEditingId(supplier.id);
     setModalOpen(true);
@@ -71,6 +74,9 @@ export default function Suppliers() {
       { key: 'phone', header: 'Telepon', width: 18 },
       { key: 'email', header: 'Email', width: 25 },
       { key: 'address', header: 'Alamat', width: 35 },
+      { key: 'bankName', header: 'Bank', width: 15 },
+      { key: 'accountName', header: 'Atas Nama', width: 20 },
+      { key: 'accountNumber', header: 'No Rekening', width: 20 },
       { key: 'notes', header: 'Catatan', width: 30 },
     ];
     exportToExcel(filtered, 'supplier_export', 'Supplier', columns);
@@ -209,12 +215,32 @@ export default function Suppliers() {
 
             <div className="form-group">
               <label className="form-label">Alamat</label>
-              <textarea className="form-textarea" value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="Alamat lengkap supplier" name="address_6" />
+              <textarea className="form-textarea" value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="Alamat lengkap supplier" />
+            </div>
+
+            <div style={{ padding: '15px', background: 'rgba(99,102,241,0.05)', borderRadius: '12px', border: '1px solid rgba(99,102,241,0.1)', marginBottom: '20px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '12px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FiBriefcase /> INFORMASI REKENING BANK
+              </div>
+              <div className="form-group mb-md">
+                <label className="form-label">Nama Bank</label>
+                <input className="form-input" value={form.bankName} onChange={e => setForm({...form, bankName: e.target.value})} placeholder="Contoh: BCA, Mandiri, BRI" />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Nama Akun (Atas Nama)</label>
+                  <input className="form-input" value={form.accountName} onChange={e => setForm({...form, accountName: e.target.value})} placeholder="Nama pemilik rekening" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Nomor Rekening</label>
+                  <input className="form-input" value={form.accountNumber} onChange={e => setForm({...form, accountNumber: e.target.value})} placeholder="Digit nomor rekening" />
+                </div>
+              </div>
             </div>
 
             <div className="form-group">
               <label className="form-label">Catatan Tambahan</label>
-              <textarea className="form-textarea" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Catatan internal..." name="notes_7" />
+              <textarea className="form-textarea" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Catatan internal..." />
             </div>
           </div>
           <div className="modal-footer">
