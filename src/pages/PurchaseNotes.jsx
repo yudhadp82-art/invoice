@@ -12,6 +12,7 @@ export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
   const [pendingInvoices, setPendingInvoices] = useState([]);
   const [groupRecap, setGroupRecap] = useState({}); // { groupName: [{ name, qty, unit }] }
+  const [groupInvoices, setGroupInvoices] = useState({}); // { groupName: [inv1, inv2] }
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
@@ -97,10 +98,14 @@ export default function PurchaseNotes() {
 
     // Aggregate ALL items per group from ALL non-linked invoices whose customer has a group
     const groupAgg = {}; // { groupName: { productName: { totalQty, unit } } }
+    const groupInvs = {}; // { groupName: [invoices] }
     allPending.forEach(inv => {
       const custGroup = nameToGroup[(inv.customerName || '').toLowerCase()];
       if (!custGroup) return; // skip customers with no group
+      
       if (!groupAgg[custGroup]) groupAgg[custGroup] = {};
+      if (!groupInvs[custGroup]) groupInvs[custGroup] = [];
+      groupInvs[custGroup].push(inv);
 
       (inv.items || []).forEach(it => {
         // Include ALL item types (product, material, etc.)
@@ -119,6 +124,7 @@ export default function PurchaseNotes() {
       result[grp] = Object.values(groupAgg[grp]).sort((a, b) => a.name.localeCompare(b.name));
     });
     setGroupRecap(result);
+    setGroupInvoices(groupInvs);
   }
 
   async function handlePrintPdf(note) {
@@ -268,10 +274,45 @@ export default function PurchaseNotes() {
         </div>
       </div>
 
+      <style>{`
+        .group-invoice-list {
+          margin-top: 15px;
+          border-top: 1px dashed rgba(255,255,255,0.1);
+          padding-top: 15px;
+        }
+        .group-invoice-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 12px;
+          border-radius: 8px;
+          background: rgba(255,255,255,0.03);
+          margin-bottom: 8px;
+          font-size: 13px;
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+        .group-invoice-item:hover {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(99,102,241,0.2);
+        }
+        .btn-link-sm {
+          font-size: 12px;
+          color: var(--accent-primary);
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-weight: 600;
+        }
+        .btn-link-sm:hover {
+          color: var(--accent-primary-hover);
+        }
+      `}</style>
+
       {Object.keys(groupRecap).length > 0 && (
         <div className="grid gap-md mb-lg">
           {Object.entries(groupRecap).map(([grp, items]) => {
-            const isCollapsed = collapsedGroups[grp];
+            const invs = groupInvoices[grp] || [];
             return (
               <div key={grp} className="card animate-in" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.08) 100%)', border: '1px solid rgba(99,102,241,0.2)' }}>
                 <div className="card-header flex-between" style={{ padding: '12px 20px' }}>
@@ -281,7 +322,7 @@ export default function PurchaseNotes() {
                     <span className="badge badge-primary" style={{ marginLeft: 8, fontSize: 11 }}>{items.length} produk</span>
                   </h3>
                   <button className="btn btn-ghost btn-sm" onClick={() => setCollapsedGroups(prev => ({ ...prev, [grp]: !prev[grp] }))}>
-                    {isCollapsed ? 'Tampilkan' : 'Sembunyikan'}
+                    {isCollapsed ? 'Tampilkan Detail' : 'Sembunyikan'}
                   </button>
                 </div>
                 {!isCollapsed && (
@@ -297,9 +338,33 @@ export default function PurchaseNotes() {
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs text-muted mt-md">
-                      * Akumulasi dari Invoice <strong>{grp}</strong> yang belum dibuatkan Nota Pembelian.
-                    </p>
+
+                    <div className="group-invoice-list">
+                      <div className="text-xs font-bold text-muted uppercase tracking-wider mb-sm">Daftar Invoice Terkait ({invs.length})</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-sm">
+                        {invs.map(inv => (
+                          <div key={inv.id} className="group-invoice-item">
+                            <div>
+                              <div style={{ fontWeight: 700 }}>{inv.invoiceNumber}</div>
+                              <div className="text-xs text-muted">{inv.customerName}</div>
+                            </div>
+                            <Link 
+                              to="/purchase-notes/new" 
+                              state={{ invoiceId: inv.id }} 
+                              className="btn-link-sm"
+                            >
+                              Buat Nota <FiArrowRight />
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-md flex gap-sm">
+                      <Link to="/purchase-notes/new" state={{ groupName: grp }} className="btn btn-primary btn-sm flex-1">
+                        <FiPlus /> Buat Nota Borongan dari Grup Ini
+                      </Link>
+                    </div>
                   </div>
                 )}
               </div>
