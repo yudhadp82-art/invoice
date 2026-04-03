@@ -8,6 +8,8 @@ import ConfirmModal from '../components/ConfirmModal';
 export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
   const [pendingInvoices, setPendingInvoices] = useState([]);
+  const [sppgRecap, setSppgRecap] = useState([]);
+  const [showRecap, setShowRecap] = useState(true);
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
 
@@ -46,6 +48,25 @@ export default function PurchaseNotes() {
       const ta = da.seconds ? da.seconds * 1000 : new Date(da).getTime();
       return tb - ta;
     }));
+
+    // Generate SPPG Recap (SPPG 2 & 5)
+    const sppgInvoices = pending.filter(inv => 
+      (inv.customerName || '').toUpperCase().includes('SPPG SINDANGJAYA 2') || 
+      (inv.customerName || '').toUpperCase().includes('SPPG SINDANGJAYA 5')
+    );
+
+    const aggregation = {};
+    sppgInvoices.forEach(inv => {
+      (inv.items || []).forEach(it => {
+        if (it.type !== 'material') return;
+        const key = (it.productName || '').trim();
+        if (!aggregation[key]) {
+          aggregation[key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
+        }
+        aggregation[key].totalQty += (Number(it.qty) || 0);
+      });
+    });
+    setSppgRecap(Object.values(aggregation).sort((a, b) => a.name.localeCompare(b.name)));
   }
 
   async function confirmDelete() {
@@ -122,6 +143,37 @@ export default function PurchaseNotes() {
           </Link>
         </div>
       </div>
+
+      {sppgRecap.length > 0 && (
+        <div className="card mb-lg animate-in" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.08) 100%)', border: '1px solid rgba(99,102,241,0.2)' }}>
+          <div className="card-header flex-between" style={{ padding: '12px 20px' }}>
+            <h3 className="card-title text-primary flex-center gap-sm" style={{ fontSize: 16 }}>
+              <FiFileText /> Rekap Kebutuhan Bahan (SPPG 2 & 5)
+            </h3>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowRecap(!showRecap)}>
+              {showRecap ? 'Sembunyikan' : 'Tampilkan'}
+            </button>
+          </div>
+          {showRecap && (
+            <div style={{ padding: '0 20px 20px' }}>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-sm">
+                {sppgRecap.map((item, idx) => (
+                  <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 15px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div className="text-xs text-muted mb-xs uppercase tracking-wider font-semibold">{item.name}</div>
+                    <div className="flex-between align-baseline">
+                      <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-primary-hover)' }}>{item.totalQty.toLocaleString('id-ID')}</span>
+                      <span className="text-xs text-muted">{item.unit}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted mt-md">
+                * Data ini diakumulasi dari seluruh Invoice SPPG 2 & 5 yang belum dibuatkan Nota Pembelian.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="toolbar">
         <div className="search-box">
