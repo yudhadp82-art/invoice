@@ -48,16 +48,23 @@ export default function PurchaseNotes() {
     setAllSuppliers(allSupps);
     
     // Filter pending invoices (those with materials that aren't linked to a Purchase Note)
-    const linkedInvoiceIds = allNotes.map(n => n.invoiceId).filter(id => !!id);
+    const linkedInvoiceIds = new Set();
+    allNotes.forEach(n => {
+      if (n.invoiceId) linkedInvoiceIds.add(n.invoiceId);
+      if (Array.isArray(n.sourceInvoiceIds)) {
+        n.sourceInvoiceIds.forEach(id => linkedInvoiceIds.add(id));
+      }
+    });
+
     const pending = allInvoices.filter(inv => {
-      if (linkedInvoiceIds.includes(inv.id)) return false;
+      if (linkedInvoiceIds.has(inv.id)) return false;
       const hasMaterials = (inv.items || []).some(it => it.type === 'material');
       return hasMaterials;
     });
     
     // All non-linked invoices (for group recap — broader scope, not limited to material type)
     const allPending = allInvoices.filter(inv => {
-      if (linkedInvoiceIds.includes(inv.id)) return false;
+      if (linkedInvoiceIds.has(inv.id)) return false;
       // We no longer strictly filter by todayStr here to allow all pending
       // invoices for the group to be seen in the recap card.
       return true;
