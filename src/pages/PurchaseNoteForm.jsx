@@ -21,6 +21,8 @@ const emptyItem = {
   totalCost: 0
 };
 
+const MIX_VEG_INGREDIENTS = ['Wortel', 'Buncis', 'Jagung'];
+
 export default function PurchaseNoteForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -116,6 +118,46 @@ export default function PurchaseNoteForm() {
       }
       const m = masterBahan.find(b => b.id === value);
       if (m) {
+        // Mix Vegetable Expansion Logic
+        if (m.name.toLowerCase().includes('mix vegetable') || m.name.toLowerCase().includes('mix veg')) {
+          const baseQty = Number(newItems[index].qtyNota) || 1;
+          const basePrice = m.defaultPrice || 0;
+          const baseInvQty = Number(newItems[index].invoiceQty) || 0;
+
+          const expandedItems = [];
+          for (const ingName of MIX_VEG_INGREDIENTS) {
+            let ingM = masterBahan.find(b => b.name.toLowerCase() === ingName.toLowerCase());
+            
+            // If ingredient doesn't exist, it will be handled like a normal empty selection or we could auto-select?
+            // To be safe, we just set the name and let the user pick the correct one if ID is missing,
+            // but the system will auto-provision in the import logic. Here we try to find it.
+            
+            const qty = (baseQty / 3).toFixed(2);
+            const invQty = (baseInvQty / 3).toFixed(2);
+
+            expandedItems.push({
+              ...emptyItem,
+              materialId: ingM ? ingM.id : '',
+              materialName: ingName,
+              unit: ingM ? ingM.unit : 'kg',
+              qtyNota: qty,
+              invoiceQty: invQty,
+              pricePerUnit: basePrice,
+              totalCost: qty * basePrice,
+              splits: {
+                s5: { qty: qty, shrinkage: Math.max(0, qty - invQty), netQty: invQty },
+                s2: { qty: 0, shrinkage: 0, netQty: 0 },
+                s3: { qty: 0, shrinkage: 0, netQty: 0 }
+              }
+            });
+          }
+
+          // Replace the current item with the expanded items
+          newItems.splice(index, 1, ...expandedItems);
+          setItems(newItems);
+          return;
+        }
+
         newItems[index].materialId = value;
         newItems[index].materialName = m.name;
         newItems[index].unit = m.unit;
@@ -523,6 +565,46 @@ export default function PurchaseNoteForm() {
                             qtyS5 = Number(it.qty) || 0;
                             qtyS2 = 0;
                           }
+                        }
+
+                        // Mix Vegetable Expansion Logic for Import
+                        if (it.productName.toLowerCase().includes('mix vegetable') || it.productName.toLowerCase().includes('mix veg')) {
+                          for (const ingName of MIX_VEG_INGREDIENTS) {
+                            let ingM = currentMaster.find(b => b.name.toLowerCase() === ingName.toLowerCase());
+                            if (!ingM) {
+                              const newIng = {
+                                name: ingName,
+                                unit: 'kg',
+                                defaultPrice: Number(it.unitPrice) || 0,
+                                stock: 0
+                              };
+                              const saved = await MasterItems.create(newIng);
+                              ingM = saved;
+                              currentMaster.push(saved);
+                              masterUpdated = true;
+                            }
+
+                            const q = (Number(it.qty) || 0) / 3;
+                            const p = Number(it.unitPrice) || 0;
+
+                            // For ingredients, we default to S5 if pulled from invoice
+                            materials.push({
+                              materialId: ingM.id,
+                              materialName: ingM.name,
+                              unit: ingM.unit,
+                              qtyNota: q.toFixed(2),
+                              invoiceQty: q.toFixed(2),
+                              pricePerUnit: p,
+                              sellPrice: p,
+                              splits: {
+                                s5: { qty: q.toFixed(2), shrinkage: 0, netQty: q.toFixed(2) },
+                                s2: { qty: 0, shrinkage: 0, netQty: 0 },
+                                s3: { qty: 0, shrinkage: 0, netQty: 0 }
+                              },
+                              totalCost: q * p
+                            });
+                          }
+                          continue; // Jump to next item in materialsInInv
                         }
 
                         materials.push({
