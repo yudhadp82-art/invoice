@@ -48,8 +48,8 @@ export default function PurchaseNoteForm() {
   const [groupRecapData, setGroupRecapData] = useState({}); // { groupName: [{ name, totalQty, unit }] }
   const [currentGroupName, setCurrentGroupName] = useState('');
   const [sourceInvoiceIds, setSourceInvoiceIds] = useState([]);
-  const [usedInvoiceIds, setUsedInvoiceIds] = useState(new Set()); // <--- Add this
-  const [allSuppliers, setAllSuppliers] = useState([]); // <--- Add this
+  const [usedInvoiceIds, setUsedInvoiceIds] = useState(new Set());
+  const [allSuppliers, setAllSuppliers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -98,11 +98,12 @@ export default function PurchaseNoteForm() {
   }
 
   async function loadData() {
-    const [master, invs, history, officialSuppliers] = await Promise.all([
+    const [master, invs, history, officialSuppliers, allCustomers] = await Promise.all([
       MasterItems.getAll(),
       Invoices.getAll(),
       PurchaseNotes.getAll(),
-      Suppliers.getAll()
+      Suppliers.getAll(),
+      Customers.getAll()
     ]);
     setMasterBahan(master);
     setInvoices(invs.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)));
@@ -133,7 +134,6 @@ export default function PurchaseNoteForm() {
     setUsedInvoiceIds(usedIds);
 
     // Build group recap from today's invoices (for "Tarik dari Rekap Grup")
-    const allCustomers = await Customers.getAll();
     const nameToGroup = {};
     allCustomers.forEach(c => {
       if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group;
