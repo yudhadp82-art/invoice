@@ -49,6 +49,46 @@ export default function PurchaseNoteForm() {
     loadData();
   }, [id]);
 
+  function expandItems(sourceItems, master) {
+    const result = [];
+    sourceItems.forEach(it => {
+      const name = (it.materialName || '').toLowerCase();
+      if (name.includes('mix vegetable') || name.includes('mix veg')) {
+        const baseQty = Number(it.qtyNota) || 0;
+        const baseInvQty = Number(it.invoiceQty) || 0;
+        const basePrice = Number(it.pricePerUnit) || 0;
+
+        MIX_VEG_INGREDIENTS.forEach(ingName => {
+          const mb = master.find(b => b.name.toLowerCase() === ingName.toLowerCase());
+          const q = (baseQty / 3);
+          const iq = (baseInvQty / 3);
+          
+          result.push({
+            ...emptyItem,
+            materialId: mb ? mb.id : '',
+            materialName: ingName,
+            isSubItem: true,
+            parentName: it.materialName || 'Mix Vegetable',
+            unit: mb ? mb.unit : 'kg',
+            qtyNota: q.toFixed(2),
+            invoiceQty: iq.toFixed(2),
+            pricePerUnit: basePrice, // Assume same price or distribute? Usually same for raw material cost.
+            totalCost: (q * basePrice).toFixed(2),
+            supplier: it.supplier || '',
+            splits: {
+              s5: { qty: q.toFixed(2), shrinkage: 0, netQty: q.toFixed(2) },
+              s2: { qty: 0, shrinkage: 0, netQty: 0 },
+              s3: { qty: 0, shrinkage: 0, netQty: 0 }
+            }
+          });
+        });
+      } else {
+        result.push(it);
+      }
+    });
+    return result;
+  }
+
   async function loadData() {
     const [master, invs, history, officialSuppliers] = await Promise.all([
       MasterItems.getAll(),
@@ -135,8 +175,10 @@ export default function PurchaseNoteForm() {
             totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
           }));
 
-        if (materials.length > 0) {
-          setItems(materials);
+        const expanded = expandItems(materials, masterBahan);
+
+        if (expanded.length > 0) {
+          setItems(expanded);
           setSupplierName(inv.customerName || '');
           setInvoiceId(inv.id);
           setInvoiceNumber(inv.invoiceNumber);
@@ -166,48 +208,25 @@ export default function PurchaseNoteForm() {
       }
       const m = masterBahan.find(b => b.id === value);
       if (m) {
-        // Mix Vegetable Expansion Logic
+        // Use generalized expansion logic if it's Mix Veg
         if (m.name.toLowerCase().includes('mix vegetable') || m.name.toLowerCase().includes('mix veg')) {
-          const baseQty = Number(newItems[index].qtyNota) || 1;
-          const basePrice = m.defaultPrice || 0;
-          const baseInvQty = Number(newItems[index].invoiceQty) || 0;
+          const baseItem = {
+            ...newItems[index],
+            materialId: m.id,
+            materialName: m.name,
+            unit: m.unit,
+            qtyNota: Number(newItems[index].qtyNota) || 1,
+            invoiceQty: Number(newItems[index].invoiceQty) || 0,
+            pricePerUnit: m.defaultPrice || 0,
+          };
 
-          const expandedItems = [];
-          for (const ingName of MIX_VEG_INGREDIENTS) {
-            let ingM = masterBahan.find(b => b.name.toLowerCase() === ingName.toLowerCase());
-            
-            // If ingredient doesn't exist, it will be handled like a normal empty selection or we could auto-select?
-            // To be safe, we just set the name and let the user pick the correct one if ID is missing,
-            // but the system will auto-provision in the import logic. Here we try to find it.
-            
-            const qty = (baseQty / 3).toFixed(2);
-            const invQty = (baseInvQty / 3).toFixed(2);
-
-            expandedItems.push({
-              ...emptyItem,
-              isSubItem: true,
-              parentName: 'Mix Vegetable',
-              materialId: ingM ? ingM.id : '',
-              materialName: ingName,
-              unit: ingM ? ingM.unit : 'kg',
-              qtyNota: qty,
-              invoiceQty: invQty,
-              pricePerUnit: basePrice,
-              totalCost: qty * basePrice,
-              splits: {
-                s5: { qty: qty, shrinkage: Math.max(0, (qty - invQty).toFixed(2)), netQty: invQty },
-                s2: { qty: 0, shrinkage: 0, netQty: 0 },
-                s3: { qty: 0, shrinkage: 0, netQty: 0 }
-              }
-            });
-          }
-
-          // Replace the current item with the expanded items
-          newItems.splice(index, 1, ...expandedItems);
+          const expanded = expandItems([baseItem], masterBahan);
+          newItems.splice(index, 1, ...expanded);
           setItems(newItems);
           return;
         }
 
+        // Normal Selection
         newItems[index].materialId = value;
         newItems[index].materialName = m.name;
         newItems[index].unit = m.unit;
@@ -377,8 +396,11 @@ export default function PurchaseNoteForm() {
         }
       };
     });
-    setItems(newItems);
-    setNotes(n => `${n}${n ? '\n' : ''}Rekap Grup: ${grp}`);
+    const expanded = expandItems(newItems, masterBahan);
+    if (expanded.length > 0) {
+      setItems(expanded);
+      setNotes(n => `${n}${n ? '\n' : ''}Rekap Grup: ${grp}`);
+    }
     setIsGroupImportModalOpen(false);
   }
 
@@ -490,7 +512,7 @@ export default function PurchaseNoteForm() {
                     <td>
                       <div className="flex-center gap-xs">
                         {item.isSubItem && <span style={{ color: 'var(--primary)', fontWeight: 800, marginRight: 2 }}>↳ </span>}
-                        <select className="form-select form-select-sm" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required style={{ paddingLeft: item.isSubItem ? '16px' : undefined }}>
+                        <select className="form-select form-select-sm" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required style={{ paddingLeft: item.isSubItem ? '16px' : undefined, flex: 1 }}>
                           <option value="">-- {currentInvoice ? 'Invoice Item' : 'Pilih Bahan'} --</option>
                           {selectableItems.map(m => (
                             <option key={m.id} value={m.id}>{m.name}</option>
@@ -499,6 +521,7 @@ export default function PurchaseNoteForm() {
                             <option value="all-master">Lainnya...</option>
                           )}
                         </select>
+                        {item.isSubItem && <span className="badge badge-purple" style={{ fontSize: 10, padding: '2px 4px' }}>Sub-Mix</span>}
                       </div>
                     </td>
                     <td>
@@ -757,43 +780,16 @@ export default function PurchaseNoteForm() {
 
                         // Mix Vegetable Expansion Logic for Import
                         if (it.productName.toLowerCase().includes('mix vegetable') || it.productName.toLowerCase().includes('mix veg')) {
-                          for (const ingName of MIX_VEG_INGREDIENTS) {
-                            let ingM = currentMaster.find(b => b.name.toLowerCase() === ingName.toLowerCase());
-                            if (!ingM) {
-                              const newIng = {
-                                name: ingName,
-                                unit: 'kg',
-                                defaultPrice: Number(it.unitPrice) || 0,
-                                stock: 0
-                              };
-                              const saved = await MasterItems.create(newIng);
-                              ingM = saved;
-                              currentMaster.push(saved);
-                              masterUpdated = true;
-                            }
-
-                            const q = (Number(it.qty) || 0) / 3;
-                            const p = Number(it.unitPrice) || 0;
-
-                            // For ingredients, we default to S5 if pulled from invoice
-                            materials.push({
-                              materialId: ingM.id,
-                              materialName: ingM.name,
-                              isSubItem: true,
-                              parentName: it.productName || 'Mix Vegetable',
-                              unit: ingM.unit,
-                              qtyNota: q.toFixed(2),
-                              invoiceQty: q.toFixed(2),
-                              pricePerUnit: p,
-                              sellPrice: p,
-                              splits: {
-                                s5: { qty: q.toFixed(2), shrinkage: 0, netQty: q.toFixed(2) },
-                                s2: { qty: 0, shrinkage: 0, netQty: 0 },
-                                s3: { qty: 0, shrinkage: 0, netQty: 0 }
-                              },
-                              totalCost: (q * p).toFixed(2)
-                            });
-                          }
+                          const expanded = expandItems([{
+                            materialId: mb ? mb.id : '',
+                            materialName: it.productName,
+                            qtyNota: Number(it.qty) || 0,
+                            invoiceQty: Number(it.qty) || 0,
+                            pricePerUnit: Number(it.unitPrice) || 0,
+                            supplier: supplierName || ''
+                          }], currentMaster);
+                          
+                          materials.push(...expanded);
                           continue; // Jump to next item in materialsInInv
                         }
 
