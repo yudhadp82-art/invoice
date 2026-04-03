@@ -114,15 +114,20 @@ export default function PurchaseNotes() {
     const noteDateStr = note.date ? String(note.date).slice(0, 10) : '';
     const grp = note.groupName || '(Tanpa Grup)';
     
-    // Build the invoices list for that date and group
-    const nameToGroup = {};
-    allCustomers.forEach(c => { if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group; });
-    
-    const invsForGroup = fullInvoices.filter(inv => {
-      const invDate = inv.date ? String(inv.date).slice(0, 10) : '';
-      if (invDate !== noteDateStr) return false;
-      return nameToGroup[(inv.customerName || '').toLowerCase()] === grp;
-    });
+    // Build the invoices list: TOP PRIORITY is sourceInvoiceIds
+    let invsForGroup = [];
+    if (note.sourceInvoiceIds && note.sourceInvoiceIds.length > 0) {
+      invsForGroup = fullInvoices.filter(inv => note.sourceInvoiceIds.includes(inv.id));
+    } else {
+      // Fallback for old notes
+      const nameToGroup = {};
+      allCustomers.forEach(c => { if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group; });
+      invsForGroup = fullInvoices.filter(inv => {
+        const invDate = inv.date ? String(inv.date).slice(0, 10) : '';
+        if (invDate !== noteDateStr) return false;
+        return nameToGroup[(inv.customerName || '').toLowerCase()] === grp;
+      });
+    }
 
     // Reconstruct group recap aggregates
     const groupAgg = {};

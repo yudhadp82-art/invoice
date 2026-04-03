@@ -48,6 +48,7 @@ export default function PurchaseNoteForm() {
   const [groupRecapData, setGroupRecapData] = useState({}); // { groupName: [{ name, totalQty, unit }] }
   const [groupInvoices, setGroupInvoices] = useState({}); // { groupName: [invoiceObjects] }
   const [currentGroupName, setCurrentGroupName] = useState('');
+  const [sourceInvoiceIds, setSourceInvoiceIds] = useState([]);
   const [saving, setSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -164,6 +165,8 @@ export default function PurchaseNoteForm() {
         setNotes(note.notes || '');
         setInvoiceId(note.invoiceId || null);
         setInvoiceNumber(note.invoiceNumber || '');
+        setCurrentGroupName(note.groupName || '');
+        setSourceInvoiceIds(note.sourceInvoiceIds || []);
       }
     } else if (location.state?.invoiceId) {
       const invId = location.state.invoiceId;
@@ -349,7 +352,8 @@ export default function PurchaseNoteForm() {
         grandTotal,
         invoiceId,
         invoiceNumber,
-        groupName: currentGroupName
+        groupName: currentGroupName,
+        sourceInvoiceIds
       };
 
       if (isEditing) {
@@ -415,6 +419,7 @@ export default function PurchaseNoteForm() {
       setNotes(n => `${n}${n ? '\n' : ''}Rekap Grup: ${grp}`);
     }
     setCurrentGroupName(grp);
+    setSourceInvoiceIds((groupInvoices[grp] || []).map(inv => inv.id));
     setIsGroupImportModalOpen(false);
   }
 
@@ -920,9 +925,13 @@ export default function PurchaseNoteForm() {
         <PurchaseNoteReportPdf 
           groupName={currentGroupName} 
           date={date}
-          groupRecap={groupRecapData[currentGroupName]}
+          groupRecap={groupRecapData[currentGroupName] || []}
           purchaseItems={items}
-          invoicesList={groupInvoices[currentGroupName]}
+          invoicesList={
+            sourceInvoiceIds && sourceInvoiceIds.length > 0 
+              ? invoices.filter(inv => sourceInvoiceIds.includes(inv.id))
+              : (groupInvoices[currentGroupName] || [])
+          }
           forPrint={false}
         />
       )}
