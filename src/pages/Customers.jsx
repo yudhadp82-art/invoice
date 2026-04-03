@@ -5,7 +5,7 @@ import { Customers as CustomerStore, PriceCategories as CategoryStore } from '..
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
 
-const emptyCustomer = { name: '', company: '', phone: '', email: '', address: '', priceCategoryId: 'cat-retail' };
+const emptyCustomer = { name: '', company: '', phone: '', email: '', address: '', priceCategoryId: 'cat-retail', group: '' };
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
@@ -24,6 +24,9 @@ export default function Customers() {
     setCustomers(await CustomerStore.getAll());
     setPriceCategories(await CategoryStore.getAll());
   }
+
+  // Collect existing group names for datalist suggestions
+  const groupNames = [...new Set(customers.map(c => c.group).filter(Boolean))].sort();
 
   function getCategoryName(id) {
     const cat = priceCategories.find(c => c.id === id);
@@ -44,6 +47,7 @@ export default function Customers() {
       email: customer.email || '',
       address: customer.address || '',
       priceCategoryId: customer.priceCategoryId || 'cat-retail',
+      group: customer.group || '',
     });
     setEditingId(customer.id);
     setModalOpen(true);
@@ -160,6 +164,7 @@ export default function Customers() {
           <thead>
             <tr>
               <th>Nama</th>
+              <th>Grup</th>
               <th>Perusahaan</th>
               <th>Telepon</th>
               <th>Kategori Harga</th>
@@ -180,6 +185,11 @@ export default function Customers() {
             ) : filtered.map(c => (
               <tr key={c.id}>
                 <td><strong>{c.name}</strong></td>
+                <td>
+                  {c.group
+                    ? <span className="badge badge-cyan">{c.group}</span>
+                    : <span className="text-muted text-xs">-</span>}
+                </td>
                 <td className="text-muted">{c.company || '-'}</td>
                 <td>{c.phone || '-'}</td>
                 <td><span className="badge badge-purple">{getCategoryName(c.priceCategoryId)}</span></td>
@@ -204,6 +214,23 @@ export default function Customers() {
                 <label className="form-label">Nama</label>
                 <input className="form-input" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Nama customer" name="name_1" />
               </div>
+              <div className="form-group">
+                <label className="form-label">Grup / Sub-Customer
+                  <span className="text-xs text-muted" style={{ fontWeight: 400, marginLeft: 6 }}>(opsional)</span>
+                </label>
+                <input
+                  className="form-input"
+                  list="group-datalist"
+                  value={form.group}
+                  onChange={e => setForm({...form, group: e.target.value})}
+                  placeholder="Contoh: DC, HOREKA, SPPG..."
+                />
+                <datalist id="group-datalist">
+                  {groupNames.map(g => <option key={g} value={g} />)}
+                </datalist>
+              </div>
+            </div>
+            <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Perusahaan</label>
                 <input className="form-input" value={form.company} onChange={e => setForm({...form, company: e.target.value})} placeholder="Nama perusahaan" name="company_2" />

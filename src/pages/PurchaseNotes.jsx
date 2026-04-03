@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2 } from 'react-icons/fi';
-import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems } from '../utils/storage';
+import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems, Customers } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
   const [pendingInvoices, setPendingInvoices] = useState([]);
-  const [sppgRecap, setSppgRecap] = useState([]);
-  const [showRecap, setShowRecap] = useState(true);
+  const [groupRecap, setGroupRecap] = useState({}); // { groupName: [{ name, qty, unit }] }
+  const [collapsedGroups, setCollapsedGroups] = useState({});
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
 
@@ -20,9 +20,10 @@ export default function PurchaseNotes() {
   }, []);
 
   async function reload() {
-    const [allNotes, allInvoices] = await Promise.all([
+    const [allNotes, allInvoices, allCustomers] = await Promise.all([
       Store.getAll(),
-      Invoices.getAll()
+      Invoices.getAll(),
+      Customers.getAll()
     ]);
     
     setNotes(allNotes.sort((a, b) => {
@@ -49,24 +50,39 @@ export default function PurchaseNotes() {
       return tb - ta;
     }));
 
-    // Generate SPPG Recap (SPPG 2 & 5)
-    const sppgInvoices = pending.filter(inv => 
-      (inv.customerName || '').toUpperCase().includes('SPPG SINDANGJAYA 2') || 
-      (inv.customerName || '').toUpperCase().includes('SPPG SINDANGJAYA 5')
-    );
+    // Build customer name → group mapping (case-insensitive match)
+    const nameToGroup = {};
+    allCustomers.forEach(c => {
+      if (c.group && c.name) {
+        nameToGroup[c.name.toLowerCase()] = c.group;
+      }
+    });
 
-    const aggregation = {};
-    sppgInvoices.forEach(inv => {
+    // Aggregate items per group from pending invoices
+    // Only include invoices whose customer has a group
+    const groupAgg = {}; // { groupName: { productName: { totalQty, unit } } }
+    pending.forEach(inv => {
+      const custGroup = nameToGroup[(inv.customerName || '').toLowerCase()];
+      if (!custGroup) return; // skip customers with no group
+      if (!groupAgg[custGroup]) groupAgg[custGroup] = {};
+
       (inv.items || []).forEach(it => {
         if (it.type !== 'material') return;
         const key = (it.productName || '').trim();
-        if (!aggregation[key]) {
-          aggregation[key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
+        if (!key) return;
+        if (!groupAgg[custGroup][key]) {
+          groupAgg[custGroup][key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
         }
-        aggregation[key].totalQty += (Number(it.qty) || 0);
+        groupAgg[custGroup][key].totalQty += (Number(it.qty) || 0);
       });
     });
-    setSppgRecap(Object.values(aggregation).sort((a, b) => a.name.localeCompare(b.name)));
+
+    // Convert to sorted arrays
+    const result = {};
+    Object.keys(groupAgg).sort().forEach(grp => {
+      result[grp] = Object.values(groupAgg[grp]).sort((a, b) => a.name.localeCompare(b.name));
+    });
+    setGroupRecap(result);
   }
 
   async function confirmDelete() {
@@ -144,34 +160,43 @@ export default function PurchaseNotes() {
         </div>
       </div>
 
-      {sppgRecap.length > 0 && (
-        <div className="card mb-lg animate-in" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.08) 100%)', border: '1px solid rgba(99,102,241,0.2)' }}>
-          <div className="card-header flex-between" style={{ padding: '12px 20px' }}>
-            <h3 className="card-title text-primary flex-center gap-sm" style={{ fontSize: 16 }}>
-              <FiFileText /> Rekap Kebutuhan Bahan (SPPG 2 & 5)
-            </h3>
-            <button className="btn btn-ghost btn-sm" onClick={() => setShowRecap(!showRecap)}>
-              {showRecap ? 'Sembunyikan' : 'Tampilkan'}
-            </button>
-          </div>
-          {showRecap && (
-            <div style={{ padding: '0 20px 20px' }}>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-sm">
-                {sppgRecap.map((item, idx) => (
-                  <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 15px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div className="text-xs text-muted mb-xs uppercase tracking-wider font-semibold">{item.name}</div>
-                    <div className="flex-between align-baseline">
-                      <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-primary-hover)' }}>{item.totalQty.toLocaleString('id-ID')}</span>
-                      <span className="text-xs text-muted">{item.unit}</span>
+      {Object.keys(groupRecap).length > 0 && (
+        <div className="grid gap-md mb-lg">
+          {Object.entries(groupRecap).map(([grp, items]) => {
+            const isCollapsed = collapsedGroups[grp];
+            return (
+              <div key={grp} className="card animate-in" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.08) 100%)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                <div className="card-header flex-between" style={{ padding: '12px 20px' }}>
+                  <h3 className="card-title text-primary flex-center gap-sm" style={{ fontSize: 16 }}>
+                    <FiFileText />
+                    Rekap Kebutuhan: <span style={{ fontWeight: 800, marginLeft: 6, color: 'var(--accent-primary-hover)' }}>{grp}</span>
+                    <span className="badge badge-primary" style={{ marginLeft: 8, fontSize: 11 }}>{items.length} produk</span>
+                  </h3>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setCollapsedGroups(prev => ({ ...prev, [grp]: !prev[grp] }))}>
+                    {isCollapsed ? 'Tampilkan' : 'Sembunyikan'}
+                  </button>
+                </div>
+                {!isCollapsed && (
+                  <div style={{ padding: '0 20px 20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                      {items.map((item, idx) => (
+                        <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 15px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div className="text-xs text-muted mb-xs uppercase tracking-wider font-semibold" style={{ lineHeight: 1.3 }}>{item.name}</div>
+                          <div className="flex-between align-baseline">
+                            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-primary-hover)' }}>{Number(item.totalQty).toLocaleString('id-ID')}</span>
+                            <span className="text-xs text-muted">{item.unit}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
+                    <p className="text-xs text-muted mt-md">
+                      * Akumulasi dari Invoice <strong>{grp}</strong> yang belum dibuatkan Nota Pembelian.
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
-              <p className="text-xs text-muted mt-md">
-                * Data ini diakumulasi dari seluruh Invoice SPPG 2 & 5 yang belum dibuatkan Nota Pembelian.
-              </p>
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
 
