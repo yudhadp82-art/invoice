@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { FiBarChart2, FiCalendar, FiDownload, FiShoppingCart, FiFileText } from 'react-icons/fi';
-import { Invoices, PurchaseNotes } from '../utils/storage';
+import { Invoices as InvoiceStore, PurchaseNotes as PNStore } from '../utils/storage';
 import { formatCurrency, formatNumber, formatDateShort, isToday, isThisMonth } from '../utils/formatter';
 
 export default function Recap() {
   const [invoices, setInvoices] = useState([]);
   const [filter, setFilter] = useState('month'); // 'today', 'month', 'all'
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     reload();
@@ -15,13 +16,21 @@ export default function Recap() {
   }, []);
 
   async function reload() {
-    const [invs, notes] = await Promise.all([
-      Invoices.getAll(),
-      PurchaseNotes.getAll()
-    ]);
-    setInvoices(invs);
-    setPurchaseNotes(notes);
-    setLoading(false);
+    setLoading(true);
+    setError(null);
+    try {
+      const [invs, notes] = await Promise.all([
+        InvoiceStore.getAll(),
+        PNStore.getAll()
+      ]);
+      setInvoices(invs);
+      setPurchaseNotes(notes);
+    } catch (err) {
+      console.error('Recap reload error:', err);
+      setError(err.message || 'Gagal memuat data rekap.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   const filterData = (data) => {
@@ -83,7 +92,36 @@ export default function Recap() {
   const balance = totalSalesRevenue - totalPurchaseCost;
   const marginPercentage = totalSalesRevenue > 0 ? ((balance / totalSalesRevenue) * 100).toFixed(1) : 0;
 
-  if (loading) return <div className="p-lg text-center">Memuat data...</div>;
+  if (loading) {
+    return (
+      <div className="card p-lg text-center animate-in">
+        <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+        <p className="text-muted">Menganalisa data rekap...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+        <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiBarChart2 /></div>
+        <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Rekap Terbatas (RLS)' : 'Gagal Memuat Rekap'}</h3>
+        <p className="mb-md text-muted">
+          {error.includes('Permission Denied') 
+            ? 'Data transaksi ditemukan tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda. Anda perlu mengaktifkan akses baca bagi role anon di dashboard Supabase.'
+            : 'Terjadi kesalahan saat memuat data rekap dari database.'}
+        </p>
+        <div className="flex-center gap-md">
+          <button className="btn btn-primary" onClick={reload}>Coba Lagi (Refresh)</button>
+          {error.includes('Permission Denied') && (
+            <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+              Buka Supabase Dashboard
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiSearch, FiTruck, FiPrinter, FiEdit2, FiTrash2, FiDownload } from 'react-icons/fi';
-import { DeliveryNotes as DNStore, Invoices as InvoiceStore } from '../utils/storage';
+import { DeliveryNotes as SJStore, Invoices as InvoiceStore } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 import { exportDeliveryNotesToExcel } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
@@ -12,6 +12,8 @@ export default function DeliveryNotes() {
   const [printId, setPrintId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [customerFilter, setCustomerFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     reload();
@@ -20,24 +22,30 @@ export default function DeliveryNotes() {
   }, []);
 
   async function reload() {
-    const allNotes = await DNStore.getAll();
-    const allInvoices = await InvoiceStore.getAll();
-    const validInvoiceIds = new Set(allInvoices.map(i => i.id));
+    setLoading(true);
+    setError(null);
+    try {
+      const allNotes = await SJStore.getAll();
+      const allInvoices = await InvoiceStore.getAll();
+      const validInvoiceIds = new Set(allInvoices.map(i => i.id));
 
-    let hasDeleted = false;
-    for (const n of allNotes) {
-      // Jika Surat Jalan memiliki riwayat dari Invoice (invoiceId tersedia)
-      // namun ID Invoice tersebut sudah tidak ada di data Invoice utama, maka hapus Surat Jalan.
-      if (n.invoiceId && !validInvoiceIds.has(n.invoiceId)) {
-        await DNStore.delete(n.id);
-        hasDeleted = true;
+      let hasDeleted = false;
+      const notesToKeep = [];
+      for (const n of allNotes) {
+        if (n.invoiceId && !validInvoiceIds.has(n.invoiceId)) {
+          await SJStore.delete(n.id);
+          hasDeleted = true;
+        } else {
+          notesToKeep.push(n);
+        }
       }
-    }
 
-    if (hasDeleted) {
-      setNotes(await DNStore.getAll());
-    } else {
-      setNotes(allNotes);
+      setNotes(notesToKeep);
+    } catch (err) {
+      console.error('DeliveryNotes reload error:', err);
+      setError(err.message || 'Gagal memuat data surat jalan.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -47,7 +55,7 @@ export default function DeliveryNotes() {
 
   async function confirmDelete() {
     if (!deleteId) return;
-    await DNStore.delete(deleteId);
+    await SJStore.delete(deleteId);
     setDeleteId(null);
     await reload();
   }
@@ -193,7 +201,36 @@ export default function DeliveryNotes() {
         </div>
       </div>
 
-      <div className="toolbar">
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat data surat jalan...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiTruck /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Surat Jalan Terbatas (RLS)' : 'Gagal Memuat Surat Jalan'}</h3>
+          <p className="mb-md text-muted">
+            {error.includes('Permission Denied') 
+              ? 'Data surat jalan ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda. Anda perlu mengaktifkan akses baca bagi role anon di dashboard Supabase.'
+              : 'Terjadi kesalahan saat memuat data surat jalan dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={reload}>Coba Lagi (Refresh)</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          <div className="toolbar">
         <div className="search-box">
           <FiSearch className="search-icon" />
           <input name="input_1_2" type="text" placeholder="Cari surat jalan..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -283,8 +320,10 @@ export default function DeliveryNotes() {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
+      </>
+      )}
       <ConfirmModal 
         isOpen={!!deleteId} 
         onClose={() => setDeleteId(null)} 

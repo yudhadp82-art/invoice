@@ -20,6 +20,8 @@ export default function Products() {
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyProduct);
   const [isCustomUnit, setIsCustomUnit] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     reload();
@@ -28,8 +30,21 @@ export default function Products() {
   }, []);
 
   async function reload() {
-    setProducts(await ProductStore.getAll());
-    setCustomers(await Customers.getAll());
+    setLoading(true);
+    setError(null);
+    try {
+      const [allProds, allCusts] = await Promise.all([
+        ProductStore.getAll(),
+        Customers.getAll()
+      ]);
+      setProducts(allProds);
+      setCustomers(allCusts);
+    } catch (err) {
+      console.error('Products reload error:', err);
+      setError('Gagal memuat data produk. Silakan periksa koneksi internet Anda.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function openAdd() {
@@ -185,7 +200,36 @@ export default function Products() {
         </div>
       </div>
 
-      <div className="toolbar" style={{ display: 'grid', gridTemplateColumns: '1fr 250px', gap: 'var(--space-md)' }}>
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat data produk...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiPackage /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Data'}</h3>
+          <p className="mb-md">
+            {error.includes('Permission Denied') 
+              ? 'Data produk ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda.'
+              : 'Terjadi kesalahan saat memuat data produk dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          <div className="toolbar" style={{ display: 'grid', gridTemplateColumns: '1fr 250px', gap: 'var(--space-md)' }}>
         <div className="search-box">
           <FiSearch className="search-icon" />
           <input 
@@ -269,8 +313,10 @@ export default function Products() {
               );
             })}
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
+      </>
+      )}
 
       {/* Editor Modal */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Produk' : 'Tambah Produk'}>

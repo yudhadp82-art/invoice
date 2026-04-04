@@ -33,15 +33,52 @@ function notifyMutation(action, collectionName, payload) {
 
 async function getAllFromStore(collectionName) {
   try {
-    const { data, error } = await supabase
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('❌ CRITICAL: Supabase credentials missing. Check your .env file!');
+      throw new Error('Supabase credentials missing');
+    }
+
+    const { data, error, count } = await supabase
       .from(collectionName)
-      .select('*');
+      .select('*', { count: 'exact' });
     
-    if (error) throw error;
-    return (data || []).map(item => ({ id: item.id, ...item.data }));
+    if (error) {
+      console.error(`❌ Supabase error fetching ${collectionName}:`, error.message, error.code);
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      if (count && count > 0) {
+        console.error(`🚨 CRITICAL: Database has ${count} rows in ${collectionName}, but Client received 0. This is likely an RLS (Row Level Security) policy issue.`);
+        throw new Error(`Permission Denied (RLS): Database has ${count} rows but access is restricted.`);
+      }
+      console.warn(`⚠️ Supabase returned 0 rows for ${collectionName}. Table is empty.`);
+    }
+
+    return (data || []).map(item => {
+      // Prioritize direct columns, but merge with 'data' field if it exists
+      // This handles both flat-table and JSONB-wrapped patterns
+      const mapped = { 
+        id: item.id, 
+        ...(item.data || {}),
+        ...Object.keys(item).reduce((acc, key) => {
+          if (key !== 'data' && key !== 'id') acc[key] = item[key];
+          return acc;
+        }, {})
+      };
+
+      // Legacy normalization for purchases (old table)
+      if (collectionName === COLLECTIONS.PURCHASES && mapped.supplier && !mapped.supplierName) {
+        mapped.supplierName = mapped.supplier;
+      }
+      return mapped;
+    });
   } catch (error) {
     console.error(`Error getting all from ${collectionName}:`, error);
-    return [];
+    throw error;
   }
 }
 
@@ -188,18 +225,27 @@ export const DeliveryNotes = {
 
 export const PurchaseNotes = {
   getAll: async () => {
-    const [newNotes, oldPurchases] = await Promise.all([
-      getAllFromStore(COLLECTIONS.PURCHASE_NOTES),
-      getAllFromStore(COLLECTIONS.PURCHASES)
-    ]);
-    // Consolidate both collections to ensure no data is missing
-    const consolidated = [...newNotes];
-    oldPurchases.forEach(old => {
-      if (!consolidated.find(n => n.id === old.id)) {
-        consolidated.push(old);
-      }
-    });
-    return consolidated;
+    try {
+      const [newNotes, oldPurchases] = await Promise.all([
+        getAllFromStore(COLLECTIONS.PURCHASE_NOTES),
+        getAllFromStore(COLLECTIONS.PURCHASES)
+      ]);
+      // Consolidate both collections to ensure no data is missing
+      const consolidated = [...newNotes];
+      oldPurchases.forEach(old => {
+        if (!consolidated.find(n => n.id === old.id)) {
+          // Normalize old purchase to match new purchase note structure
+          const normalized = { ...old };
+          if (old.supplier && !old.supplierName) normalized.supplierName = old.supplier;
+          consolidated.push(normalized);
+        }
+      });
+      console.log(`✅ Loaded ${consolidated.length} total purchase records (${newNotes.length} notes, ${oldPurchases.length} legacy).`);
+      return consolidated;
+    } catch (err) {
+      console.error("Failed PurchaseNotes.getAll:", err);
+      throw err;
+    }
   },
   getById: async (id) => {
     const note = await getByIdFromStore(COLLECTIONS.PURCHASE_NOTES, id);
@@ -312,8 +358,9 @@ export const TelegramOrders = {
 };
 
 export async function seedDemoData() {
-  const cats = await PriceCategories.getAll();
-  if (cats.length === 0) {
+  try {
+    const cats = await PriceCategories.getAll();
+    if (cats.length === 0) {
     await PriceCategories.create({ id: 'cat-retail', name: 'Retail (Default)' });
     await PriceCategories.create({ id: 'cat-grosir', name: 'Grosir' });
     await PriceCategories.create({ id: 'cat-vip', name: 'VIP' });
@@ -392,6 +439,9 @@ export async function seedDemoData() {
         notes: 'Demo: Pembelian awal wortel'
       });
     }
+  }
+  } catch (err) {
+    console.error('Failed to run seedDemoData (possibly connection issue):', err);
   }
 }
 

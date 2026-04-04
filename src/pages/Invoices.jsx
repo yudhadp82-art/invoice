@@ -19,6 +19,8 @@ export default function Invoices() {
   const [printId, setPrintId] = useState(null);
   const [sendingId, setSendingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     reload();
@@ -27,8 +29,21 @@ export default function Invoices() {
   }, []);
 
   async function reload() { 
-    setInvoices(await InvoiceStore.getAll()); 
-    setDeliveryNotes(await DNStore.getAll());
+    setLoading(true);
+    setError(null);
+    try {
+      const [allInvs, allDNs] = await Promise.all([
+        InvoiceStore.getAll(),
+        DNStore.getAll()
+      ]);
+      setInvoices(allInvs);
+      setDeliveryNotes(allDNs);
+    } catch (err) {
+      console.error('Invoices reload error:', err);
+      setError(err.message || 'Gagal memuat data invoice. Silakan periksa koneksi internet Anda.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSendTelegram(inv) {
@@ -185,7 +200,36 @@ export default function Invoices() {
         </div>
       </div>
 
-      <div className="toolbar">
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat data invoice...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiFileText /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Data'}</h3>
+          <p className="mb-md text-muted">
+            {error.includes('Permission Denied') 
+              ? 'Data invoice ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda. Anda perlu mengaktifkan akses baca bagi role anon di dashboard Supabase.'
+              : 'Terjadi kesalahan saat memuat data invoice dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={reload}>Coba Lagi (Refresh)</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          <div className="toolbar">
         <div className="search-box">
           <FiSearch className="search-icon" />
           <input name="input_1_2" type="text" placeholder="Cari invoice..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -295,6 +339,8 @@ export default function Invoices() {
           </tbody>
         </table>
       </div>
+      </>
+      )}
       
       {sendingId && (() => {
         const inv = invoices.find(i => i.id === sendingId);

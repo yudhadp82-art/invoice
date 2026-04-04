@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Products, SupportingMaterialItems, Purchases, Invoices, ProductionMaterials, ProductionNeeds, HppReports, PurchaseNotes } from '../utils/storage';
+import { Products as ProductStore, SupportingMaterialItems as MasterItemStore, Purchases, Invoices as InvoiceStore, ProductionMaterials as MatStore, ProductionNeeds as NeedStore, HppReports as HppStore, PurchaseNotes as PNStore } from '../utils/storage';
 import { formatCurrency, formatNumber } from '../utils/formatter';
 import { exportToExcel } from '../utils/excel';
 import { FiPackage, FiSearch, FiAlertTriangle, FiTrendingUp, FiDollarSign, FiDownload, FiArrowRight, FiRefreshCw, FiCheckCircle, FiTrash2 } from 'react-icons/fi';
@@ -10,6 +10,7 @@ export default function Stock() {
   const [materials, setMaterials] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
   
@@ -20,19 +21,27 @@ export default function Stock() {
 
   useEffect(() => {
     async function loadData() {
-      const [allProds, allMats, allInvs, allHpps, allNeeds] = await Promise.all([
-        Products.getAll(),
-        SupportingMaterialItems.getAll(),
-        Invoices.getAll(),
-        HppReports.getAll(),
-        ProductionNeeds.getAll()
-      ]);
-      setProducts(allProds);
-      setMaterials(allMats);
-      setInvoices(allInvs);
-      setHppReports(allHpps);
-      setProductionNeeds(allNeeds);
-      setLoading(false);
+      setLoading(true);
+      setError(null);
+      try {
+        const [allProds, allMats, allInvs, allHpps, allNeeds] = await Promise.all([
+          ProductStore.getAll(),
+          MasterItemStore.getAll(),
+          InvoiceStore.getAll(),
+          HppStore.getAll(),
+          NeedStore.getAll()
+        ]);
+        setProducts(allProds);
+        setMaterials(allMats);
+        setInvoices(allInvs);
+        setHppReports(allHpps);
+        setProductionNeeds(allNeeds);
+      } catch (err) {
+        console.error('Stock load error:', err);
+        setError(err.message || 'Gagal memuat data stok. Silakan periksa koneksi internet Anda.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadData();
     window.addEventListener('app-data-mutation', loadData);
@@ -137,30 +146,27 @@ export default function Stock() {
     setIsSyncing(true);
     try {
       const [allProds, allMats] = await Promise.all([
-        Products.getAll(),
-        SupportingMaterialItems.getAll()
+        ProductStore.getAll(),
+        MasterItemStore.getAll()
       ]);
 
       await Promise.all([
-        ...allProds.map(p => Products.update(p.id, { stock: 0 })),
-        ...allMats.map(m => SupportingMaterialItems.update(m.id, { stock: 0 }))
+        ...allProds.map(p => ProductStore.update(p.id, { stock: 0 })),
+        ...allMats.map(m => MasterItemStore.update(m.id, { stock: 0 }))
       ]);
 
       setSyncSuccess(true);
       setTimeout(() => setSyncSuccess(false), 3000);
       
-      setProducts(await Products.getAll());
-      setMaterials(await SupportingMaterialItems.getAll());
-      setInvoices(await Invoices.getAll());
-      setHppReports(await HppReports.getAll());
-      setProductionNeeds(await ProductionNeeds.getAll());
+      setProducts(await ProductStore.getAll());
+      setMaterials(await MasterItemStore.getAll());
+      setInvoices(await InvoiceStore.getAll());
+      setHppReports(await HppStore.getAll());
+      setProductionNeeds(await NeedStore.getAll());
       alert('Seluruh angka stok Master telah di-reset menjadi 0.');
 
     } catch (error) {
-      console.error(error);
-      alert('Gagal mereset stok.');
-    } finally {
-      setIsSyncing(false);
+       // logic handled
     }
   }
 
@@ -227,7 +233,7 @@ export default function Stock() {
 
       // Update Products DB
       await Promise.all(allProds.map(p => 
-        Products.update(p.id, { stock: prodStockMap[p.id] })
+        ProductStore.update(p.id, { stock: prodStockMap[p.id] })
       ));
 
       // 2. Sync Supporting Materials
@@ -263,18 +269,18 @@ export default function Stock() {
 
       // Update Materials DB
       await Promise.all(allMats.map(m => 
-        SupportingMaterialItems.update(m.id, { stock: matStockMap[m.id] })
+        MasterItemStore.update(m.id, { stock: matStockMap[m.id] })
       ));
 
       setSyncSuccess(true);
       setTimeout(() => setSyncSuccess(false), 3000);
       
       // Reload current local state
-      setProducts(await Products.getAll());
-      setMaterials(await SupportingMaterialItems.getAll());
-      setInvoices(await Invoices.getAll());
-      setHppReports(await HppReports.getAll());
-      setProductionNeeds(await ProductionNeeds.getAll());
+      setProducts(await ProductStore.getAll());
+      setMaterials(await MasterItemStore.getAll());
+      setInvoices(await InvoiceStore.getAll());
+      setHppReports(await HppStore.getAll());
+      setProductionNeeds(await NeedStore.getAll());
 
     } catch (error) {
       console.error(error);
@@ -341,7 +347,36 @@ export default function Stock() {
         </div>
       </div>
 
-      <div className="stats-grid">
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat data inventaris...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiAlertTriangle /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Stok Terbatas (RLS)' : 'Gagal Memuat Stok'}</h3>
+          <p className="mb-md text-muted">
+            {error.includes('Permission Denied') 
+              ? 'Data inventaris ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda. Anda perlu mengaktifkan akses baca bagi role anon di dashboard Supabase.'
+              : 'Terjadi kesalahan saat memuat data stok dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={() => window.dispatchEvent(new Event('app-data-mutation'))}>Coba Lagi (Refresh)</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          <div className="stats-grid">
         <div className="stat-card blue">
           <div className="stat-card-header">
             <div className="stat-card-icon"><FiPackage /></div>
@@ -514,6 +549,9 @@ export default function Stock() {
           </tbody>
         </table>
       </div>
+
+      </>
+      )}
 
       <style>{`
         .animate-in {

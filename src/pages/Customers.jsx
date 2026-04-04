@@ -15,14 +15,29 @@ export default function Customers() {
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyCustomer);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     reload();
   }, []);
 
   async function reload() {
-    setCustomers(await CustomerStore.getAll());
-    setPriceCategories(await CategoryStore.getAll());
+    setLoading(true);
+    setError(null);
+    try {
+      const [allCusts, allCats] = await Promise.all([
+        CustomerStore.getAll(),
+        CategoryStore.getAll()
+      ]);
+      setCustomers(allCusts);
+      setPriceCategories(allCats);
+    } catch (err) {
+      console.error('Customers reload error:', err);
+      setError('Gagal memuat data pelanggan. Silakan periksa koneksi internet Anda.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   // Collect existing group names for datalist suggestions
@@ -152,7 +167,36 @@ export default function Customers() {
         </div>
       </div>
 
-      <div className="toolbar">
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat data pelanggan...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiUsers /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Data'}</h3>
+          <p className="mb-md">
+            {error.includes('Permission Denied') 
+              ? 'Data pelanggan ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda.'
+              : 'Terjadi kesalahan saat memuat data pelanggan dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          <div className="toolbar">
         <div className="search-box">
           <FiSearch className="search-icon" />
           <input type="text" placeholder="Cari customer..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -203,8 +247,10 @@ export default function Customers() {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
+      </>
+      )}
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Customer' : 'Tambah Customer'}>
         <form onSubmit={handleSave}>

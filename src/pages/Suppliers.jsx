@@ -14,13 +14,24 @@ export default function Suppliers() {
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptySupplier);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     reload();
   }, []);
 
   async function reload() {
-    setSuppliers(await SupplierStore.getAll());
+    setLoading(true);
+    setError(null);
+    try {
+      setSuppliers(await SupplierStore.getAll());
+    } catch (err) {
+      console.error('Suppliers reload error:', err);
+      setError(err.message || 'Gagal memuat data supplier.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function openAdd() {
@@ -140,54 +151,85 @@ export default function Suppliers() {
         </div>
       </div>
 
-      <div className="toolbar">
-        <div className="search-box">
-          <FiSearch className="search-icon" />
-          <input type="text" placeholder="Cari supplier..." value={search} onChange={e => setSearch(e.target.value)} />
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat data supplier...</p>
         </div>
-      </div>
+      )}
 
-      <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Nama / Kontak</th>
-              <th>Perusahaan</th>
-              <th>Telepon</th>
-              <th>Email</th>
-              <th>Alamat</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6}>
-                  <div className="empty-state">
-                    <div className="empty-state-icon"><FiBriefcase /></div>
-                    <h3>Belum ada supplier</h3>
-                    <p>Klik "Tambah Supplier" untuk memasukkan data</p>
-                  </div>
-                </td>
-              </tr>
-            ) : filtered.map(s => (
-              <tr key={s.id}>
-                <td><strong>{s.name || '-'}</strong></td>
-                <td>{s.company || '-'}</td>
-                <td>{s.phone || '-'}</td>
-                <td className="text-muted">{s.email || '-'}</td>
-                <td className="text-muted text-sm" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.address || '-'}</td>
-                <td>
-                  <div className="table-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}><FiEdit2 /></button>
-                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(s.id)}><FiTrash2 /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiUsers /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Data'}</h3>
+          <p className="mb-md">
+            {error.includes('Permission Denied') 
+              ? 'Data supplier ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda.'
+              : 'Terjadi kesalahan saat memuat data supplier dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          <div className="toolbar">
+            <div className="search-box">
+              <FiSearch className="search-icon" />
+              <input type="text" placeholder="Cari supplier..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Nama / Kontak</th>
+                  <th>Perusahaan</th>
+                  <th>Telepon</th>
+                  <th>Email</th>
+                  <th>Alamat</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="empty-state">
+                        <div className="empty-state-icon"><FiBriefcase /></div>
+                        <h3>Belum ada supplier</h3>
+                        <p>Klik "Tambah Supplier" untuk memasukkan data</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.map(s => (
+                  <tr key={s.id}>
+                    <td><strong>{s.name || '-'}</strong></td>
+                    <td>{s.company || '-'}</td>
+                    <td>{s.phone || '-'}</td>
+                    <td className="text-muted">{s.email || '-'}</td>
+                    <td className="text-muted text-sm" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.address || '-'}</td>
+                    <td>
+                      <div className="table-actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}><FiEdit2 /></button>
+                        <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(s.id)}><FiTrash2 /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Supplier' : 'Tambah Supplier'}>
         <form onSubmit={handleSave}>

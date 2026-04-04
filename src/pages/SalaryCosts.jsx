@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiUsers, FiClock, FiDollarSign } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
-import { SalaryCosts as Store, Employees as EmployeeStore } from '../utils/storage';
+import { SalaryCosts as SCStore, Employees as EmployeeStore } from '../utils/storage';
 import { formatCurrency, formatDateShort, parseNumberInput } from '../utils/formatter';
 
 const SALARY_TYPES = [
@@ -37,6 +37,8 @@ export default function SalaryCostsPage() {
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     reload();
@@ -45,9 +47,21 @@ export default function SalaryCostsPage() {
   }, []);
 
   async function reload() {
-    const data = await Store.getAll();
-    setItems(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
-    setEmployees(await EmployeeStore.getAll());
+    setLoading(true);
+    setError(null);
+    try {
+      const [data, employeesData] = await Promise.all([
+        SCStore.getAll(),
+        EmployeeStore.getAll()
+      ]);
+      setItems(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      setEmployees(employeesData);
+    } catch (err) {
+      console.error('SalaryCosts reload error:', err);
+      setError('Gagal memuat data gaji. Silakan periksa koneksi internet Anda.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function getHoursDelta(inTime, outTime) {
@@ -137,9 +151,9 @@ export default function SalaryCostsPage() {
     };
 
     if (editingId) {
-      await Store.update(editingId, payload);
+      await SCStore.update(editingId, payload);
     } else {
-      await Store.create(payload);
+      await SCStore.create(payload);
     }
     setModalOpen(false);
     await reload();
@@ -147,7 +161,7 @@ export default function SalaryCostsPage() {
 
   async function confirmDelete() {
     if (!deleteId) return;
-    await Store.delete(deleteId);
+    await SCStore.delete(deleteId);
     setDeleteId(null);
     await reload();
   }
@@ -177,7 +191,36 @@ export default function SalaryCostsPage() {
         </button>
       </div>
 
-      <div className="stats-grid">
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat data biaya gaji...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiDollarSign /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Gaji'}</h3>
+          <p className="mb-md">
+            {error.includes('Permission Denied') 
+              ? 'Data gaji ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda.'
+              : 'Terjadi kesalahan saat memuat data biaya gaji dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          <div className="stats-grid">
         <div className="stat-card orange">
           <div className="stat-card-header">
             <div className="stat-card-icon">📅</div>
@@ -261,8 +304,10 @@ export default function SalaryCostsPage() {
               );
             })}
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
+      </>
+      )}
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Biaya Gaji' : 'Tambah Biaya Gaji'} size="md">
         <form onSubmit={handleSave}>

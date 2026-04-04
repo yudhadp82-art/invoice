@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { FiTrendingUp, FiDollarSign, FiBarChart2, FiCalendar, FiFileText } from 'react-icons/fi';
-import { Invoices, Products } from '../utils/storage';
+import { Invoices as InvoiceStore, Products as ProductStore } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumber, calculateMargin, isToday, isThisWeek, isThisMonth } from '../utils/formatter';
 
 const COLORS = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
@@ -23,11 +23,26 @@ export default function Reports() {
   const [period, setPeriod] = useState('month');
   const [invoices, setInvoices] = useState([]);
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function loadData() {
-      setInvoices(await Invoices.getAll());
-      setProducts(await Products.getAll());
+      setLoading(true);
+      setError(null);
+      try {
+        const [invs, prods] = await Promise.all([
+          InvoiceStore.getAll(),
+          ProductStore.getAll()
+        ]);
+        setInvoices(invs);
+        setProducts(prods);
+      } catch (err) {
+        console.error('Reports load error:', err);
+        setError(err.message || 'Gagal memuat data laporan.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadData();
   }, []);
@@ -116,168 +131,198 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="tabs mb-lg">
-        <button className={`tab ${activeTab === 'profit' ? 'active' : ''}`} onClick={() => setActiveTab('profit')}>
-          <FiTrendingUp style={{ marginRight: 6 }} /> Analisis Pendapatan
-        </button>
-        <button className={`tab ${activeTab === 'recap' ? 'active' : ''}`} onClick={() => setActiveTab('recap')}>
-          <FiCalendar style={{ marginRight: 6 }} /> Rekap Harian
-        </button>
-      </div>
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Menganalisa data laporan & grafik...</p>
+        </div>
+      )}
 
-      {/* ===== Revenue Analysis Tab ===== */}
-      {activeTab === 'profit' && (
-        <div className="animate-in">
-          <div className="stats-grid">
-            <div className="stat-card purple">
-              <div className="stat-card-value">{formatCurrency(totalRevenue)}</div>
-              <div className="stat-card-label">Total Revenue ({periodLabels[period]})</div>
-            </div>
-            <div className="stat-card cyan">
-              <div className="stat-card-value">{filteredInvoices.length}</div>
-              <div className="stat-card-label">Jumlah Invoice</div>
-            </div>
-          </div>
-
-          <div className="charts-grid">
-            <div className="card">
-              <div className="card-header">
-                <h3 className="card-title">Pendapatan per Produk</h3>
-              </div>
-              {productRevenueData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={productRevenueData.slice(0, 8)}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
-                    <YAxis stroke="#64748b" fontSize={11} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(0)}jt` : `${(v/1000).toFixed(0)}rb`} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Bar dataKey="Revenue" fill="#6366f1" radius={[4, 4, 0, 0]} name="Revenue" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="empty-state"><p className="text-muted">Belum ada data penjualan</p></div>
-              )}
-            </div>
-
-            <div className="card">
-              <div className="card-header">
-                <h3 className="card-title">Kontribusi Pelanggan</h3>
-              </div>
-              {customerRevenueData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={customerRevenueData} cx="50%" cy="50%" innerRadius={50} outerRadius={100} paddingAngle={3} dataKey="Revenue" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
-                      {customerRevenueData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="empty-state"><p className="text-muted">Belum ada data</p></div>
-              )}
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Tabel Penjualan per Produk</h3>
-            </div>
-            <div className="table-container" style={{ border: 'none' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Produk</th>
-                    <th style={{ textAlign: 'right' }}>Harga Jual</th>
-                    <th style={{ textAlign: 'right' }}>Total Terjual</th>
-                    <th style={{ textAlign: 'right' }}>Total Revenue</th>
-                    <th style={{ textAlign: 'right' }}>Stok Saat Ini</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productRevenueData.map((p, i) => {
-                    const originalProduct = products.find(prod => prod.name === p.name) || {};
-                    return (
-                      <tr key={i}>
-                        <td><strong>{p.name}</strong></td>
-                        <td className="text-right">{formatCurrency(originalProduct.sellPrice || 0)}</td>
-                        <td className="text-right">{formatNumber(p.qty)}</td>
-                        <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.Revenue)}</td>
-                        <td className="text-right">{formatNumber(originalProduct.stock || 0)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiBarChart2 /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Laporan Terbatas (RLS)' : 'Gagal Memuat Laporan'}</h3>
+          <p className="mb-md text-muted">
+            {error.includes('Permission Denied') 
+              ? 'Data transaksi ditemukan tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda. Anda perlu mengaktifkan akses baca bagi role anon di dashboard Supabase.'
+              : 'Terjadi kesalahan saat memuat data laporan dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={() => window.location.reload()}>Coba Lagi (Refresh)</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
           </div>
         </div>
       )}
 
-
-      {/* ===== Daily Recap Tab ===== */}
-      {activeTab === 'recap' && (
-        <div className="animate-in">
-          <div className="stats-grid">
-            <div className="stat-card purple">
-              <div className="stat-card-value">{filteredInvoices.length}</div>
-              <div className="stat-card-label">Invoice ({periodLabels[period]})</div>
-            </div>
-            <div className="stat-card cyan">
-              <div className="stat-card-value">{formatCurrency(totalRevenue)}</div>
-              <div className="stat-card-label">Revenue</div>
-            </div>
+      {(!loading && !error) && (
+        <>
+          {/* Tabs */}
+          <div className="tabs mb-lg">
+            <button className={`tab ${activeTab === 'profit' ? 'active' : ''}`} onClick={() => setActiveTab('profit')}>
+              <FiTrendingUp style={{ marginRight: 6 }} /> Analisis Pendapatan
+            </button>
+            <button className={`tab ${activeTab === 'recap' ? 'active' : ''}`} onClick={() => setActiveTab('recap')}>
+              <FiCalendar style={{ marginRight: 6 }} /> Rekap Harian
+            </button>
           </div>
 
-          <div className="card mb-lg">
-            <div className="card-header">
-              <h3 className="card-title">Trend Pendapatan (14 Hari Terakhir)</h3>
-            </div>
-            {dailyChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={dailyChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
-                  <YAxis stroke="#64748b" fontSize={11} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(0)}jt` : `${(v/1000).toFixed(0)}rb`} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Line type="monotone" dataKey="Revenue" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} name="Revenue" />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="empty-state"><p className="text-muted">Belum ada data</p></div>
-            )}
-          </div>
+          {/* ===== Revenue Analysis Tab ===== */}
+          {activeTab === 'profit' && (
+            <div className="animate-in">
+              <div className="stats-grid">
+                <div className="stat-card purple">
+                  <div className="stat-card-value">{formatCurrency(totalRevenue)}</div>
+                  <div className="stat-card-label">Total Revenue ({periodLabels[period]})</div>
+                </div>
+                <div className="stat-card cyan">
+                  <div className="stat-card-value">{filteredInvoices.length}</div>
+                  <div className="stat-card-label">Jumlah Invoice</div>
+                </div>
+              </div>
 
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Rincian per Hari</h3>
-            </div>
-            <div className="table-container" style={{ border: 'none' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Tanggal</th>
-                    <th style={{ textAlign: 'right' }}>Invoice</th>
-                    <th style={{ textAlign: 'right' }}>Revenue</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(dailyData)
-                    .sort((a, b) => b[0].localeCompare(a[0]))
-                    .slice(0, 30)
-                    .map(([date, data], i) => (
-                      <tr key={i}>
-                        <td><strong>{formatDateShort(date)}</strong></td>
-                        <td className="text-right">{data.count}</td>
-                        <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(data.revenue)}</td>
+              <div className="charts-grid">
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="card-title">Pendapatan per Produk</h3>
+                  </div>
+                  {productRevenueData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={productRevenueData.slice(0, 8)}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                        <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
+                        <YAxis stroke="#64748b" fontSize={11} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(0)}jt` : `${(v/1000).toFixed(0)}rb`} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend />
+                        <Bar dataKey="Revenue" fill="#6366f1" radius={[4, 4, 0, 0]} name="Revenue" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="empty-state"><p className="text-muted">Belum ada data penjualan</p></div>
+                  )}
+                </div>
+
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="card-title">Kontribusi Pelanggan</h3>
+                  </div>
+                  {customerRevenueData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie data={customerRevenueData} cx="50%" cy="50%" innerRadius={50} outerRadius={100} paddingAngle={3} dataKey="Revenue" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
+                          {customerRevenueData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="empty-state"><p className="text-muted">Belum ada data</p></div>
+                  )}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">Tabel Penjualan per Produk</h3>
+                </div>
+                <div className="table-container" style={{ border: 'none' }}>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Produk</th>
+                        <th style={{ textAlign: 'right' }}>Harga Jual</th>
+                        <th style={{ textAlign: 'right' }}>Total Terjual</th>
+                        <th style={{ textAlign: 'right' }}>Total Revenue</th>
+                        <th style={{ textAlign: 'right' }}>Stok Saat Ini</th>
                       </tr>
-                    ))}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {productRevenueData.map((p, i) => {
+                        const originalProduct = products.find(prod => prod.name === p.name) || {};
+                        return (
+                          <tr key={i}>
+                            <td><strong>{p.name}</strong></td>
+                            <td className="text-right">{formatCurrency(originalProduct.sellPrice || 0)}</td>
+                            <td className="text-right">{formatNumber(p.qty)}</td>
+                            <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.Revenue)}</td>
+                            <td className="text-right">{formatNumber(originalProduct.stock || 0)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+
+          {/* ===== Daily Recap Tab ===== */}
+          {activeTab === 'recap' && (
+            <div className="animate-in">
+              <div className="stats-grid">
+                <div className="stat-card purple">
+                  <div className="stat-card-value">{filteredInvoices.length}</div>
+                  <div className="stat-card-label">Invoice ({periodLabels[period]})</div>
+                </div>
+                <div className="stat-card cyan">
+                  <div className="stat-card-value">{formatCurrency(totalRevenue)}</div>
+                  <div className="stat-card-label">Revenue</div>
+                </div>
+              </div>
+
+              <div className="card mb-lg">
+                <div className="card-header">
+                  <h3 className="card-title">Trend Pendapatan (14 Hari Terakhir)</h3>
+                </div>
+                {dailyChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={dailyChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                      <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
+                      <YAxis stroke="#64748b" fontSize={11} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(0)}jt` : `${(v/1000).toFixed(0)}rb`} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Line type="monotone" dataKey="Revenue" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} name="Revenue" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="empty-state"><p className="text-muted">Belum ada data</p></div>
+                )}
+              </div>
+
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">Rincian per Hari</h3>
+                </div>
+                <div className="table-container" style={{ border: 'none' }}>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Tanggal</th>
+                        <th style={{ textAlign: 'right' }}>Invoice</th>
+                        <th style={{ textAlign: 'right' }}>Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(dailyData)
+                        .sort((a, b) => b[0].localeCompare(a[0]))
+                        .slice(0, 30)
+                        .map(([date, data], i) => (
+                          <tr key={i}>
+                            <td><strong>{formatDateShort(date)}</strong></td>
+                            <td className="text-right">{data.count}</td>
+                            <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(data.revenue)}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -23,15 +23,32 @@ export default function Dashboard() {
   const [invoices, setInvoices] = useState([]);
   const [deliveryNotes, setDN] = useState([]);
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const load = async () => {
-      setInvoices(await Invoices.getAll());
-      setDN(await DeliveryNotes.getAll());
-      setProducts(await Products.getAll());
-    };
     load();
   }, []);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [allInvs, allDNs, allProds] = await Promise.all([
+        Invoices.getAll(),
+        DeliveryNotes.getAll(),
+        Products.getAll()
+      ]);
+      setInvoices(allInvs);
+      setDN(allDNs);
+      setProducts(allProds);
+    } catch (err) {
+      console.error('Dashboard load error:', err);
+      setError('Gagal memuat ringkasan dashboard. Silakan periksa koneksi internet Anda.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // Stats calculations
   const todayInvoices = invoices.filter(inv => isToday(inv.createdAt));
@@ -72,7 +89,36 @@ export default function Dashboard() {
         <p>Ringkasan bisnis dan aktivitas hari ini</p>
       </div>
 
-      {/* Stat Cards */}
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat ringkasan bisnis...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiTrendingUp /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Dashboard Terbatas (RLS)' : 'Gagal Memuat Dashboard'}</h3>
+          <p className="mb-md text-muted">
+            {error.includes('Permission Denied') 
+              ? 'Data ringkasan ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda. Anda perlu mengaktifkan akses baca bagi role anon di dashboard Supabase.'
+              : 'Terjadi kesalahan saat memuat data pendukung dashboard dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={load}>Coba Lagi (Refresh)</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          {/* Stat Cards */}
       <div className="stats-grid">
         <div className="stat-card purple">
           <div className="stat-card-header">
@@ -201,6 +247,8 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiRefreshCw, FiCheck, FiFileText, FiTrash2, FiAlertCircle, FiEdit2, FiX, FiSave } from 'react-icons/fi';
-import { TelegramOrders, Customers, Products as ProductStorage, PriceCategories, Invoices } from '../utils/storage';
+import { FiRefreshCw, FiCheck, FiFileText, FiTrash2, FiAlertCircle, FiEdit2, FiX, FiSave, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { TelegramOrders as TelOrderStore, Customers as CustStore, Products as ProductStore, PriceCategories as PriceCatStore, Invoices as InvoiceStore } from '../utils/storage';
 import { checkBotStatus, fetchUpdates, parseOrderMessage, matchCustomer, matchProduct, sendMessage, suggestProducts, correctAndMatchItemsWithAI } from '../utils/telegram';
 import { formatDateTime, formatNumber } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
@@ -20,19 +20,32 @@ export default function TelegramOrdersPage() {
   const [activeTab, setActiveTab] = useState('active');
   const [failedUpdates, setFailedUpdates] = useState([]);
   const [showFailed, setShowFailed] = useState(false);
+  const [expandedOrders, setExpandedOrders] = useState(new Set()); // IDs of expanded orders
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function init() {
-      const cats = await Customers.getAll();
-      const prods = await ProductStorage.getAll();
-      const priceCats = await PriceCategories.getAll();
-      const invs = await Invoices.getAll();
-      setAllCustomers(cats);
-      setAllProducts(prods);
-      setAllPriceCategories(priceCats);
-      setAllInvoices(invs);
-      await loadOrders();
-      await loadBotStatus();
+      setLoading(true);
+      setError(null);
+      try {
+        const [cats, prods, priceCats, invs] = await Promise.all([
+          CustStore.getAll(),
+          ProductStore.getAll(),
+          PriceCatStore.getAll(),
+          InvoiceStore.getAll()
+        ]);
+        setAllCustomers(cats);
+        setAllProducts(prods);
+        setAllPriceCategories(priceCats);
+        setAllInvoices(invs);
+        await loadOrders();
+        await loadBotStatus();
+      } catch (err) {
+        console.error('TelegramOrders init error:', err);
+        setError(err.message || 'Gagal memuat data awal pesanan Telegram.');
+      } finally {
+        setLoading(false);
+      }
     }
     init();
     
@@ -53,10 +66,15 @@ export default function TelegramOrdersPage() {
   }
 
   async function loadOrders() {
-    const list = await TelegramOrders.getAll();
-    const invs = await Invoices.getAll();
-    setAllInvoices(invs);
-    setOrders([...list].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    try {
+      const list = await TelOrderStore.getAll();
+      const invs = await InvoiceStore.getAll();
+      setAllInvoices(invs);
+      setOrders([...list].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    } catch (err) {
+      console.error('loadOrders error:', err);
+      if (!error) setError(err.message);
+    }
   }
 
   async function loadBotStatus() {
@@ -69,7 +87,7 @@ export default function TelegramOrdersPage() {
     const custs = await Customers.getAll();
     const prods = await ProductStorage.getAll();
 
-    const offset  = TelegramOrders.getOffset();
+    const offset  = TelOrderStore.getOffset();
     const updates = await fetchUpdates(offset + 1);
 
     let newOffset  = offset;
@@ -79,7 +97,7 @@ export default function TelegramOrdersPage() {
       newOffset = Math.max(...updates.map(u => u.update_id));
     }
 
-    const allOrders = await TelegramOrders.getAll();
+    const allOrders = await TelOrderStore.getAll();
     const processedChats = new Set();
     const reversedUpdates = [...updates].reverse();
 
@@ -111,7 +129,7 @@ export default function TelegramOrdersPage() {
           customerName,
         );
 
-        await TelegramOrders.create({
+        await TelOrderStore.create({
           rawMessage:        text,
           telegramMessageId: msgId,
           telegramChatId:    chatId,
@@ -126,7 +144,7 @@ export default function TelegramOrdersPage() {
       }
     }
 
-    const allOrdersAfter = await TelegramOrders.getAll();
+    const allOrdersAfter = await TelOrderStore.getAll();
     const failures = updates
       .filter(u => u.message?.text)
       .filter(u => !allOrdersAfter.find(o => o.telegramMessageId === u.message.message_id))
@@ -151,13 +169,13 @@ export default function TelegramOrdersPage() {
   }
 
   async function handleProcess(order) {
-    await TelegramOrders.update(order.id, { status: 'diproses' });
+    await TelOrderStore.update(order.id, { status: 'diproses' });
     await loadOrders();
     sendMessage(order.telegramChatId, `Pesanan "${order.customerRaw || order.customerName}" sedang kami proses. Terima kasih!`);
   }
 
   async function handleMarkSelesai(id) {
-    await TelegramOrders.update(id, { status: 'selesai' });
+    await TelOrderStore.update(id, { status: 'selesai' });
     await loadOrders();
   }
 
@@ -172,7 +190,7 @@ export default function TelegramOrdersPage() {
           inv.date >= order.createdAt.split('T')[0]
         );
         if (hasInv) {
-          await TelegramOrders.update(order.id, { status: 'selesai' });
+          await TelOrderStore.update(order.id, { status: 'selesai' });
           count++;
         }
       }
@@ -188,7 +206,7 @@ export default function TelegramOrdersPage() {
 
   async function confirmDelete() {
     if (!deleteId) return;
-    await TelegramOrders.delete(deleteId);
+    await TelOrderStore.delete(deleteId);
     setDeleteId(null);
     await loadOrders();
   }
@@ -196,7 +214,7 @@ export default function TelegramOrdersPage() {
   function handleCreateInvoice(order) {
     // Mark as diproses immediately so it shows progress
     if (order.status === 'baru') {
-      TelegramOrders.update(order.id, { status: 'diproses' });
+      TelOrderStore.update(order.id, { status: 'diproses' });
     }
     navigate('/invoices/new', { state: { telegramOrder: order } });
   }
@@ -237,7 +255,7 @@ export default function TelegramOrdersPage() {
     const { id, matchedCustomerId, customerName, items, status } = editOrder;
     const parsedItems = items.map(i => ({ ...i, qty: Number(i.qty) || 0 }));
     // Remap productId/matchedName from selection
-    await TelegramOrders.update(id, { matchedCustomerId, customerName, items: parsedItems, status });
+    await TelOrderStore.update(id, { matchedCustomerId, customerName, items: parsedItems, status });
     await loadOrders();
     setEditOrder(null);
   }
@@ -308,6 +326,16 @@ export default function TelegramOrdersPage() {
     setEditOrder(e => ({ ...e, items: e.items.filter((_, i) => i !== index) }));
   }
 
+  function toggleOrderExpand(id) {
+    const newExpanded = new Set(expandedOrders);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedOrders(newExpanded);
+  }
+
   return (
     <div className="animate-in">
       {/* Header */}
@@ -331,6 +359,33 @@ export default function TelegramOrdersPage() {
           </button>
         </div>
       </div>
+
+      {loading && !orders.length && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Menghubungkan ke Bot & memuat data pesanan...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiAlertCircle /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Pesanan'}</h3>
+          <p className="mb-md text-muted">
+            {error.includes('Permission Denied') 
+              ? 'Pesan Telegram ditemukan tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda. Anda perlu mengaktifkan akses baca bagi role anon di dashboard Supabase.'
+              : 'Terjadi kesalahan saat memuat data pesanan atau status bot.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={() => window.location.reload()}>Coba Lagi (Refresh)</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       {(() => {
@@ -392,7 +447,7 @@ export default function TelegramOrdersPage() {
       })()}
 
       {/* State Manager */}
-      {(() => {
+      {(!loading && !error) && (() => {
         const activeOrders = orders.filter(o => {
           if (o.status === 'selesai') return false;
           // Logic: Jika sudah ada invoice di hari yang sama/setelahnya, sembunyikan dari antrean masuk
@@ -431,75 +486,85 @@ export default function TelegramOrdersPage() {
             {displayedOrders.map(order => (
               <div key={order.id} className="telegram-card">
                 {/* Card Header */}
-                <div className="telegram-card-header">
-                  <div>
-                  <strong style={{ color: order.matchedCustomerId ? 'var(--accent-success)' : 'var(--accent-warning)' }}>
-                    {order.customerName}
-                  </strong>
-                  {order.customerRaw && order.customerRaw !== order.customerName && (
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>({order.customerRaw})</span>
-                  )}
-                  {order.matchedCustomerId && (
-                    <span className="match-tag" style={{ marginLeft: 8 }}>✓ Matched</span>
-                  )}
-                </div>
-                <span className={`badge ${order.status === 'selesai' ? 'badge-success' : order.status === 'diproses' ? 'badge-info' : 'badge-warning'}`}>
-                  {order.status === 'baru' ? 'Baru' : order.status === 'diproses' ? 'Diproses' : 'Selesai'}
-                </span>
-              </div>
-
-              {/* Card Body */}
-              <div className="telegram-card-body">
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  marginBottom: 12, 
-                  fontSize: 13,
-                  padding: '6px 10px',
-                  background: 'rgba(255,255,255,0.03)',
-                  borderRadius: 6,
-                  border: '1px solid rgba(255,255,255,0.05)'
-                }}>
-                  <FiAlertCircle style={{ color: 'var(--primary)', fontSize: 14 }} />
-                  <span className="text-muted" style={{ fontWeight: 400 }}>Pesanan Masuk:</span>
-                  <span style={{ fontWeight: 600, color: 'var(--accent-danger)' }}>{formatDateTime(order.createdAt)}</span>
-                </div>
-                <div style={{ background: 'rgba(0,0,0,0.15)', padding: '8px 10px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
-                  <p style={{ fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 4 }}>Pesan Asli:</p>
-                  <div style={{ fontFamily: 'inherit', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                    {order.rawMessage.split('\n').map(l => l.trim()).filter(l => l).map((line, idx) => {
-                      if (idx === 0) return <div key={idx} style={{ fontWeight: 500, marginBottom: 4 }}>{line}</div>;
-                      const cleanLine = line.replace(/^[-*•]\s*/, '');
-                      return (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'flex-start' }}>
-                          <span style={{ color: 'var(--text-muted)', width: '22px', flexShrink: 0, textAlign: 'right', display: 'inline-block', marginRight: '6px' }}>{idx}.</span>
-                          <span>{cleanLine}</span>
-                        </div>
-                      );
-                    })}
+                <div className="telegram-card-header" onClick={() => toggleOrderExpand(order.id)} style={{ cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {expandedOrders.has(order.id) ? <FiChevronUp /> : <FiChevronDown />}
+                    <strong style={{ color: order.matchedCustomerId ? 'var(--accent-success)' : 'var(--accent-warning)' }}>
+                      {order.customerName}
+                    </strong>
+                    {order.customerRaw && order.customerRaw !== order.customerName && (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>({order.customerRaw})</span>
+                    )}
+                    {order.matchedCustomerId && (
+                      <span className="match-tag" style={{ marginLeft: 8 }}>✓ Matched</span>
+                    )}
                   </div>
-                </div>
-                <p style={{ fontWeight: 500, fontSize: 13, marginBottom: 6 }}>Item:</p>
-                {order.items.map((item, i) => {
-                  const isExact = item.productId && item.productName.toLowerCase().trim() === item.matchedName.toLowerCase().trim();
-                  const needsAttention = !item.productId || !isExact;
-                  return (
-                  <div key={i} className={`item-match ${needsAttention ? 'unmatched-item' : ''}`}>
-                    <span><span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{i + 1}.</span>{item.productName} <span style={{ color: 'var(--text-muted)' }}>({formatNumber(item.qty)} {item.unit})</span></span>
-                    <span className={`match-tag ${!needsAttention ? '' : 'unmatched'}`}>
-                      {item.productId ? `✓ ${item.matchedName}` : 
-                        (() => {
-                          const scopedProducts = allProducts.filter(p => !p.customerId || (order.matchedCustomerId && p.customerId === order.matchedCustomerId));
-                          const suggestions = suggestProducts(item.productName, scopedProducts).slice(0, 2);
-                          if (suggestions.length > 0) return `? Mungkin: ${suggestions.map(s => s.name).join(', ')}`;
-                          return '? Unmatched';
-                        })()
-                      }
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {!expandedOrders.has(order.id) && (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 4 }}>
+                        {order.items.length} item
+                      </span>
+                    )}
+                    <span className={`badge ${order.status === 'selesai' ? 'badge-success' : order.status === 'diproses' ? 'badge-info' : 'badge-warning'}`}>
+                      {order.status === 'baru' ? 'Baru' : order.status === 'diproses' ? 'Diproses' : 'Selesai'}
                     </span>
                   </div>
-                )})}
-              </div>
+                </div>
+
+                {/* Card Body (Expandable) */}
+                {expandedOrders.has(order.id) && (
+                  <div className="telegram-card-body animate-in" style={{ animationDuration: '0.2s' }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      marginBottom: 12, 
+                      fontSize: 13,
+                      padding: '6px 10px',
+                      background: 'rgba(255,255,255,0.03)',
+                      borderRadius: 6,
+                      border: '1px solid rgba(255,255,255,0.05)'
+                    }}>
+                      <FiAlertCircle style={{ color: 'var(--primary)', fontSize: 14 }} />
+                      <span className="text-muted" style={{ fontWeight: 400 }}>Pesanan Masuk:</span>
+                      <span style={{ fontWeight: 600, color: 'var(--accent-danger)' }}>{formatDateTime(order.createdAt)}</span>
+                    </div>
+                    <div style={{ background: 'rgba(0,0,0,0.15)', padding: '8px 10px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
+                      <p style={{ fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 4 }}>Pesan Asli:</p>
+                      <div style={{ fontFamily: 'inherit', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                        {order.rawMessage.split('\n').map(l => l.trim()).filter(l => l).map((line, idx) => {
+                          if (idx === 0) return <div key={idx} style={{ fontWeight: 500, marginBottom: 4 }}>{line}</div>;
+                          const cleanLine = line.replace(/^[-*•]\s*/, '');
+                          return (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'flex-start' }}>
+                              <span style={{ color: 'var(--text-muted)', width: '22px', flexShrink: 0, textAlign: 'right', display: 'inline-block', marginRight: '6px' }}>{idx}.</span>
+                              <span>{cleanLine}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <p style={{ fontWeight: 500, fontSize: 13, marginBottom: 6 }}>Item:</p>
+                    {order.items.map((item, i) => {
+                      const isExact = item.productId && item.productName.toLowerCase().trim() === item.matchedName.toLowerCase().trim();
+                      const needsAttention = !item.productId || !isExact;
+                      return (
+                      <div key={i} className={`item-match ${needsAttention ? 'unmatched-item' : ''}`}>
+                        <span><span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{i + 1}.</span>{item.productName} <span style={{ color: 'var(--text-muted)' }}>({formatNumber(item.qty)} {item.unit})</span></span>
+                        <span className={`match-tag ${!needsAttention ? '' : 'unmatched'}`}>
+                          {item.productId ? `✓ ${item.matchedName}` : 
+                            (() => {
+                              const scopedProducts = allProducts.filter(p => !p.customerId || (order.matchedCustomerId && p.customerId === order.matchedCustomerId));
+                              const suggestions = suggestProducts(item.productName, scopedProducts).slice(0, 2);
+                              if (suggestions.length > 0) return `? Mungkin: ${suggestions.map(s => s.name).join(', ')}`;
+                              return '? Unmatched';
+                            })()
+                          }
+                        </span>
+                      </div>
+                    )})}
+                  </div>
+                )}
 
               {/* Card Footer */}
               <div className="telegram-card-footer">

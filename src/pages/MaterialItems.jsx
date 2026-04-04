@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiPackage, FiDownload } from 'react-icons/fi';
 import Modal from '../components/Modal';
-import { SupportingMaterialItems as Store } from '../utils/storage';
+import { SupportingMaterialItems as MasterItemStore } from '../utils/storage';
 import { exportToExcel } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
 import { formatCurrency } from '../utils/formatter';
@@ -15,6 +15,8 @@ export default function MaterialItems() {
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyItem);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     reload();
@@ -23,7 +25,16 @@ export default function MaterialItems() {
   }, []);
 
   async function reload() {
-    setItems(await Store.getAll());
+    setLoading(true);
+    setError(null);
+    try {
+      setItems(await MasterItemStore.getAll());
+    } catch (err) {
+      console.error('Failed to load material items:', err);
+      setError('Gagal memuat data master bahan. Silakan periksa koneksi internet Anda.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function openAdd() {
@@ -55,9 +66,9 @@ export default function MaterialItems() {
     };
     
     if (editingId) {
-      await Store.update(editingId, payload);
+      await MasterItemStore.update(editingId, payload);
     } else {
-      await Store.create(payload);
+      await MasterItemStore.create(payload);
     }
     setModalOpen(false);
     await reload();
@@ -65,7 +76,7 @@ export default function MaterialItems() {
 
   async function confirmDelete() {
     if (!deleteId) return;
-    await Store.delete(deleteId);
+    await MasterItemStore.delete(deleteId);
     setDeleteId(null);
     await reload();
   }
@@ -102,14 +113,36 @@ export default function MaterialItems() {
         </div>
       </div>
 
-      <div className="toolbar">
-        <div className="search-box">
-          <FiSearch className="search-icon" />
-          <input type="text" placeholder="Cari item bahan..." value={search} onChange={e => setSearch(e.target.value)} />
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat data master bahan...</p>
         </div>
-      </div>
+      )}
 
-      <div className="table-container">
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiPackage /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Data'}</h3>
+          <p className="mb-md">
+            {error.includes('Permission Denied') 
+              ? 'Data master bahan ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda.'
+              : 'Terjadi kesalahan saat memuat data master bahan dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          <div className="table-container">
         <table className="table">
           <thead>
             <tr>
@@ -148,8 +181,10 @@ export default function MaterialItems() {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
+      </>
+      )}
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Master Bahan' : 'Tambah Master Bahan'}>
         <form onSubmit={handleSave}>

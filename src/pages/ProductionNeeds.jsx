@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiTool, FiFileText } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
-import { ProductionNeeds as Store, Invoices, SupportingMaterialItems } from '../utils/storage';
+import { ProductionNeeds as NeedStore, Invoices, SupportingMaterialItems } from '../utils/storage';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 
 const CATEGORY_OPTIONS = [
@@ -35,6 +35,8 @@ export default function ProductionNeedsPage() {
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [invoiceSearch, setInvoiceSearch] = useState('');
 
   useEffect(() => {
@@ -44,10 +46,21 @@ export default function ProductionNeedsPage() {
   }, []);
 
   async function reload() {
-    const data = await Store.getAll();
-    const invs = await Invoices.getAll();
-    setItems(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
-    setInvoices(invs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    setLoading(true);
+    setError(null);
+    try {
+      const [data, invs] = await Promise.all([
+        NeedStore.getAll(),
+        Invoices.getAll()
+      ]);
+      setItems(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      setInvoices(invs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    } catch (err) {
+      console.error('ProductionNeeds reload error:', err);
+      setError('Gagal memuat data kebutuhan produksi. Silakan periksa koneksi internet Anda.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function calcTotal(f = form) {
@@ -107,12 +120,12 @@ export default function ProductionNeedsPage() {
           await SupportingMaterialItems.update(match.id, { stock: (match.stock || 0) + diff });
         }
       }
-      await Store.update(editingId, payload);
+      await NeedStore.update(editingId, payload);
     } else {
       if (match) {
         await SupportingMaterialItems.update(match.id, { stock: (match.stock || 0) - qty });
       }
-      await Store.create(payload);
+      await NeedStore.create(payload);
     }
     setModalOpen(false);
     await reload();
@@ -132,7 +145,7 @@ export default function ProductionNeedsPage() {
       }
     }
 
-    await Store.delete(id);
+    await NeedStore.delete(id);
     setDeleteId(null);
     await reload();
   }
@@ -174,7 +187,36 @@ export default function ProductionNeedsPage() {
         </button>
       </div>
 
-      <div className="stats-grid">
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat data kebutuhan produksi...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiTool /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Data'}</h3>
+          <p className="mb-md">
+            {error.includes('Permission Denied') 
+              ? 'Data kebutuhan produksi ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda.'
+              : 'Terjadi kesalahan saat memuat data kebutuhan produksi dari database.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          <div className="stats-grid">
         <div className="stat-card blue">
           <div className="stat-card-header">
             <div className="stat-card-icon"><FiTool /></div>
@@ -279,8 +321,10 @@ export default function ProductionNeedsPage() {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
+      </>
+      )}
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Kebutuhan Produksi' : 'Tambah Kebutuhan Produksi'} size="md">
         <form onSubmit={handleSave}>

@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter } from 'react-icons/fi';
-import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems, Customers, Suppliers } from '../utils/storage';
+import { PurchaseNotes as PNStore, Invoices, SupportingMaterialItems as MasterItems, Customers, Suppliers } from '../utils/storage';
 
 export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
@@ -23,6 +23,9 @@ export default function PurchaseNotes() {
   const [masterBahan, setMasterBahan] = useState([]);
   const [printData, setPrintData] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [debug, setDebug] = useState({ url: '', notesCount: 0, legacyCount: 0 });
 
   useEffect(() => {
     reload();
@@ -31,13 +34,16 @@ export default function PurchaseNotes() {
   }, []);
 
   async function reload() {
-    const [allNotes, allInvoices, allCustomers, allSupps, master] = await Promise.all([
-      Store.getAll(),
-      Invoices.getAll(),
-      Customers.getAll(),
-      Suppliers.getAll(),
-      MasterItems.getAll()
-    ]);
+    setLoading(true);
+    setError(null);
+    try {
+      const [allNotes, allInvoices, allCustomers, allSupps, master] = await Promise.all([
+        PNStore.getAll(),
+        Invoices.getAll(),
+        Customers.getAll(),
+        Suppliers.getAll(),
+        MasterItems.getAll()
+      ]);
     
     const sortFn = (a, b) => {
       const db = b.date || b.createdAt || 0;
@@ -51,11 +57,19 @@ export default function PurchaseNotes() {
       return tbValid - taValid;
     };
 
-    setNotes(allNotes.sort(sortFn));
-    setFullInvoices(allInvoices);
-    setAllCustomers(allCustomers);
-    setAllSuppliers(allSupps);
-    setMasterBahan(master);
+      console.log(`📦 PurchaseNotes: Loaded ${allNotes.length} notes, ${allInvoices.length} invoices, ${master.length} master items.`);
+      
+      setDebug({
+        url: import.meta.env.VITE_SUPABASE_URL || 'Missing',
+        notesCount: allNotes.filter(n => !n.isLegacy).length, // approximate if we had a flag
+        total: allNotes.length
+      });
+
+      setNotes(allNotes.sort(sortFn));
+      setFullInvoices(allInvoices);
+      setAllCustomers(allCustomers);
+      setAllSuppliers(allSupps);
+      setMasterBahan(master);
     
     // Build material names set for faster lookup
     const masterNamesLocal = new Set(master.map(m => m.name.toLowerCase()));
@@ -125,6 +139,12 @@ export default function PurchaseNotes() {
     });
     setGroupRecap(result);
     setGroupInvoices(groupInvs);
+    } catch (err) {
+      console.error('Failed to load purchase notes data:', err);
+      setError('Gagal memuat data dari database. Silakan periksa koneksi internet Anda atau hubungi admin.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handlePrintPdf(note) {
@@ -252,7 +272,7 @@ export default function PurchaseNotes() {
 
   async function confirmDelete() {
     if (!deleteId) return;
-    await Store.delete(deleteId);
+    await PNStore.delete(deleteId);
     setDeleteId(null);
     await reload();
   }
@@ -316,16 +336,45 @@ export default function PurchaseNotes() {
           <p>Daftar nota pembelian bahan baku dan split S5/S3</p>
         </div>
         <div className="flex gap-sm">
-          <button className="btn btn-secondary" onClick={handleSyncInvoices} disabled={isSyncing}>
+          <button className="btn btn-secondary" onClick={handleSyncInvoices} disabled={isSyncing || loading}>
             <FiPlus /> {isSyncing ? 'Sinkron Selesai...' : 'Sinkronisasi Bahan'}
           </button>
-          <Link to="/purchase-notes/new" className="btn btn-primary">
+          <Link to="/purchase-notes/new" className="btn btn-primary disabled-link" disabled={loading}>
             <FiPlus /> Buat Nota Baru
           </Link>
         </div>
       </div>
 
-      <style>{`
+      {loading && (
+        <div className="card p-lg text-center animate-in">
+          <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
+          <p className="text-muted">Memuat data dari database...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiFileText /></div>
+          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Data'}</h3>
+          <p className="mb-md">
+            {error.includes('Permission Denied') 
+              ? 'Data ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda. Anda perlu mengaktifkan akses baca di dashboard Supabase.'
+              : 'Terjadi kesalahan saat mencoba menarik data dari Supabase.'}
+          </p>
+          <div className="flex-center gap-md">
+            <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
+            {error.includes('Permission Denied') && (
+              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                Buka Supabase Dashboard
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!loading && !error) && (
+        <>
+          <style>{`
         .group-invoice-list {
           margin-top: 15px;
           border-top: 1px dashed rgba(255,255,255,0.1);
@@ -574,7 +623,27 @@ export default function PurchaseNotes() {
         />
       )}
       
+      </>
+      )}
+
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      {/* Debug Info (Only shows if empty or error) */}
+      {(notes.length === 0 || error) && (
+        <div style={{ marginTop: 40, padding: 12, fontSize: 10, color: '#475569', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <details>
+            <summary style={{ cursor: 'pointer', opacity: 0.5 }}>Info Debug Database</summary>
+            <div style={{ marginTop: 8, fontFamily: 'monospace' }}>
+              <div>Supabase URL: {debug.url === 'Missing' ? '❌ MISSING' : `${debug.url.substring(0, 20)}...`}</div>
+              <div>Notes Loaded: {debug.total || 0}</div>
+              <div>Database Status: {error ? '❌ Error' : '✅ Connected'}</div>
+              <div style={{ marginTop: 4, color: '#94a3b8' }}>
+                Jika data di atas 0 tapi tabel tetap kosong, periksa filter pencarian Anda.
+                Jika data 0 tapi di DB ada isinya, periksa .env di Vercel.
+              </div>
+            </div>
+          </details>
+        </div>
+      )}
     </div>
   );
 }
