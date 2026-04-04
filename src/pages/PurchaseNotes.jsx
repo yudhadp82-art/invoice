@@ -178,33 +178,45 @@ export default function PurchaseNotes() {
 
     // Generate PDF
     await new Promise(r => setTimeout(r, 600)); // Allow render
+    let element = null;
+    let originalDisplay = '';
     try {
-      const element = document.getElementById('purchase-note-report-render');
+      element = document.getElementById('purchase-note-report-render');
       if (!element) throw new Error('Render element not found');
 
       // Temporarily show the element for html2canvas
-      const originalDisplay = element.style.display;
+      originalDisplay = element.style.display;
       element.style.display = 'block';
 
       const canvas = await html2canvas(element, { scale: 2, useCORS: true });
       const imgData = canvas.toDataURL('image/jpeg', 0.8);
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 210;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
       if (!canvas.width || !canvas.height || !isFinite(imgHeight) || imgHeight <= 0) {
         throw new Error('Invalid canvas dimensions or calculated height');
       }
-      
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
 
-      // Hide it back
-      element.style.display = originalDisplay;
+      const pageCount = Math.ceil(imgHeight / pageHeight);
+
+      for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(imgData, 'JPEG', 0, -pageIndex * pageHeight, imgWidth, imgHeight);
+      }
+
+      pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
     } catch (err) {
       console.error(err);
       alert('Gagal mencetak PDF: ' + err.message);
     } finally {
+      if (element) {
+        element.style.display = originalDisplay;
+      }
       setIsGeneratingPdf(false);
       setPrintData(null);
     }
