@@ -17,14 +17,14 @@ export default function PurchaseNoteReportPdf({
     ? { width: '800px', margin: '0 auto', background: 'white', color: 'black', padding: '20px' }
     : { position: 'absolute', top: -20000, left: -20000, width: '1000px', background: 'white', color: 'black', padding: '40px' };
  
-  // Aggregate by Supplier
-  const supplierAgg = {};
+  // Aggregate items by Supplier for grouping
+  const supplierMap = {};
   (purchaseItems || []).forEach(it => {
     const s = it.supplier || 'Penyedia Barang';
-    if (!supplierAgg[s]) supplierAgg[s] = 0;
-    supplierAgg[s] += (Number(it.totalCost) || 0);
+    if (!supplierMap[s]) supplierMap[s] = [];
+    supplierMap[s].push(it);
   });
-  const supplierSummary = Object.entries(supplierAgg).sort((a, b) => a[0].localeCompare(b[0]));
+  const supplierGroups = Object.entries(supplierMap).sort((a, b) => a[0].localeCompare(b[0]));
   
   const totalItemsCost = (purchaseItems || []).reduce((n, it) => n + (Number(it.totalCost) || 0), 0);
   const totalDiscounts = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);
@@ -54,8 +54,8 @@ export default function PurchaseNoteReportPdf({
             <tr style={{ background: '#f8fafc' }}>
               <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left', width: '20%' }}>No. Invoice</th>
               <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left', width: '25%' }}>Nama Pelanggan</th>
-              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left', width: '40%' }}>Daftar Bahan/Produk</th>
-              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'center', width: '15%' }}>Total Qty</th>
+              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left', width: '35%' }}>Daftar Bahan/Produk</th>
+              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', width: '20%' }}>Total Penjualan</th>
             </tr>
           </thead>
           <tbody>
@@ -73,8 +73,8 @@ export default function PurchaseNoteReportPdf({
                       ))}
                     </div>
                   </td>
-                  <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'center', fontWeight: 'bold' }}>
-                    {formatNumber((inv.items || []).reduce((s, it) => s + (Number(it.qty) || 0), 0))}
+                  <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', fontWeight: 'bold' }}>
+                    {formatCurrency(inv.grandTotal || Number(inv.total) || 0)}
                   </td>
                 </tr>
               ))
@@ -85,7 +85,7 @@ export default function PurchaseNoteReportPdf({
         </table>
       </div>
 
-      {/* SECTION 2: REKAP KEBUTUHAN GRUP (DC REKAP) */}
+      {/* SECTION 2: REKAP KEBUTUHAN GRUP (AGGREGATE) */}
       <div style={{ marginBottom: 30 }}>
         <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #3b82f6', paddingLeft: 10, textTransform: 'uppercase' }}>2. Rekap Kebutuhan Gabungan (Agregat)</h4>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -111,97 +111,82 @@ export default function PurchaseNoteReportPdf({
         </table>
       </div>
 
-      {/* SECTION 3: REALISASI PEMBELIAN */}
+      {/* SECTION 3 & 4 REDESIGN: REKAP PEMBELIAN PER SUPPLIER */}
       <div style={{ marginBottom: 40 }}>
-        <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #10b981', paddingLeft: 10, textTransform: 'uppercase' }}>3. Realisasi Pembelian Nota Ini</h4>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-          <thead>
-            <tr style={{ background: '#ecfdf5' }}>
-              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left' }}>Bahan Baku</th>
-              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left' }}>Supplier</th>
-              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'center', width: '15%' }}>Qty Nota</th>
-              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', width: '20%' }}>Total Biaya</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(purchaseItems || []).map((it, idx) => (
-              <tr key={idx}>
-                <td style={{ border: '1px solid #ddd', padding: '6px' }}>
-                  {it.isSubItem ? '↳ ' : ''}{it.materialName}
-                </td>
-                <td style={{ border: '1px solid #ddd', padding: '6px' }}>{it.supplier || '-'}</td>
-                <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'center', fontWeight: 'bold' }}>{formatNumber(it.qtyNota)} {it.unit}</td>
-                <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right' }}>{formatCurrency(it.totalCost)}</td>
-              </tr>
-            ))}
-            <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
-              <td colSpan="3" style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>GRAND TOTAL PEMBELIAN:</td>
-              <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', color: '#059669', fontSize: 13 }}>
-                {formatCurrency(grandTotalNet)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
- 
-      {/* SECTION 4: RINGKASAN PEMBAYARAN PER SUPPLIER */}
-      <div style={{ marginBottom: 40 }}>
-        <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #f59e0b', paddingLeft: 10, textTransform: 'uppercase' }}>4. Ringkasan per Supplier</h4>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-          <thead>
-            <tr style={{ background: '#fffbeb' }}>
-              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left' }}>Nama Supplier</th>
-              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'left' }}>Info Rekening (Bank / A.N / Nomor)</th>
-              <th style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', width: '25%' }}>Total Tagihan</th>
-            </tr>
-          </thead>
-          <tbody>
-            {supplierSummary.map(([s, total], idx) => {
-              const discount = Number(supplierDiscounts[s]) || 0;
-              const netTotal = Math.max(0, total - discount);
-              const suppInfo = (suppliersData || []).find(sd => 
-                (sd.name || '').toLowerCase() === s.toLowerCase() || 
-                (sd.company || '').toLowerCase() === s.toLowerCase()
-              );
-              return (
-                <React.Fragment key={idx}>
-                  <tr>
-                    <td style={{ border: '1px solid #ddd', padding: '6px', fontWeight: 'bold' }}>{s}</td>
-                    <td style={{ border: '1px solid #ddd', padding: '6px', fontSize: 10 }}>
-                      {suppInfo && suppInfo.bankName ? (
-                        <div>
-                          <strong>{suppInfo.bankName}</strong> - {suppInfo.accountName} <br/>
-                          <span style={{ fontSize: 12, fontWeight: 'bold', color: '#111' }}>{suppInfo.accountNumber}</span>
-                        </div>
-                      ) : (
-                        <span style={{ color: '#999', fontStyle: 'italic' }}>Informasi rekening tidak tersedia</span>
-                      )}
-                    </td>
-                    <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', fontWeight: 'bold' }}>
-                      {discount > 0 ? (
-                        <div style={{ fontSize: 10 }}>
-                          <span style={{ fontWeight: 'normal', color: '#666' }}>Sub: {formatCurrency(total)}</span><br/>
-                          <span style={{ color: '#ef4444' }}>Disc: -{formatCurrency(discount)}</span><br/>
-                          <span style={{ borderTop: '1px solid #eee', marginTop: 2, display: 'block' }}>{formatCurrency(netTotal)}</span>
-                        </div>
-                      ) : (
-                        formatCurrency(total)
-                      )}
-                    </td>
+        <h4 style={{ margin: '0 0 15px 0', fontSize: 13, borderLeft: '4px solid #10b981', paddingLeft: 10, textTransform: 'uppercase' }}>3. Rekap & Realisasi Pembelian per Supplier</h4>
+        
+        {supplierGroups.map(([s, items], idx) => {
+          const discount = Number(supplierDiscounts[s]) || 0;
+          const subtotal = items.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+          const netToPay = Math.max(0, subtotal - discount);
+          const suppInfo = (suppliersData || []).find(sd => 
+            (sd.name || '').toLowerCase() === s.toLowerCase() || 
+            (sd.company || '').toLowerCase() === s.toLowerCase()
+          );
+
+          return (
+            <div key={idx} style={{ marginBottom: 25, border: '1px solid #eee', borderRadius: 8, overflow: 'hidden' }}>
+              {/* Supplier Header Box */}
+              <div style={{ background: '#f1f5f9', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd' }}>
+                 <div>
+                    <span style={{ fontSize: 10, textTransform: 'uppercase', color: '#64748b' }}>Penyedia Barang:</span>
+                    <h5 style={{ margin: 0, fontSize: 14, fontWeight: '800', color: '#1e293b' }}>{s.toUpperCase()}</h5>
+                 </div>
+                 <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: 10, textTransform: 'uppercase', color: '#64748b' }}>Info Pembayaran (Bank):</span>
+                    <div style={{ fontSize: 11, fontWeight: 'bold', color: '#0f172a' }}>
+                      {suppInfo && suppInfo.bankName ? `${suppInfo.bankName} / ${suppInfo.accountName} / ${suppInfo.accountNumber}` : 'Informasi rekening tidak tersedia'}
+                    </div>
+                 </div>
+              </div>
+
+              {/* Items Table for this Supplier */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+                <thead>
+                  <tr style={{ background: '#fff', borderBottom: '1px solid #eee' }}>
+                    <th style={{ padding: '6px 15px', textAlign: 'left', color: '#666' }}>Bahan Baku</th>
+                    <th style={{ padding: '6px 15px', textAlign: 'center', color: '#666', width: '15%' }}>Qty</th>
+                    <th style={{ padding: '6px 15px', textAlign: 'right', color: '#666', width: '20%' }}>Harga Satuan</th>
+                    <th style={{ padding: '6px 15px', textAlign: 'right', color: '#666', width: '20%' }}>Total</th>
                   </tr>
-                </React.Fragment>
-              );
-            })}
-            <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
-              <td colSpan="2" style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>REKAP TOTAL PEMBAYARAN:</td>
-              <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', color: '#b45309', fontSize: 13 }}>
-                {formatCurrency(grandTotalNet)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </thead>
+                <tbody>
+                  {items.map((it, iIdx) => (
+                    <tr key={iIdx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                      <td style={{ padding: '6px 15px' }}>{it.isSubItem ? '↳ ' : ''}{it.materialName}</td>
+                      <td style={{ padding: '6px 15px', textAlign: 'center', fontWeight: 'bold' }}>{formatNumber(it.qtyNota)} {it.unit}</td>
+                      <td style={{ padding: '6px 15px', textAlign: 'right' }}>{formatCurrency(it.pricePerUnit)}</td>
+                      <td style={{ padding: '6px 15px', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(it.totalCost)}</td>
+                    </tr>
+                  ))}
+                  {/* Summary Rows for this Supplier */}
+                  <tr style={{ background: '#fcfcfc' }}>
+                    <td colSpan="3" style={{ padding: '6px 15px', textAlign: 'right', color: '#666' }}>Subtotal:</td>
+                    <td style={{ padding: '6px 15px', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(subtotal)}</td>
+                  </tr>
+                  {discount > 0 && (
+                    <tr style={{ background: '#fcfcfc' }}>
+                      <td colSpan="3" style={{ padding: '6px 15px', textAlign: 'right', color: '#ef4444' }}>Potongan Diskon:</td>
+                      <td style={{ padding: '6px 15px', textAlign: 'right', fontWeight: 'bold', color: '#ef4444' }}>-{formatCurrency(discount)}</td>
+                    </tr>
+                  )}
+                  <tr style={{ background: '#ecfdf5', fontWeight: 'bold' }}>
+                    <td colSpan="3" style={{ padding: '10px 15px', textAlign: 'right', fontSize: 11 }}>TOTAL DIBAYAR KE {s.toUpperCase()}:</td>
+                    <td style={{ padding: '10px 15px', textAlign: 'right', fontSize: 12, color: '#059669' }}>{formatCurrency(netToPay)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+
+        {/* Global Grand Total Header */}
+        <div style={{ marginTop: 30, background: '#1e293b', color: 'white', padding: '15px 20px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h4 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Grand Total Seluruh Nota</h4>
+          <span style={{ fontSize: 18, fontWeight: '800', color: '#10b981' }}>{formatCurrency(grandTotalNet)}</span>
+        </div>
       </div>
- 
+      
       {/* Signatures */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 10 }}>
         <div style={{ textAlign: 'center', width: 200 }}>
