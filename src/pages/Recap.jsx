@@ -51,8 +51,11 @@ export default function Recap() {
     });
   });
 
-  // Aggregasi Pembelian (Purchase Notes)
+  // Aggregasi Pembelian (Purchase Notes) - dengan perhitungan margin detail
   const purchaseSummary = {};
+  let totalAdditionalCosts = 0;
+  let totalSupplierDiscounts = 0;
+  
   filteredPurchases.forEach(pn => {
     (pn.items || []).forEach(item => {
       const key = item.materialName || 'Tanpa Nama';
@@ -62,11 +65,23 @@ export default function Recap() {
       purchaseSummary[key].qty += Number(item.qtyNota) || 0;
       purchaseSummary[key].total += Number(item.totalCost) || 0;
     });
+    // Add supplier discounts and additional costs
+    if (pn.supplierDiscounts) {
+      Object.values(pn.supplierDiscounts).forEach(discount => {
+        totalSupplierDiscounts += Number(discount) || 0;
+      });
+    }
+    if (pn.additionalCosts) {
+      Object.values(pn.additionalCosts).forEach(cost => {
+        totalAdditionalCosts += Number(cost) || 0;
+      });
+    }
   });
 
-  const totalSalesRevenue = Object.values(salesSummary).reduce((sum, item) => sum + item.total, 0);
-  const totalPurchaseCost = Object.values(purchaseSummary).reduce((sum, item) => sum + item.total, 0);
+  const totalPurchaseBaseCost = Object.values(purchaseSummary).reduce((sum, item) => sum + item.total, 0);
+  const totalPurchaseCost = totalPurchaseBaseCost - totalSupplierDiscounts + totalAdditionalCosts;
   const balance = totalSalesRevenue - totalPurchaseCost;
+  const marginPercentage = totalSalesRevenue > 0 ? ((balance / totalSalesRevenue) * 100).toFixed(1) : 0;
 
   if (loading) return <div className="p-lg text-center">Memuat data...</div>;
 
@@ -127,11 +142,50 @@ export default function Recap() {
         <div className={balance >= 0 ? 'stat-card green' : 'stat-card red'}>
           <div className="stat-card-header">
             <div className="stat-card-icon"><FiBarChart2 /></div>
-            <div className="stat-card-label">Net Balance</div>
+            <div className="stat-card-label">Net Balance / Margin</div>
           </div>
           <div className="stat-card-value">{formatCurrency(balance)}</div>
           <div className="stat-card-footer text-sm">
-            {balance >= 0 ? 'Surplus' : 'Defisit'} Periode Ini
+            {balance >= 0 ? 'Profit' : 'Loss'} <span style={{ fontWeight: 700, color: balance >= 0 ? '#10b981' : '#ef4444' }}>({marginPercentage}%)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Margin Breakdown Card */}
+      <div className="card shadow-sm" style={{ marginBottom: '24px' }}>
+        <div className="card-header">
+          <h3 className="flex-center gap-sm"><FiBarChart2 className="text-primary" /> Detail Perhitungan Margin</h3>
+        </div>
+        <div style={{ padding: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+            <div style={{ padding: '12px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Total Penjualan (Revenue)</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#3b82f6' }}>{formatCurrency(totalSalesRevenue)}</div>
+            </div>
+            <div style={{ padding: '12px', background: 'rgba(249, 115, 22, 0.1)', borderRadius: '8px', border: '1px solid rgba(249, 115, 22, 0.2)' }}>
+              <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Biaya Pembelian Dasar</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#f97316' }}>{formatCurrency(totalPurchaseBaseCost)}</div>
+            </div>
+            {totalSupplierDiscounts > 0 && (
+              <div style={{ padding: '12px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '8px', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Diskon Supplier (-)</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>-{formatCurrency(totalSupplierDiscounts)}</div>
+              </div>
+            )}
+            {totalAdditionalCosts > 0 && (
+              <div style={{ padding: '12px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Biaya Tambahan (+)</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#8b5cf6' }}>+{formatCurrency(totalAdditionalCosts)}</div>
+              </div>
+            )}
+            <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+              <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Total Biaya Pembelian</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>{formatCurrency(totalPurchaseCost)}</div>
+            </div>
+            <div style={{ padding: '12px', background: balance >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: `1px solid ${balance >= 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
+              <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Margin Bersih (Laba/Rugi)</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: balance >= 0 ? '#10b981' : '#ef4444' }}>{formatCurrency(balance)}</div>
+            </div>
           </div>
         </div>
       </div>
