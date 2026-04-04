@@ -519,7 +519,7 @@ export default function PurchaseNoteForm() {
         backgroundColor: '#ffffff',
         scrollX: 0,
         scrollY: 0,
-        windowWidth: 1024,
+        windowWidth: 800,
         windowHeight: element.scrollHeight + 200 // Capture the ENTIRE scrollable height!
       });
       
