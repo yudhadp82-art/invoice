@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter } from 'react-icons/fi';
 import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems, Customers, Suppliers } from '../utils/storage';
@@ -194,45 +193,17 @@ export default function PurchaseNotes() {
         compress: true
       });
       
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const marginL = 10;
-      const marginR = 10;
-      const marginT = 12;
-      const marginB = 12;
-      const usableWidth = pageWidth - marginL - marginR;
-      const usableHeight = pageHeight - marginT - marginB;
-      const scale = 2;
-      const quality = 0.95;
-
-      // Capture entire element as one large canvas
-      const fullCanvas = await html2canvas(element, { scale, useCORS: true, logging: false });
-      const imgData = fullCanvas.toDataURL('image/jpeg', quality);
-      
-      // Calculate image dimensions scaled to usable page width
-      const imgWidth = usableWidth;
-      const imgHeight = (fullCanvas.height * usableWidth) / fullCanvas.width;
-      
-      if (!fullCanvas.width || !fullCanvas.height) {
-        throw new Error('Failed to capture report element');
-      }
-
-      // Calculate number of pages needed
-      const pageCount = Math.ceil(imgHeight / usableHeight);
-      
-      // Add each page with proper margins
-      for (let i = 0; i < pageCount; i++) {
-        if (i > 0) {
-          pdf.addPage();
+      // Use jsPDF's HTML renderer for better automatic page breaking
+      await pdf.html(element, {
+        margin: [12, 10, 12, 10], // top, left, bottom, right
+        html2canvas: { 
+          scale: 1.5, 
+          useCORS: true, 
+          logging: false,
+          backgroundColor: '#ffffff'
         }
-        
-        // Calculate the Y offset for this page's portion of the image
-        const yOffset = -(i * usableHeight);
-        
-        // Add image positioned with margins
-        pdf.addImage(imgData, 'JPEG', marginL, marginT + yOffset, imgWidth, imgHeight);
-      }
-
+      });
+      
       pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
     } catch (err) {
       console.error(err);
