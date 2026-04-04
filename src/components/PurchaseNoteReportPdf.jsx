@@ -1,7 +1,16 @@
 import React from 'react';
 import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 
-export default function PurchaseNoteReportPdf({ groupName, date, groupRecap, purchaseItems, invoicesList, suppliersData = [], forPrint = false }) {
+export default function PurchaseNoteReportPdf({ 
+  groupName, 
+  date, 
+  groupRecap, 
+  purchaseItems, 
+  supplierDiscounts = {}, 
+  invoicesList, 
+  suppliersData = [], 
+  forPrint = false 
+}) {
   if (!groupName) return null;
 
   const containerStyle = forPrint 
@@ -16,6 +25,10 @@ export default function PurchaseNoteReportPdf({ groupName, date, groupRecap, pur
     supplierAgg[s] += (Number(it.totalCost) || 0);
   });
   const supplierSummary = Object.entries(supplierAgg).sort((a, b) => a[0].localeCompare(b[0]));
+  
+  const totalItemsCost = (purchaseItems || []).reduce((n, it) => n + (Number(it.totalCost) || 0), 0);
+  const totalDiscounts = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);
+  const grandTotalNet = Math.max(0, totalItemsCost - totalDiscounts);
 
   return (
     <div id="purchase-note-report-render" style={containerStyle}>
@@ -124,7 +137,7 @@ export default function PurchaseNoteReportPdf({ groupName, date, groupRecap, pur
             <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
               <td colSpan="3" style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>GRAND TOTAL PEMBELIAN:</td>
               <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', color: '#059669', fontSize: 13 }}>
-                {formatCurrency((purchaseItems || []).reduce((n, it) => n + (Number(it.totalCost) || 0), 0))}
+                {formatCurrency(grandTotalNet)}
               </td>
             </tr>
           </tbody>
@@ -144,31 +157,45 @@ export default function PurchaseNoteReportPdf({ groupName, date, groupRecap, pur
           </thead>
           <tbody>
             {supplierSummary.map(([s, total], idx) => {
+              const discount = Number(supplierDiscounts[s]) || 0;
+              const netTotal = Math.max(0, total - discount);
               const suppInfo = (suppliersData || []).find(sd => 
                 (sd.name || '').toLowerCase() === s.toLowerCase() || 
                 (sd.company || '').toLowerCase() === s.toLowerCase()
               );
               return (
-                <tr key={idx}>
-                  <td style={{ border: '1px solid #ddd', padding: '6px', fontWeight: 'bold' }}>{s}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '6px', fontSize: 10 }}>
-                    {suppInfo && suppInfo.bankName ? (
-                      <div>
-                        <strong>{suppInfo.bankName}</strong> - {suppInfo.accountName} <br/>
-                        <span style={{ fontSize: 12, fontWeight: 'bold', color: '#111' }}>{suppInfo.accountNumber}</span>
-                      </div>
-                    ) : (
-                      <span style={{ color: '#999', fontStyle: 'italic' }}>Informasi rekening tidak tersedia</span>
-                    )}
-                  </td>
-                  <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(total)}</td>
-                </tr>
+                <React.Fragment key={idx}>
+                  <tr>
+                    <td style={{ border: '1px solid #ddd', padding: '6px', fontWeight: 'bold' }}>{s}</td>
+                    <td style={{ border: '1px solid #ddd', padding: '6px', fontSize: 10 }}>
+                      {suppInfo && suppInfo.bankName ? (
+                        <div>
+                          <strong>{suppInfo.bankName}</strong> - {suppInfo.accountName} <br/>
+                          <span style={{ fontSize: 12, fontWeight: 'bold', color: '#111' }}>{suppInfo.accountNumber}</span>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#999', fontStyle: 'italic' }}>Informasi rekening tidak tersedia</span>
+                      )}
+                    </td>
+                    <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', fontWeight: 'bold' }}>
+                      {discount > 0 ? (
+                        <div style={{ fontSize: 10 }}>
+                          <span style={{ fontWeight: 'normal', color: '#666' }}>Sub: {formatCurrency(total)}</span><br/>
+                          <span style={{ color: '#ef4444' }}>Disc: -{formatCurrency(discount)}</span><br/>
+                          <span style={{ borderTop: '1px solid #eee', marginTop: 2, display: 'block' }}>{formatCurrency(netTotal)}</span>
+                        </div>
+                      ) : (
+                        formatCurrency(total)
+                      )}
+                    </td>
+                  </tr>
+                </React.Fragment>
               );
             })}
             <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
               <td colSpan="2" style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>REKAP TOTAL PEMBAYARAN:</td>
               <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', color: '#b45309', fontSize: 13 }}>
-                {formatCurrency(supplierSummary.reduce((s, it) => s + it[1], 0))}
+                {formatCurrency(grandTotalNet)}
               </td>
             </tr>
           </tbody>

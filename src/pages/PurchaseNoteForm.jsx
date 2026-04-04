@@ -54,6 +54,7 @@ export default function PurchaseNoteForm() {
   const [allSuppliers, setAllSuppliers] = useState([]);
   const [groupInvoices, setGroupInvoices] = useState({});
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
+  const [supplierDiscounts, setSupplierDiscounts] = useState({}); // { supplierName: amount }
   const [saving, setSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -121,6 +122,7 @@ export default function PurchaseNoteForm() {
             setInvoiceNumber(noteData.invoiceNumber || '');
             setCurrentGroupName(noteData.groupName || '');
             setSourceInvoiceIds(noteData.sourceInvoiceIds || []);
+            setSupplierDiscounts(noteData.supplierDiscounts || {});
             setStatusMessage(`✅ Berhasil menarik ${actualItems.length} barang dari database.`);
             setItemsCount(actualItems.length);
           } else {
@@ -427,7 +429,8 @@ export default function PurchaseNoteForm() {
         invoiceId,
         invoiceNumber,
         groupName: currentGroupName,
-        sourceInvoiceIds
+        sourceInvoiceIds,
+        supplierDiscounts
       };
 
       if (isEditing) {
@@ -523,7 +526,9 @@ export default function PurchaseNoteForm() {
     }
   }
 
-   const grandTotalValue = (items || []).reduce((s, it) => s + (Number(it.totalCost) || 0), 0);
+  const totalItemCost = (items || []).reduce((s, it) => s + (Number(it.totalCost) || 0), 0);
+  const totalDiscount = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);
+  const grandTotalValue = Math.max(0, totalItemCost - totalDiscount);
 
   return (
     <div className="animate-in">
@@ -789,13 +794,16 @@ export default function PurchaseNoteForm() {
                   </thead>
                   <tbody>
                     {supplierGroups.map(([sup, supItems]) => {
-                      const supTotal = supItems.reduce((s, it) => s + (Number(it.totalCost) || 0), 0);
+                      const supSubtotal = supItems.reduce((s, it) => s + (Number(it.totalCost) || 0), 0);
+                      const discount = Number(supplierDiscounts[sup]) || 0;
+                      const supNet = Math.max(0, supSubtotal - discount);
+
                       return (
-                        <>
+                        <React.Fragment key={sup}>
                           {supItems.map((item, si) => (
                             <tr key={`${sup}-${si}`}>
                               {si === 0 && (
-                                <td rowSpan={supItems.length + 1} style={{ fontWeight: 700, color: 'var(--accent-primary-hover)', verticalAlign: 'top', borderRight: '1px solid rgba(255,255,255,0.05)', paddingTop: 10 }}>
+                                <td rowSpan={supItems.length + 2} style={{ fontWeight: 700, color: 'var(--accent-primary-hover)', verticalAlign: 'top', borderRight: '1px solid rgba(255,255,255,0.05)', paddingTop: 10 }}>
                                   {sup}
                                 </td>
                               )}
@@ -806,11 +814,23 @@ export default function PurchaseNoteForm() {
                               <td className="text-right font-medium">{formatCurrency(item.totalCost)}</td>
                             </tr>
                           ))}
-                          <tr style={{ background: 'rgba(99,102,241,0.06)', fontWeight: 700 }}>
-                            <td colSpan={4} className="text-right text-sm">Total {sup}</td>
-                            <td className="text-right" style={{ color: '#6366f1' }}>{formatCurrency(supTotal)}</td>
+                          <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
+                            <td colSpan={4} className="text-right text-sm">Potongan Diskon (Rp)</td>
+                            <td className="text-right">
+                              <input 
+                                type="number" 
+                                className="form-input form-input-sm" 
+                                value={supplierDiscounts[sup] || 0}
+                                onChange={e => setSupplierDiscounts(prev => ({ ...prev, [sup]: Number(e.target.value) || 0 }))}
+                                style={{ width: '120px', textAlign: 'right', border: '1px dashed rgba(99,102,241,0.3)', background: 'transparent' }} 
+                              />
+                            </td>
                           </tr>
-                        </>
+                          <tr style={{ background: 'rgba(99,102,241,0.06)', fontWeight: 700 }}>
+                            <td colSpan={4} className="text-right text-sm">Total {sup} (Net)</td>
+                            <td className="text-right" style={{ color: '#6366f1' }}>{formatCurrency(supNet)}</td>
+                          </tr>
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
@@ -1050,6 +1070,7 @@ export default function PurchaseNoteForm() {
           date={date}
           groupRecap={groupRecapData[currentGroupName] || []}
           purchaseItems={items}
+          supplierDiscounts={supplierDiscounts}
           invoicesList={
             sourceInvoiceIds && sourceInvoiceIds.length > 0 
               ? invoices.filter(inv => sourceInvoiceIds.includes(inv.id))
