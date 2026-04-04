@@ -182,6 +182,10 @@ export default function PurchaseNotes() {
       const element = document.getElementById('purchase-note-report-render');
       if (!element) throw new Error('Render element not found');
 
+      // Temporarily show the element for html2canvas
+      const originalDisplay = element.style.display;
+      element.style.display = 'block';
+
       const canvas = await html2canvas(element, { scale: 2, useCORS: true });
       const imgData = canvas.toDataURL('image/jpeg', 0.8);
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -194,6 +198,9 @@ export default function PurchaseNotes() {
       
       pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
       pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
+
+      // Hide it back
+      element.style.display = originalDisplay;
     } catch (err) {
       console.error(err);
       alert('Gagal mencetak PDF: ' + err.message);
