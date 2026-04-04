@@ -19,7 +19,7 @@ export default function PurchaseNoteReportPdf({
     minHeight: '297mm',
     background: 'white',
     color: 'black',
-    padding: '12mm 15mm',
+    padding: '20mm 15mm',
     margin: '0 auto',
     boxSizing: 'border-box',
     fontFamily: 'Arial, sans-serif',
@@ -51,7 +51,7 @@ export default function PurchaseNoteReportPdf({
   return (
     <div id="purchase-note-report-render" className="print-only" style={containerStyle}>
       {/* Header */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', borderBottom: '2px solid #1e293b', paddingBottom: 10, marginBottom: 15, gap: 8 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', borderBottom: '2px solid #1e293b', paddingBottom: 10, marginBottom: 20, gap: 8 }}>
         <div style={{ width: 55, height: 55, marginRight: 15, flexShrink: 0 }}>
           <img src="/logo-kdmp.png" alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
         </div>
@@ -91,7 +91,7 @@ export default function PurchaseNoteReportPdf({
       </div>
 
       {/* SECTION 2: REKAP & REALISASI PEMBELIAN PER SUPPLIER */}
-      <h4 style={{ margin: '12px 0 10px 0', fontSize: 10, borderLeft: '4px solid #10b981', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b' }}>2. Rekap & Realisasi Pembelian per Supplier</h4>
+      <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #10b981', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b' }}>2. Rekap & Realisasi Pembelian per Supplier</h4>
       
       {supplierGroups.map(([s, items], idx) => {
         const discount = Number(supplierDiscounts[s]) || 0;
@@ -103,7 +103,7 @@ export default function PurchaseNoteReportPdf({
         );
 
         return (
-          <div key={idx} className="print-section" style={{ border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'hidden', marginBottom: 10 }}>
+          <div key={idx} className="print-section" style={{ border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'hidden', marginBottom: 14 }}>\n
             {/* Supplier Header Box */}
             <div style={{ background: '#f8fafc', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', gap: 10 }}>
                <div>
@@ -162,7 +162,7 @@ export default function PurchaseNoteReportPdf({
       })}
 
         {/* Global Grand Total Area */}
-        <div style={{ marginTop: 15, background: '#0f172a', color: 'white', padding: '12px 16px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ marginTop: 24, background: '#0f172a', color: 'white', padding: '12px 16px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h4 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 10, opacity: 0.8, fontWeight: '600' }}>Grand Total Keseluruhan</h4>
             <div style={{ fontSize: 7, marginTop: 2, opacity: 0.6 }}>(Total bersih setelah potongan)</div>
@@ -173,7 +173,7 @@ export default function PurchaseNoteReportPdf({
         </div>
 
       {/* Signatures */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 18, fontSize: 8, padding: '0 20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, fontSize: 8, padding: '0 20px' }}>
         <div style={{ textAlign: 'center', width: 160 }}>
           <p style={{ marginBottom: 45, margin: 0, fontSize: 8 }}>Diperiksa Oleh,</p>
           <div style={{ borderBottom: '1px solid #1e293b', width: '100%', marginBottom: 3 }}></div>
