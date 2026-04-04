@@ -187,13 +187,21 @@ export default function PurchaseNotes() {
       originalDisplay = element.style.display;
       element.style.display = 'block';
 
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      pdf.setProperties({ title: `Laporan_Pembelian_${grp}` });
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
       
-      const pageHeight = 277; // A4 height minus margins (297 - 20mm margins)
-      const pageWidth = 210; // A4 width in mm
-      const marginTop = 10;
-      const marginBottom = 10;
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const marginL = 10;
+      const marginR = 10;
+      const marginT = 12;
+      const marginB = 12;
+      const usableWidth = pageWidth - marginL - marginR;
+      const usableHeight = pageHeight - marginT - marginB;
       const scale = 2;
       const quality = 0.95;
 
@@ -201,26 +209,28 @@ export default function PurchaseNotes() {
       const fullCanvas = await html2canvas(element, { scale, useCORS: true, logging: false });
       const imgData = fullCanvas.toDataURL('image/jpeg', quality);
       
-      // Calculate total image dimensions
-      const imgWidth = pageWidth - 20; // Account for page margins
-      const totalHeight = (fullCanvas.height * imgWidth) / fullCanvas.width;
+      // Calculate image dimensions scaled to usable page width
+      const imgWidth = usableWidth;
+      const imgHeight = (fullCanvas.height * usableWidth) / fullCanvas.width;
       
       if (!fullCanvas.width || !fullCanvas.height) {
         throw new Error('Failed to capture report element');
       }
 
-      // Add pages with proper margins
-      let currentPosition = 0;
-      let pageIndex = 0;
-
-      while (currentPosition < totalHeight) {
-        if (pageIndex > 0) {
+      // Calculate number of pages needed
+      const pageCount = Math.ceil(imgHeight / usableHeight);
+      
+      // Add each page with proper margins
+      for (let i = 0; i < pageCount; i++) {
+        if (i > 0) {
           pdf.addPage();
         }
-        // Position image with proper margins: 10mm from left, position from top accounting for margin
-        pdf.addImage(imgData, 'JPEG', 10, marginTop - (currentPosition / totalHeight * pageHeight), imgWidth, totalHeight);
-        currentPosition += pageHeight;
-        pageIndex += 1;
+        
+        // Calculate the Y offset for this page's portion of the image
+        const yOffset = -(i * usableHeight);
+        
+        // Add image positioned with margins
+        pdf.addImage(imgData, 'JPEG', marginL, marginT + yOffset, imgWidth, imgHeight);
       }
 
       pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
