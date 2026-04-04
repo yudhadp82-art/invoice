@@ -181,18 +181,22 @@ export default function PurchaseNoteForm() {
 
         // Group recap building
         const nameToGroup = {};
-        allCustomers.forEach(c => { if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group; });
+        (allCustomers || []).forEach(c => { 
+          if (c && c.group && c.name) {
+            nameToGroup[c.name.toLowerCase()] = c.group; 
+          }
+        });
         const groupAgg = {};
         const groupInvs = {};
-        invs.forEach(inv => {
-          if (usedIds.has(inv.id)) return;
+        (invs || []).forEach(inv => {
+          if (!inv || usedIds.has(inv.id)) return;
           const grp = nameToGroup[(inv.customerName || '').toLowerCase()];
           if (!grp) return;
           if (!groupAgg[grp]) groupAgg[grp] = {};
           if (!groupInvs[grp]) groupInvs[grp] = [];
           groupInvs[grp].push(inv);
           (inv.items || []).forEach(it => {
-            const key = (it.productName || '').trim();
+            const key = (it?.productName || '').trim();
             if (!key) return;
             if (!groupAgg[grp][key]) groupAgg[grp][key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
             groupAgg[grp][key].totalQty += (Number(it.qty) || 0);
@@ -582,9 +586,9 @@ export default function PurchaseNoteForm() {
             </thead>
             <tbody>
               {(() => {
-                const currentInvoice = invoices.find(inv => inv.id === invoiceId);
+                const currentInvoice = (invoices || []).find(inv => inv.id === invoiceId);
                 
-                return items.map((item, idx) => {
+                return (items || []).map((item, idx) => {
                   let selectable = masterBahan;
                   if (currentInvoice) {
                     selectable = masterBahan.filter(m =>
@@ -703,7 +707,8 @@ export default function PurchaseNoteForm() {
         {/* Rekap per Supplier */}
         {(() => {
           const supplierMap = {};
-          items.forEach(item => {
+          (items || []).forEach(item => {
+            if (!item) return;
             const sup = (item.supplier || supplierName || '(Supplier Tidak Diisi)').trim();
             if (!supplierMap[sup]) supplierMap[sup] = [];
             supplierMap[sup].push(item);
