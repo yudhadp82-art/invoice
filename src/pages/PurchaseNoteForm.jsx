@@ -13,6 +13,7 @@ const emptyItem = {
   materialName: '',
   unit: '',
   supplier: '',
+  isManuallyEdited: false,
   qtyNota: 0,
   invoiceQty: 0,
   pricePerUnit: 0,
@@ -151,6 +152,7 @@ export default function PurchaseNoteForm() {
             if (!newItem.splits.s2) newItem.splits.s2 = { qty: 0, shrinkage: 0, netQty: 0 };
             if (!newItem.splits.s3) newItem.splits.s3 = { qty: 0, shrinkage: 0, netQty: 0 };
           }
+          newItem.isManuallyEdited = true; // Existing note items are already checked
           return newItem;
         });
         setItems(hydrated);
@@ -263,6 +265,11 @@ export default function PurchaseNoteForm() {
   function updateItem(index, field, value) {
     const newItems = [...items];
     const it = { ...newItems[index] };
+    
+    // Mark as manually edited if Material or Qty changed
+    if (field === 'materialId' || field === 'qtyNota') {
+      it.isManuallyEdited = true;
+    }
 
     // Proportional Split Logic for S5/S2/S3 (Gabung Nota)
     if (field === 'qtyNota' && it.invoiceBreakdown && it.invoiceQty > 0) {
@@ -619,7 +626,7 @@ export default function PurchaseNoteForm() {
                   }
 
                   return (
-                    <tr key={idx} className="animate-in" style={{ backgroundColor: !item.materialId ? 'rgba(239, 68, 68, 0.03)' : undefined }}>
+                    <tr key={idx} className="animate-in" style={{ backgroundColor: !item.isManuallyEdited ? 'rgba(239, 68, 68, 0.05)' : undefined }}>
                       <td className="text-center" style={{ verticalAlign: 'middle' }}>
                         <span className="badge badge-primary">{idx + 1}</span>
                       </td>
@@ -648,9 +655,9 @@ export default function PurchaseNoteForm() {
                             style={{ 
                               paddingLeft: item.isSubItem ? '16px' : undefined, 
                               flex: 1,
-                              borderColor: !item.materialId ? '#ef4444' : undefined,
-                              borderWidth: !item.materialId ? '2px' : undefined,
-                              boxShadow: !item.materialId ? '0 0 0 1px rgba(239, 68, 68, 0.1)' : undefined
+                              borderColor: !item.isManuallyEdited ? '#ef4444' : undefined,
+                              borderWidth: !item.isManuallyEdited ? '2px' : undefined,
+                              boxShadow: !item.isManuallyEdited ? '0 0 0 1px rgba(239, 68, 68, 0.1)' : undefined
                             }}
                           >
                             <option value="">-- {currentInvoice ? 'Invoice Item' : 'Pilih Bahan'} --</option>
@@ -668,9 +675,9 @@ export default function PurchaseNoteForm() {
                             )}
                           </select>
                           {item.isSubItem && <span className="badge badge-purple" style={{ fontSize: 10, padding: '2px 4px' }}>Sub-Mix</span>}
-                          {!item.materialId && (
+                          {!item.isManuallyEdited && (
                             <span className="badge" style={{ backgroundColor: '#ef4444', color: 'white', fontSize: 10, padding: '2px 6px', whiteSpace: 'nowrap' }}>
-                              ⚠️ {item.materialName ? 'Baru' : 'Pilih Bahan'}
+                              ⚠️ Belum Dicek
                             </span>
                           )}
                         </div>
@@ -678,7 +685,17 @@ export default function PurchaseNoteForm() {
                       <td>
                         <div>
                           <div className="flex-center gap-xs">
-                            <input type="number" className="form-input form-input-sm" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} style={{ width: '60px' }} />
+                            <input 
+                              type="number" 
+                              className="form-input form-input-sm" 
+                              value={item.qtyNota} 
+                              onChange={e => updateItem(idx, 'qtyNota', e.target.value)} 
+                              style={{ 
+                                width: '65px', 
+                                borderColor: !item.isManuallyEdited ? '#ef4444' : undefined, 
+                                borderWidth: !item.isManuallyEdited ? '2px' : undefined 
+                              }} 
+                            />
                             <span className="text-xs text-muted">{item.unit || ''}</span>
                           </div>
                           {item.invoiceQty > 0 && (
@@ -952,6 +969,7 @@ export default function PurchaseNoteForm() {
                   if (!matMap[key]) {
                     matMap[key] = {
                       materialId: mb.id, materialName: mb.name, unit: mb.unit,
+                      isManuallyEdited: false,
                       qtyNota: 0, invoiceQty: 0, pricePerUnit: Number(it.unitPrice) || 0,
                       sellPrice: Number(it.unitPrice) || 0,
                       invoiceBreakdown: { s5: 0, s2: 0, s3: 0 },
