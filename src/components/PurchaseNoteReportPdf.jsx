@@ -103,7 +103,7 @@ export default function PurchaseNoteReportPdf({
         );
 
         return (
-          <div key={idx} className="print-section" style={{ border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'hidden', marginBottom: 14 }}>\n
+          <div key={idx} className="print-section" style={{ border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'visible', marginBottom: 14, pageBreakInside: 'auto' }}>
             {/* Supplier Header Box */}
             <div style={{ background: '#f8fafc', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', gap: 10 }}>
                <div>
