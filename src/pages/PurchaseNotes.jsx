@@ -188,27 +188,11 @@ export default function PurchaseNotes() {
       originalDisplay = element.style.display;
       element.style.display = 'block';
 
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL('image/jpeg', 0.8);
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      if (!canvas.width || !canvas.height || !isFinite(imgHeight) || imgHeight <= 0) {
-        throw new Error('Invalid canvas dimensions or calculated height');
-      }
-
-      const pageCount = Math.ceil(imgHeight / pageHeight);
-
-      for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
-        if (pageIndex > 0) {
-          pdf.addPage();
-        }
-        pdf.addImage(imgData, 'JPEG', 0, -pageIndex * pageHeight, imgWidth, imgHeight);
-      }
-
+      await pdf.html(element, {
+        html2canvas: { scale: 2, useCORS: true },
+        margin: [10, 10, 10, 10],
+      });
       pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
     } catch (err) {
       console.error(err);
