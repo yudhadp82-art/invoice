@@ -60,48 +60,9 @@ export default function PurchaseNoteReportPdf({
         </div>
       </div>
 
-      {/* SECTION 1: DAFTAR INVOICE ASAL (DETAIL) */}
+      {/* SECTION 1: REKAP KEBUTUHAN GRUP (AGGREGATE) */}
       <div className="print-section">
-        <h4 style={{ margin: '0 0 12px 0', fontSize: 16, borderLeft: '5px solid #ef4444', paddingLeft: 12, textTransform: 'uppercase', color: '#1e293b' }}>1. Rincian Invoice per Customer</h4>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ width: '20%', textAlign: 'left' }}>No. Invoice</th>
-              <th style={{ width: '25%', textAlign: 'left' }}>Nama Pelanggan</th>
-              <th style={{ width: '35%', textAlign: 'left' }}>Daftar Bahan/Produk</th>
-              <th style={{ width: '20%', textAlign: 'right' }}>Total Penjualan</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoicesList && invoicesList.length > 0 ? (
-              invoicesList.map((inv, idx) => (
-                <tr key={idx}>
-                  <td style={{ fontWeight: 'bold' }}>{inv.invoiceNumber}</td>
-                  <td>{inv.customerName}</td>
-                  <td>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {(inv.items || []).map((it, i) => (
-                        <span key={i} style={{ background: '#f8fafc', padding: '2px 8px', borderRadius: 4, fontSize: '0.85em', border: '1px solid #e2e8f0' }}>
-                          {it.productName} ({formatNumber(it.qty)})
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right', fontWeight: 'bold' }}>
-                    {formatCurrency(inv.grandTotal || Number(inv.total) || 0)}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr><td colSpan="4" style={{ padding: 15, textAlign: 'center', color: '#94a3b8' }}>Tidak ada data invoice asal</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* SECTION 2: REKAP KEBUTUHAN GRUP (AGGREGATE) */}
-      <div className="print-section">
-        <h4 style={{ margin: '0 0 12px 0', fontSize: 16, borderLeft: '5px solid #3b82f6', paddingLeft: 12, textTransform: 'uppercase', color: '#1e293b' }}>2. Rekap Kebutuhan Gabungan (Agregat)</h4>
+        <h4 style={{ margin: '0 0 12px 0', fontSize: 16, borderLeft: '5px solid #3b82f6', paddingLeft: 12, textTransform: 'uppercase', color: '#1e293b' }}>1. Rekap Kebutuhan Gabungan (Agregat)</h4>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
@@ -125,8 +86,8 @@ export default function PurchaseNoteReportPdf({
         </table>
       </div>
 
-      {/* SECTION 3 & 4 REDESIGN: REKAP PEMBELIAN PER SUPPLIER */}
-      <h4 style={{ margin: '0 0 20px 0', fontSize: 16, borderLeft: '5px solid #10b981', paddingLeft: 12, textTransform: 'uppercase', color: '#1e293b' }}>3. Rekap & Realisasi Pembelian per Supplier</h4>
+      {/* SECTION 2: REKAP & REALISASI PEMBELIAN PER SUPPLIER */}
+      <h4 style={{ margin: '0 0 20px 0', fontSize: 16, borderLeft: '5px solid #10b981', paddingLeft: 12, textTransform: 'uppercase', color: '#1e293b' }}>2. Rekap & Realisasi Pembelian per Supplier</h4>
       
       {supplierGroups.map(([s, items], idx) => {
         const discount = Number(supplierDiscounts[s]) || 0;
@@ -203,7 +164,7 @@ export default function PurchaseNoteReportPdf({
             <span style={{ fontSize: 24, fontWeight: '900', color: '#10b981' }}>{formatCurrency(grandTotalNet)}</span>
           </div>
         </div>
-      
+
       {/* Signatures */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 40, fontSize: 12, padding: '0 40px' }}>
         <div style={{ textAlign: 'center', width: 220 }}>
@@ -216,10 +177,6 @@ export default function PurchaseNoteReportPdf({
           <div style={{ borderBottom: '2px solid #1e293b', width: '100%', marginBottom: 5 }}></div>
           <p style={{ fontWeight: 'bold', margin: 0 }}>Admin Pembelian</p>
         </div>
-      </div>
-      
-      <div style={{ marginTop: 60, fontSize: 10, color: '#94a3b8', textAlign: 'center', fontStyle: 'italic', borderTop: '1px dashed #e2e8f0', paddingTop: 20 }}>
-        Dokumen ini dihasilkan secara otomatis oleh Sistem Invoicing & Purchase Desa Merah Putih
       </div>
     </div>
   );
