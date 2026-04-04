@@ -50,6 +50,7 @@ export default function PurchaseNoteForm() {
   const [sourceInvoiceIds, setSourceInvoiceIds] = useState([]);
   const [usedInvoiceIds, setUsedInvoiceIds] = useState(new Set());
   const [allSuppliers, setAllSuppliers] = useState([]);
+  const [groupInvoices, setGroupInvoices] = useState({});
   const [saving, setSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -118,7 +119,7 @@ export default function PurchaseNoteForm() {
             setInvoiceNumber(noteData.invoiceNumber || '');
             setCurrentGroupName(noteData.groupName || '');
             setSourceInvoiceIds(noteData.sourceInvoiceIds || []);
-            setStatusMessage(`✅ Ditemukan ${rawItems.length} barang.`);
+            setStatusMessage(`✅ Berhasil menarik ${rawItems.length} barang dari database.`);
           } else {
             setStatusMessage(`⚠️ Nota ID "${id}" TIDAK DITEMUKAN.`);
           }
