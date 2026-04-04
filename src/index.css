@@ -771,7 +771,7 @@ body {
 /* ===== Print Styles ===== */
 @media print {
   @page {
-    margin: 10mm;
+    margin: 15mm;
     size: A4 portrait;
   }
   body, html { 
@@ -782,10 +782,12 @@ body {
     padding: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    font-size: 13pt !important;
+    line-height: 1.5 !important;
   }
   
   /* Hide all UI elements */
-  .sidebar, .no-print, .toolbar, .page-header, .btn-group, .btn, .modal-footer { 
+  .sidebar, .no-print, .toolbar, .page-header, .btn-group, .btn, .modal-footer, .no-print-custom { 
     display: none !important; 
   }
   
@@ -814,7 +816,16 @@ body {
   table { 
     page-break-inside: auto; 
     width: 100% !important;
+    border-collapse: collapse !important;
+    margin-bottom: 20px !important;
   }
+  
+  th, td {
+    padding: 12px 10px !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 12pt !important;
+  }
+  
   tr { 
     page-break-inside: avoid !important; 
     page-break-after: auto; 
@@ -826,12 +837,14 @@ body {
   /* Section spacing for print */
   .print-section {
     page-break-inside: avoid !important;
-    margin-bottom: 30px !important;
+    margin-bottom: 50px !important;
+    display: block !important;
   }
 
   /* Force background colors in print */
-  th, .badge, .status-pill {
-    background-color: #f1f5f9 !important;
+  th {
+    background-color: #f8fafc !important;
+    font-weight: bold !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -842,6 +855,7 @@ body {
 @media print {
   .print-only { display: block; }
   .screen-only { display: none !important; }
+  .no-print-custom { display: none !important; }
 }
 
 /* ===== Responsive ===== */
