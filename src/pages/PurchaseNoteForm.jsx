@@ -171,7 +171,14 @@ export default function PurchaseNoteForm() {
       if (note) {
         setDate(note.date);
         setSupplierName(note.supplierName || '');
-        setItems(note.items || []);
+        const hydratedItems = (note.items || []).map(it => {
+          if (!it.materialId && it.materialName) {
+            const mb = master.find(m => m.name.toLowerCase() === it.materialName.toLowerCase());
+            if (mb) return { ...it, materialId: mb.id };
+          }
+          return it;
+        });
+        setItems(hydratedItems);
         setNotes(note.notes || '');
         setInvoiceId(note.invoiceId || null);
         setInvoiceNumber(note.invoiceNumber || '');
@@ -552,104 +559,108 @@ export default function PurchaseNoteForm() {
             </thead>
             <tbody>
               {(() => {
-                let selectableItems = masterBahan;
                 const currentInvoice = invoices.find(inv => inv.id === invoiceId);
-                if (currentInvoice) {
-                  selectableItems = masterBahan.filter(m =>
-                    (currentInvoice.items || []).some(it => it.productId === m.id || it.productName === m.name)
-                  );
-                }
+                
+                return items.map((item, idx) => {
+                  let selectable = masterBahan;
+                  if (currentInvoice) {
+                    selectable = masterBahan.filter(m =>
+                      m.id === item.materialId || // Always include current selection
+                      (currentInvoice.items || []).some(it => it.productId === m.id || it.productName === m.name)
+                    );
+                  }
 
-                return items.map((item, idx) => (
-                  <tr key={idx} className="animate-in">
-                    <td className="text-center">
-                      <span className="badge badge-primary">{idx + 1}</span>
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        className="form-input form-input-sm"
-                        list={`supplier-list-${idx}`}
-                        value={item.supplier || ''}
-                        onChange={e => updateItem(idx, 'supplier', e.target.value)}
-                        placeholder={supplierName || 'Supplier...'}
-                        style={{ minWidth: 110 }}
-                      />
-                      <datalist id={`supplier-list-${idx}`}>
-                        {supplierHistory.map(s => <option key={s} value={s} />)}
-                      </datalist>
-                    </td>
-                    <td>
-                      <div className="flex-center gap-xs">
-                        {item.isSubItem && <span style={{ color: 'var(--primary)', fontWeight: 800, marginRight: 2 }}>↳ </span>}
-                        <select className="form-select form-select-sm" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required style={{ paddingLeft: item.isSubItem ? '16px' : undefined, flex: 1 }}>
-                          <option value="">-- {currentInvoice ? 'Invoice Item' : 'Pilih Bahan'} --</option>
-                          {selectableItems.map(m => (
-                            <option key={m.id} value={m.id}>{m.name}</option>
-                          ))}
-                          {currentInvoice && selectableItems.length < masterBahan.length && (
-                            <option value="all-master">Lainnya...</option>
-                          )}
-                        </select>
-                        {item.isSubItem && <span className="badge badge-purple" style={{ fontSize: 10, padding: '2px 4px' }}>Sub-Mix</span>}
-                      </div>
-                    </td>
-                    <td>
-                      <div>
+                  return (
+                    <tr key={idx} className="animate-in">
+                      <td className="text-center">
+                        <span className="badge badge-primary">{idx + 1}</span>
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-input form-input-sm"
+                          list={`supplier-list-${idx}`}
+                          value={item.supplier || ''}
+                          onChange={e => updateItem(idx, 'supplier', e.target.value)}
+                          placeholder={supplierName || 'Supplier...'}
+                          style={{ minWidth: 110 }}
+                        />
+                        <datalist id={`supplier-list-${idx}`}>
+                          {supplierHistory.map(s => <option key={s} value={s} />)}
+                        </datalist>
+                      </td>
+                      <td>
                         <div className="flex-center gap-xs">
-                          <input type="number" className="form-input form-input-sm" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} style={{ width: '60px' }} />
-                          <span className="text-xs text-muted">{item.unit || ''}</span>
+                          {item.isSubItem && <span style={{ color: 'var(--primary)', fontWeight: 800, marginRight: 2 }}>↳ </span>}
+                          <select className="form-select form-select-sm" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required style={{ paddingLeft: item.isSubItem ? '16px' : undefined, flex: 1 }}>
+                            <option value="">-- {currentInvoice ? 'Invoice Item' : 'Pilih Bahan'} --</option>
+                            {selectable.map(m => (
+                              <option key={m.id} value={m.id}>{m.name}</option>
+                            ))}
+                            {currentInvoice && selectable.length < masterBahan.length && (
+                              <option value="all-master">Lainnya...</option>
+                            )}
+                          </select>
+                          {item.isSubItem && <span className="badge badge-purple" style={{ fontSize: 10, padding: '2px 4px' }}>Sub-Mix</span>}
                         </div>
-                        {item.invoiceQty > 0 && (
-                          <div className="text-xs text-muted mt-xs" style={{ whiteSpace: 'nowrap', fontStyle: 'italic' }}>
-                            {item.isSubItem ? `Inv: ${item.parentName}` : 'Inv'}: <strong>{item.invoiceQty}</strong>
+                      </td>
+                      <td>
+                        <div>
+                          <div className="flex-center gap-xs">
+                            <input type="number" className="form-input form-input-sm" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} style={{ width: '60px' }} />
+                            <span className="text-xs text-muted">{item.unit || ''}</span>
                           </div>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <input type="number" className="form-input form-input-sm" value={item.pricePerUnit} onChange={e => updateItem(idx, 'pricePerUnit', e.target.value)} />
-                    </td>
-                    <td style={{ backgroundColor: 'rgba(56, 189, 248, 0.02)' }}>
-                      <div className="flex gap-xs">
-                        <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s5.qty} onChange={e => updateSplit(idx, 's5', 'qty', e.target.value)} />
-                        <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s5.shrinkage} onChange={e => updateSplit(idx, 's5', 'shrinkage', e.target.value)} />
-                      </div>
-                      <div className="text-xs mt-xs text-primary font-bold">Net: {item.splits.s5.netQty}</div>
-                    </td>
-                    <td style={{ backgroundColor: 'rgba(16, 185, 129, 0.02)' }}>
-                      <div className="flex gap-xs">
-                        <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s2.qty} onChange={e => updateSplit(idx, 's2', 'qty', e.target.value)} />
-                        <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s2.shrinkage} onChange={e => updateSplit(idx, 's2', 'shrinkage', e.target.value)} />
-                      </div>
-                      <div className="text-xs mt-xs text-success font-bold">Net: {item.splits.s2.netQty}</div>
-                    </td>
-                    <td style={{ backgroundColor: 'rgba(251, 146, 60, 0.02)' }}>
-                      <div className="flex gap-xs">
-                        <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s3.qty} onChange={e => updateSplit(idx, 's3', 'qty', e.target.value)} />
-                        <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s3.shrinkage} onChange={e => updateSplit(idx, 's3', 'shrinkage', e.target.value)} />
-                      </div>
-                      <div className="text-xs mt-xs text-orange font-bold">Net: {item.splits.s3.netQty}</div>
-                    </td>
-                    <td>
-                      <input type="number" className="form-input form-input-sm" value={item.sellPrice} onChange={e => updateItem(idx, 'sellPrice', e.target.value)} />
-                    </td>
-                    <td>
-                      <input 
-                        type="number" 
-                        className="form-input form-input-sm font-bold text-success" 
-                        value={item.totalCost} 
-                        onChange={e => updateItem(idx, 'totalCost', e.target.value)} 
-                        style={{ textAlign: 'right' }}
-                      />
-                    </td>
-                    <td>
-                      <button type="button" className="btn btn-ghost btn-sm text-danger btn-icon-only" onClick={() => removeItem(idx)}>
-                        <FiTrash2 />
-                      </button>
-                    </td>
-                  </tr>
-                ));
+                          {item.invoiceQty > 0 && (
+                            <div className="text-xs text-muted mt-xs" style={{ whiteSpace: 'nowrap', fontStyle: 'italic' }}>
+                              {item.isSubItem ? `Inv: ${item.parentName}` : 'Inv'}: <strong>{item.invoiceQty}</strong>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <input type="number" className="form-input form-input-sm" value={item.pricePerUnit} onChange={e => updateItem(idx, 'pricePerUnit', e.target.value)} />
+                      </td>
+                      <td style={{ backgroundColor: 'rgba(56, 189, 248, 0.02)' }}>
+                        <div className="flex gap-xs">
+                          <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s5.qty} onChange={e => updateSplit(idx, 's5', 'qty', e.target.value)} />
+                          <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s5.shrinkage} onChange={e => updateSplit(idx, 's5', 'shrinkage', e.target.value)} />
+                        </div>
+                        <div className="text-xs mt-xs text-primary font-bold">Net: {item.splits.s5.netQty}</div>
+                      </td>
+                      <td style={{ backgroundColor: 'rgba(16, 185, 129, 0.02)' }}>
+                        <div className="flex gap-xs">
+                          <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s2.qty} onChange={e => updateSplit(idx, 's2', 'qty', e.target.value)} />
+                          <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s2.shrinkage} onChange={e => updateSplit(idx, 's2', 'shrinkage', e.target.value)} />
+                        </div>
+                        <div className="text-xs mt-xs text-success font-bold">Net: {item.splits.s2.netQty}</div>
+                      </td>
+                      <td style={{ backgroundColor: 'rgba(251, 146, 60, 0.02)' }}>
+                        <div className="flex gap-xs">
+                          <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s3.qty} onChange={e => updateSplit(idx, 's3', 'qty', e.target.value)} />
+                          <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s3.shrinkage} onChange={e => updateSplit(idx, 's3', 'shrinkage', e.target.value)} />
+                        </div>
+                        <div className="text-xs mt-xs text-orange font-bold">Net: {item.splits.s3.netQty}</div>
+                      </td>
+                      <td>
+                        <input type="number" className="form-input form-input-sm" value={item.sellPrice} onChange={e => updateItem(idx, 'sellPrice', e.target.value)} />
+                      </td>
+                      <td>
+                        <input 
+                          type="number" 
+                          className="form-input form-input-sm font-bold text-success" 
+                          value={item.totalCost} 
+                          onChange={e => updateItem(idx, 'totalCost', e.target.value)} 
+                          style={{ textAlign: 'right' }}
+                        />
+                      </td>
+                      <td>
+                        <button type="button" className="btn btn-ghost btn-sm text-danger btn-icon-only" onClick={() => removeItem(idx)}>
+                          <FiTrash2 />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                });
               })()}
             </tbody>
           </table>
