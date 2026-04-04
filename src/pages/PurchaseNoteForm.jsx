@@ -98,7 +98,8 @@ export default function PurchaseNoteForm() {
   }
 
   async function loadData() {
-    const [master, invs, history, officialSuppliers, allCustomers] = await Promise.all([
+    try {
+      const [master, invs, history, officialSuppliers, allCustomers] = await Promise.all([
       MasterItems.getAll(),
       Invoices.getAll(),
       PurchaseNotes.getAll(),
@@ -171,13 +172,15 @@ export default function PurchaseNoteForm() {
       if (note) {
         setDate(note.date);
         setSupplierName(note.supplierName || '');
-        const hydratedItems = (note.items || []).map(it => {
-          let newItem = { ...it };
-          // Recover materialId if missing
-          if (!newItem.materialId && newItem.materialName) {
-            const mb = master.find(m => m.name.toLowerCase() === newItem.materialName.toLowerCase());
-            if (mb) newItem.materialId = mb.id;
-          }
+          const hydratedItems = (note.items || []).map(it => {
+            let newItem = { ...it };
+            const mName = (newItem.materialName || '').toLowerCase();
+            
+            // Recover materialId if missing
+            if (!newItem.materialId && mName) {
+              const mb = master.find(m => (m.name || '').toLowerCase() === mName);
+              if (mb) newItem.materialId = mb.id;
+            }
           // Ensure splits object exists to prevent render crash
           if (!newItem.splits) {
             newItem.splits = {
@@ -207,14 +210,15 @@ export default function PurchaseNoteForm() {
         setInvoiceId(inv.id);
         setInvoiceNumber(inv.invoiceNumber);
         setSourceInvoiceIds([inv.id]);
-        const materials = (inv.items || [])
-          .filter(it => {
-            if (it.type === 'material') return true;
-            // Fallback: check if it exists in Master Bahan by name
-            return master.some(m => m.name.toLowerCase() === (it.productName || '').toLowerCase());
-          })
-          .map(it => {
-            const mb = master.find(m => m.name.toLowerCase() === (it.productName || '').toLowerCase());
+          const materials = (inv.items || [])
+            .filter(it => {
+              if (it.type === 'material') return true;
+              const pName = (it.productName || '').toLowerCase();
+              return master.some(m => (m.name || '').toLowerCase() === pName);
+            })
+            .map(it => {
+              const pName = (it.productName || '').toLowerCase();
+              const mb = master.find(m => (m.name || '').toLowerCase() === pName);
             return {
               materialId: it.productId || (mb ? mb.id : ''),
               materialName: it.productName,
@@ -241,7 +245,10 @@ export default function PurchaseNoteForm() {
           setInvoiceNumber(inv.invoiceNumber);
           setNotes(n => `${n}${n ? '\n' : ''}Otomatis dari Invoice: ${inv.invoiceNumber}`);
         }
+        }
       }
+    } catch (err) {
+      console.error("Error loading data:", err);
     }
   }
 
