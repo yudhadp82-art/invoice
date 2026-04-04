@@ -199,6 +199,55 @@ body {
   color: var(--accent-primary-hover);
 }
 
+/* Collapsed Sidebar State */
+.sidebar.collapsed {
+  width: 70px;
+}
+
+.sidebar.collapsed .sidebar-brand {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-section-label {
+  display: none;
+}
+
+.sidebar.collapsed .nav-item span:last-child {
+  display: none;
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: var(--space-md);
+}
+
+.sidebar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.sidebar-toggle:hover {
+  background: var(--bg-glass);
+  color: var(--text-primary);
+}
+
+.main-content {
+  transition: margin-left var(--transition-slow);
+}
+
+.app-layout.sidebar-collapsed .main-content {
+  margin-left: 0;
+}
 .nav-item .nav-icon {
   font-size: 1.25rem;
   flex-shrink: 0;

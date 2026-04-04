@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   FiHome, FiPackage, FiUsers, FiFileText,
-  FiTruck, FiShoppingCart, FiBarChart2, FiTag, FiBriefcase, FiMessageCircle, FiPieChart, FiTool, FiDollarSign
+  FiTruck, FiShoppingCart, FiBarChart2, FiTag, FiBriefcase, FiMessageCircle, FiPieChart, FiTool, FiDollarSign,
+  FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import { addMutationListener, removeMutationListener, executeUndo } from '../utils/storage';
 
@@ -32,6 +33,7 @@ const navItems = [
 
 export default function Layout() {
   const [latestMutation, setLatestMutation] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const handleMutation = (mut) => {
@@ -71,11 +73,18 @@ export default function Layout() {
   };
 
   return (
-    <div className="app-layout">
-      <aside className="sidebar">
+    <div className={`app-layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">IP</div>
           <span className="sidebar-brand">InvoicePro</span>
+          <button 
+            className="sidebar-toggle" 
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            title={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
+          >
+            {sidebarCollapsed ? <FiChevronRight /> : <FiChevronLeft />}
+          </button>
         </div>
         <nav className="sidebar-nav">
           {navItems.map((item, i) => {
