@@ -17,6 +17,7 @@ const emptyItem = {
   invoiceQty: 0,
   pricePerUnit: 0,
   sellPrice: 0,
+  invoiceBreakdown: { s5: 0, s2: 0, s1: 0, s3: 0 },
   splits: {
     s5: { qty: 0, shrinkage: 0, netQty: 0 },
     s2: { qty: 0, shrinkage: 0, netQty: 0 },
@@ -51,6 +52,7 @@ export default function PurchaseNoteForm() {
   const [usedInvoiceIds, setUsedInvoiceIds] = useState(new Set());
   const [allSuppliers, setAllSuppliers] = useState([]);
   const [groupInvoices, setGroupInvoices] = useState({});
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
   const [saving, setSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -260,6 +262,21 @@ export default function PurchaseNoteForm() {
 
   function updateItem(index, field, value) {
     const newItems = [...items];
+    const it = { ...newItems[index] };
+
+    // Proportional Split Logic for S5/S2/S3
+    if (field === 'qtyNota' && it.invoiceBreakdown && it.invoiceQty > 0) {
+      const totalInv = it.invoiceQty;
+      const ratioS5 = (it.invoiceBreakdown.s5 || 0) / totalInv;
+      const ratioS2 = (it.invoiceBreakdown.s2 || 0) / totalInv;
+      const ratioS3 = (it.invoiceBreakdown.s3 || 0) / totalInv;
+      
+      const newQty = Number(value) || 0;
+      it.splits.s5 = { ...it.splits.s5, qty: newQty * ratioS5, netQty: newQty * ratioS5 - (it.splits.s5.shrinkage || 0) };
+      it.splits.s2 = { ...it.splits.s2, qty: newQty * ratioS2, netQty: newQty * ratioS2 - (it.splits.s2.shrinkage || 0) };
+      it.splits.s3 = { ...it.splits.s3, qty: newQty * ratioS3, netQty: newQty * ratioS3 - (it.splits.s3.shrinkage || 0) };
+      newItems[index] = it;
+    }
 
     if (field === 'materialId') {
       if (value === 'all-master') {
@@ -808,16 +825,24 @@ export default function PurchaseNoteForm() {
         }
       `}</style>
 
-      <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Tarik Item dari Invoice">
-        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          <p className="text-muted text-sm mb-md">Pilih invoice untuk mengambil item kategori <strong>Bahan</strong> (Hanya menampilkan invoice yang belum terpakai).</p>
-          <div className="grid gap-sm">
+      <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Gabung & Tarik dari Invoice">
+        <div style={{ maxHeight: '480px', overflowY: 'auto', paddingRight: '4px' }}>
+          <div className="flex-between mb-md">
+            <p className="text-muted text-sm">Pilih satu atau beberapa invoice kategori <strong>Bahan</strong>.</p>
+            <button 
+              className="btn btn-sm btn-ghost" 
+              onClick={() => setSelectedInvoiceIds([])}
+              style={{ padding: '4px 12px' }}
+            >Batal Pilih Semua</button>
+          </div>
+          
+          <div className="grid gap-xs">
             {(() => {
-              const invoicesWithBahan = invoices.filter(inv => {
+              const invoicesWithBahan = (invoices || []).filter(inv => {
                 if (usedInvoiceIds.has(inv.id)) return false;
                 return (inv.items || []).some(it => 
                   it.type === 'material' || 
-                  masterBahan.some(m => m.name.toLowerCase() === (it.productName || '').toLowerCase())
+                  masterBahan.some(m => (m.name || '').toLowerCase() === (it.productName || '').toLowerCase())
                 );
               });
 
@@ -831,135 +856,120 @@ export default function PurchaseNoteForm() {
               }
 
               return invoicesWithBahan.map(inv => {
-                const materialsInInv = inv.items || [];
-
+                const isSelected = selectedInvoiceIds.includes(inv.id);
                 return (
-                  <button
+                  <div 
                     key={inv.id}
-                    className="btn btn-ghost"
-                    style={{ justifyContent: 'flex-start', textAlign: 'left', padding: '12px', border: '1px solid rgba(255,255,255,0.05)' }}
-                    onClick={async () => {
-                      const currentMaster = [...masterBahan];
-                      let masterUpdated = false;
-
-                      const materials = [];
-                      for (const it of materialsInInv) {
-                        let mb = currentMaster.find(b => b.id === it.productId || b.name === it.productName);
-
-                        if (!mb) {
-                          // Auto-provision missing material
-                          const newMaster = {
-                            name: it.productName,
-                            unit: it.unit || 'kg',
-                            defaultPrice: Number(it.unitPrice) || 0,
-                            stock: 0
-                          };
-                          const saved = await MasterItems.create(newMaster);
-                          mb = saved;
-                          currentMaster.push(saved);
-                          masterUpdated = true;
-                        }
-
-                        const isSJ2 = (inv.customerName || '').toLowerCase().includes('sindangjaya 2');
-                        const isSJ5 = (inv.customerName || '').toLowerCase().includes('sindangjaya 5');
-                        const shouldSplit = isSJ2 || isSJ5;
-
-                        let qtyS5 = Number(it.qty) || 0;
-                        let qtyS2 = 0;
-
-                        if (shouldSplit) {
-                          const availS2 = mb.availableInS2 !== false;
-                          const availS5 = mb.availableInS5 !== false;
-
-                          if (availS2 && availS5) {
-                            // Calculate proportional split from history
-                            let totalS2 = 0;
-                            let totalS5 = 0;
-                            purchaseHistory.forEach(pn => {
-                              (pn.items || []).forEach(item => {
-                                if (item.materialId === mb.id) {
-                                  totalS2 += Number(item.splits?.s2?.netQty || 0);
-                                  totalS5 += Number(item.splits?.s5?.netQty || 0);
-                                }
-                              });
-                            });
-
-                            const total = totalS2 + totalS5;
-                            if (total > 0) {
-                              const ratioS2 = totalS2 / total;
-                              const ratioS5 = totalS5 / total;
-                              qtyS2 = (Number(it.qty) || 0) * ratioS2;
-                              qtyS5 = (Number(it.qty) || 0) * ratioS5;
-                            } else {
-                              // Default 50/50 if no history
-                              qtyS5 = (Number(it.qty) || 0) / 2;
-                              qtyS2 = (Number(it.qty) || 0) / 2;
-                            }
-                          } else if (availS2) {
-                            qtyS5 = 0;
-                            qtyS2 = Number(it.qty) || 0;
-                          } else if (availS5) {
-                            qtyS5 = Number(it.qty) || 0;
-                            qtyS2 = 0;
-                          }
-                        }
-
-                        // Mix Vegetable Expansion Logic for Import
-                        if (it.productName.toLowerCase().includes('mix vegetable') || it.productName.toLowerCase().includes('mix veg')) {
-                          const expanded = expandItems([{
-                            materialId: mb ? mb.id : '',
-                            materialName: it.productName,
-                            qtyNota: Number(it.qty) || 0,
-                            invoiceQty: Number(it.qty) || 0,
-                            pricePerUnit: Number(it.unitPrice) || 0,
-                            supplier: supplierName || ''
-                          }], currentMaster);
-                          
-                          materials.push(...expanded);
-                          continue; // Jump to next item in materialsInInv
-                        }
-
-                        materials.push({
-                          materialId: mb.id,
-                          materialName: mb.name,
-                          unit: mb.unit,
-                          qtyNota: Number(it.qty) || 0,
-                          invoiceQty: Number(it.qty) || 0,
-                          pricePerUnit: Number(it.unitPrice) || 0,
-                          sellPrice: Number(it.unitPrice) || 0,
-                          splits: {
-                            s5: { qty: qtyS5, shrinkage: 0, netQty: qtyS5 },
-                            s2: { qty: qtyS2, shrinkage: 0, netQty: qtyS2 },
-                            s3: { qty: 0, shrinkage: 0, netQty: 0 }
-                          },
-                          totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
-                        });
+                    className={`btn btn-ghost hover-bright`}
+                    style={{ 
+                      justifyContent: 'flex-start', 
+                      textAlign: 'left', 
+                      padding: '12px 16px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 16,
+                      background: isSelected ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                      border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)'}`,
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedInvoiceIds(prev => prev.filter(iid => iid !== inv.id));
+                      } else {
+                        setSelectedInvoiceIds(prev => [...prev, inv.id]);
                       }
-
-                      if (masterUpdated) {
-                        setMasterBahan(currentMaster);
-                      }
-
-                      if (materials.length > 0) {
-                        setItems(materials);
-                        setSupplierName(inv.customerName || '');
-                        setInvoiceId(inv.id);
-                        setInvoiceNumber(inv.invoiceNumber);
-                        setNotes(n => `${n}${n ? '\n' : ''}Tarik dari Invoice: ${inv.invoiceNumber}`);
-                      }
-                      setIsImportModalOpen(false);
                     }}
                   >
-                    <div>
-                      <strong>{inv.invoiceNumber}</strong><br />
-                      <span className="text-xs text-muted">{inv.customerName} - {new Date(inv.date || inv.createdAt).toLocaleDateString()}</span>
-                      <span className="badge badge-primary ml-sm" style={{ marginLeft: 8 }}>{materialsInInv.length} Item</span>
+                    <input 
+                      type="checkbox" 
+                      checked={isSelected} 
+                      onChange={() => {}} // Controlled by parent div click
+                      style={{ width: 18, height: 18, cursor: 'pointer' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div className="flex-between">
+                        <strong>{inv.invoiceNumber}</strong>
+                        <span className="text-xs text-muted">{new Date(inv.date || inv.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="text-xs text-muted mt-xs">{inv.customerName} • {(inv.items || []).length} Item</div>
                     </div>
-                  </button>
+                  </div>
                 );
               });
             })()}
           </div>
+        </div>
+        <div className="modal-footer" style={{ marginTop: 24, display: 'flex', gap: 12 }}>
+          <button className="btn btn-ghost flex-1" onClick={() => setIsImportModalOpen(false)}>Batal</button>
+          <button 
+            className="btn btn-primary flex-1" 
+            disabled={selectedInvoiceIds.length === 0}
+            onClick={async () => {
+              const currentMaster = [...masterBahan];
+              const matMap = {}; // Aggregate by material name
+              const invNumbers = [];
+              const chosenCusts = new Set();
+              
+              for (const iid of selectedInvoiceIds) {
+                const inv = invoices.find(i => i.id === iid);
+                if (!inv) continue;
+                invNumbers.push(inv.invoiceNumber);
+                if (inv.customerName) chosenCusts.add(inv.customerName);
+
+                const isSJ2 = (inv.customerName || '').toLowerCase().includes('sindangjaya 2');
+                const isSJ5 = (inv.customerName || '').toLowerCase().includes('sindangjaya 5');
+                const isSJ3 = (inv.customerName || '').toLowerCase().includes('sindangjaya 3');
+
+                for (const it of (inv.items || [])) {
+                  let mb = currentMaster.find(b => b.id === it.productId || (b.name || '').toLowerCase() === (it.productName || '').toLowerCase());
+                  if (!mb) {
+                    const saved = await MasterItems.create({ name: it.productName, unit: it.unit || 'kg', defaultPrice: Number(it.unitPrice) || 0, stock: 0 });
+                    mb = saved; currentMaster.push(saved);
+                  }
+                  
+                  const key = mb.name.toLowerCase();
+                  if (!matMap[key]) {
+                    matMap[key] = {
+                      materialId: mb.id, materialName: mb.name, unit: mb.unit,
+                      qtyNota: 0, invoiceQty: 0, pricePerUnit: Number(it.unitPrice) || 0,
+                      sellPrice: Number(it.unitPrice) || 0,
+                      invoiceBreakdown: { s5: 0, s2: 0, s3: 0 },
+                      splits: { s5: { qty: 0, shrinkage: 0, netQty: 0 }, s2: { qty: 0, shrinkage: 0, netQty: 0 }, s3: { qty: 0, shrinkage: 0, netQty: 0 } }
+                    };
+                  }
+                  
+                  const qty = Number(it.qty) || 0;
+                  matMap[key].qtyNota += qty;
+                  matMap[key].invoiceQty += qty;
+                  if (it.unitPrice) matMap[key].pricePerUnit = Number(it.unitPrice); // use latest price
+                  
+                  if (isSJ5) matMap[key].invoiceBreakdown.s5 += qty;
+                  else if (isSJ2) matMap[key].invoiceBreakdown.s2 += qty;
+                  else if (isSJ3) matMap[key].invoiceBreakdown.s3 += qty;
+                  else matMap[key].invoiceBreakdown.s5 += qty; // Default to S5
+                }
+              }
+
+              const materials = Object.values(matMap).map(m => {
+                // Initialize splits from aggregate qty
+                m.splits.s5.qty = m.invoiceBreakdown.s5; m.splits.s5.netQty = m.invoiceBreakdown.s5;
+                m.splits.s2.qty = m.invoiceBreakdown.s2; m.splits.s2.netQty = m.invoiceBreakdown.s2;
+                m.splits.s3.qty = m.invoiceBreakdown.s3; m.splits.s3.netQty = m.invoiceBreakdown.s3;
+                m.totalCost = m.qtyNota * m.pricePerUnit;
+                return m;
+              });
+
+              setMasterBahan(currentMaster);
+              if (materials.length > 0) {
+                setItems(expandItems(materials, currentMaster));
+                if (chosenCusts.size === 1) setSupplierName(Array.from(chosenCusts)[0]);
+                setInvoiceId(null); // Multi
+                setSourceInvoiceIds(selectedInvoiceIds);
+                setNotes(n => `${n}${n ? '\n' : ''}Gabung Invoice: ${invNumbers.join(', ')}`);
+              }
+              setIsImportModalOpen(false);
+            }}
+          >Tarik {selectedInvoiceIds.length} Invoice</button>
         </div>
       </Modal>
 
