@@ -819,6 +819,7 @@ body {
     border-collapse: collapse !important;
     margin-bottom: 12px !important;
     display: table !important;
+    table-layout: auto !important;
   }
   
   th, td {
@@ -826,6 +827,8 @@ body {
     border: 1px solid #cbd5e1 !important;
     font-size: 10pt !important;
     page-break-inside: avoid !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
   }
   
   tr { 
@@ -847,6 +850,7 @@ body {
     margin-top: 8px !important;
     display: block !important;
     page-break-after: auto;
+    overflow: visible !important;
   }
 
   /* Force background colors in print */

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter } from 'react-icons/fi';
 import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems, Customers, Suppliers } from '../utils/storage';
@@ -193,21 +194,39 @@ export default function PurchaseNotes() {
         compress: true
       });
       
-      // Use jsPDF HTML rendering with proper page management
-      await pdf.html(element, {
-        margin: 15,
-        callback: (instance) => {
-          instance.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
-        },
-        html2canvas: { 
-          scale: 2
-        },
-        x: 0,
-        y: 0,
-        width: 210,
-        windowHeight: element.scrollHeight,
-        windowWidth: element.scrollWidth
+      // Capture element to canvas with A4 width constraint
+      const pageWidth = 210; // A4 width in mm
+      const dpi = 96;
+      const pixelWidth = Math.round((pageWidth / 25.4) * dpi); // Convert mm to pixels at 96 DPI
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: pixelWidth
       });
+      
+      const pageHeight = 297; // A4 height in mm
+      const marginTop = 15;
+      const marginBottom = 15;
+      const marginLeft = 15;
+      const marginRight = 15;
+      
+      const usableHeight = pageHeight - marginTop - marginBottom;
+      const imgWidth = pageWidth - marginLeft - marginRight;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const totalPages = Math.ceil(imgHeight / usableHeight);
+      
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      
+      for (let i = 0; i < totalPages; i++) {
+        if (i > 0) pdf.addPage();
+        const yOffset = marginTop - (i * usableHeight);
+        pdf.addImage(imgData, 'JPEG', marginLeft, yOffset, imgWidth, imgHeight);
+      }
+      
+      pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
     } catch (err) {
       console.error(err);
       alert('Gagal mencetak PDF: ' + err.message);

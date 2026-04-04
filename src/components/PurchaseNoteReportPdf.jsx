@@ -19,11 +19,13 @@ export default function PurchaseNoteReportPdf({
     minHeight: '297mm',
     background: 'white',
     color: 'black',
-    padding: '20mm 15mm',
-    margin: '0 auto',
+    padding: '15mm',
+    margin: '0',
     boxSizing: 'border-box',
     fontFamily: 'Arial, sans-serif',
-    fontSize: '11px'
+    fontSize: '11px',
+    maxWidth: '100%',
+    overflow: 'visible'
   };
  
   // Aggregate items by Supplier for grouping (Case-insensitive)
@@ -103,7 +105,7 @@ export default function PurchaseNoteReportPdf({
         );
 
         return (
-          <div key={idx} className="print-section" style={{ border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'visible', marginBottom: 14, pageBreakInside: 'auto' }}>
+          <div key={idx} className="print-section" style={{ border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'visible', marginBottom: 14, pageBreakInside: 'auto', width: '100%' }}>
             {/* Supplier Header Box */}
             <div style={{ background: '#f8fafc', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', gap: 10 }}>
                <div>
