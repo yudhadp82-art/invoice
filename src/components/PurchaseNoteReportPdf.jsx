@@ -14,22 +14,13 @@ export default function PurchaseNoteReportPdf({
 }) {
   if (!groupName) return null;
 
-  const containerStyle = forPrint 
-    ? { width: '800px', margin: '0 auto', background: 'white', color: 'black', padding: '20px' }
-    : { 
-        position: 'absolute', 
-        top: 0,
-        left: '-9000px', // Horizontal off-screen is better for height calculation
-        width: '800px', 
-        minHeight: 'min-content', 
-        background: 'white', 
-        color: 'black', 
-        padding: '0', 
-        zIndex: -9999,
-        opacity: 1, // Must be 1 for html2canvas to capture correctly!
-        pointerEvents: 'none',
-        overflow: 'visible'
-      };
+  const containerStyle = { 
+    width: '100%', 
+    background: 'white', 
+    color: 'black', 
+    padding: '0', 
+    margin: '0' 
+  };
  
   // Aggregate items by Supplier for grouping (Case-insensitive)
   const supplierMap = {};
@@ -54,7 +45,7 @@ export default function PurchaseNoteReportPdf({
   const grandTotalNet = Math.max(0, totalItemsCost - totalDiscounts);
 
   return (
-    <div id="purchase-note-report-render" style={containerStyle}>
+    <div id="purchase-note-report-render" className="print-only" style={containerStyle}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', borderBottom: '3px solid #1e293b', paddingBottom: 15, marginBottom: 30 }}>
         <div style={{ width: 70, height: 70, marginRight: 25 }}>

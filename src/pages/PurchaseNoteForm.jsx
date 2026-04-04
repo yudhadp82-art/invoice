@@ -502,62 +502,8 @@ export default function PurchaseNoteForm() {
     setIsGroupImportModalOpen(false);
   }
 
-  async function handlePrintPdf() {
-    setIsGeneratingPdf(true);
-    // Give more time for the hidden template to fully render its content
-    await new Promise(r => setTimeout(r, 1200)); 
-    
-    try {
-      const element = document.getElementById('purchase-note-report-render');
-      if (!element) throw new Error('Render element not found');
-
-      // Crucial: define exactly how much of the "world" to capture
-      // By using offsetHeight, we ensure we capture all data even if off-screen
-      // When using position: absolute/fixed, offsetHeight is the full content height.
-      const captureWidth = 800; // Match the component width
-      const captureHeight = element.scrollHeight || element.offsetHeight;
-      
-      const canvas = await html2canvas(element, { 
-        scale: 2, 
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: captureWidth,
-        height: captureHeight,
-        scrollX: 0,
-        scrollY: 0,
-        x: 0,
-        y: 0
-      });
-      
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const imgHeightInPdf = (canvasHeight * pageWidth) / canvasWidth;
-      
-      const totalPages = Math.ceil(imgHeightInPdf / pageHeight);
-
-      for (let i = 0; i < totalPages; i++) {
-        if (i > 0) {
-          pdf.addPage();
-        }
-        // Shift exact pageHeight to show the next A4 section of the capture
-        const position = -(i * pageHeight);
-        pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeightInPdf);
-      }
-
-      const fileName = `Laporan_Pembelian_${(currentGroupName || invoiceNumber || 'NoRec').replace(/\s+/g, '_')}_${date}.pdf`;
-      pdf.save(fileName);
-    } catch (err) {
-      console.error('CRITICAL PDF ERROR:', err);
-      alert('Gagal membuat laporan PDF: ' + err.message);
-    } finally {
-      setIsGeneratingPdf(false);
-    }
+  function handlePrintPdf() {
+    window.print();
   }
 
   const totalItemCost = (items || []).reduce((s, it) => s + (Number(it.totalCost) || 0), 0);
