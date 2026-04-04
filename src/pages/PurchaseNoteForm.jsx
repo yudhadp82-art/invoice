@@ -105,21 +105,21 @@ export default function PurchaseNoteForm() {
       setStatusMessage(`🔄 Mencari Nota ID: ${id || 'New'}...`);
       
       // 1. Fetch the Note FIRST if editing
+      let actualItems = [...items]; 
       if (isEditing) {
         try {
           const noteData = await PurchaseNotes.getById(id);
           if (noteData) {
             setDate(noteData.date || new Date().toISOString().slice(0, 10));
             setSupplierName(noteData.supplierName || '');
-            const rawItems = noteData.items || [];
-            setItems(rawItems.length > 0 ? rawItems : [{ ...emptyItem }]);
-            setItemsCount(rawItems.length);
+            actualItems = (noteData.items || []).length > 0 ? noteData.items : [{ ...emptyItem }];
             setNotes(noteData.notes || '');
             setInvoiceId(noteData.invoiceId || null);
             setInvoiceNumber(noteData.invoiceNumber || '');
             setCurrentGroupName(noteData.groupName || '');
             setSourceInvoiceIds(noteData.sourceInvoiceIds || []);
-            setStatusMessage(`✅ Berhasil menarik ${rawItems.length} barang dari database.`);
+            setStatusMessage(`✅ Berhasil menarik ${actualItems.length} barang dari database.`);
+            setItemsCount(actualItems.length);
           } else {
             setStatusMessage(`⚠️ Nota ID "${id}" TIDAK DITEMUKAN.`);
           }
@@ -129,18 +129,13 @@ export default function PurchaseNoteForm() {
         }
       }
 
-      // 2. Fetch Master Bahan (needed for rehydration and select options)
+      // 2. Fetch Master Bahan
       let master = [];
-      try {
-        master = await MasterItems.getAll();
-        setMasterBahan(master);
-      } catch (err) {
-        console.error("Error loading master bahan:", err);
-      }
+      try { master = await MasterItems.getAll(); setMasterBahan(master); } catch (err) {}
 
-      // 3. Rehydrate items once Master is loaded
-      if (isEditing && items.length > 0) {
-        const hydrated = items.map(it => {
+      // 3. Rehydrate (using actualItems local variable, NOT items state)
+      if (isEditing && actualItems.length > 0) {
+        const hydrated = actualItems.map(it => {
           let newItem = { ...it };
           const mName = (newItem.materialName || '').toLowerCase();
           if (!newItem.materialId && mName && master.length > 0) {
@@ -148,11 +143,7 @@ export default function PurchaseNoteForm() {
             if (mb) newItem.materialId = mb.id;
           }
           if (!newItem.splits) {
-            newItem.splits = {
-              s5: { qty: 0, shrinkage: 0, netQty: 0 },
-              s2: { qty: 0, shrinkage: 0, netQty: 0 },
-              s3: { qty: 0, shrinkage: 0, netQty: 0 }
-            };
+            newItem.splits = { s5: { qty: 0, shrinkage: 0, netQty: 0 }, s2: { qty: 0, shrinkage: 0, netQty: 0 }, s3: { qty: 0, shrinkage: 0, netQty: 0 } };
           } else {
             if (!newItem.splits.s5) newItem.splits.s5 = { qty: 0, shrinkage: 0, netQty: 0 };
             if (!newItem.splits.s2) newItem.splits.s2 = { qty: 0, shrinkage: 0, netQty: 0 };
@@ -161,6 +152,8 @@ export default function PurchaseNoteForm() {
           return newItem;
         });
         setItems(hydrated);
+      } else {
+        setItems(actualItems);
       }
 
       // 4. Fetch Background Data (Invoices, History, etc.)
