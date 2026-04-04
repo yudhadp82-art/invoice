@@ -814,7 +814,7 @@ body {
 
   /* Ensure tables look sharp and don't break in the middle of rows */
   table { 
-    page-break-inside: auto; 
+    page-break-inside: avoid; 
     width: 100% !important;
     border-collapse: collapse !important;
     margin-bottom: 12px !important;
@@ -833,7 +833,16 @@ body {
     page-break-after: auto; 
   }
   
-  thead { display: table-header-group !important; }
+  tbody tr:first-child {
+    page-break-before: avoid !important;
+  }
+  
+  thead { 
+    display: table-header-group !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+  }
+  
   tfoot { display: table-footer-group !important; }
 
   /* Section spacing for print - allow page breaks between sections */

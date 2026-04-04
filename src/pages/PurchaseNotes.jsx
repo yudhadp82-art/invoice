@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter } from 'react-icons/fi';
 import { PurchaseNotes as Store, Invoices, SupportingMaterialItems as MasterItems, Customers, Suppliers } from '../utils/storage';
@@ -193,16 +194,34 @@ export default function PurchaseNotes() {
         compress: true
       });
       
-      // Use jsPDF's HTML renderer for better automatic page breaking
-      await pdf.html(element, {
-        margin: [12, 10, 12, 10], // top, left, bottom, right
-        html2canvas: { 
-          scale: 1.5, 
-          useCORS: true, 
-          logging: false,
-          backgroundColor: '#ffffff'
-        }
+      // Capture with higher scale for better rendering
+      const canvas = await html2canvas(element, { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowHeight: element.scrollHeight,
+        windowWidth: element.scrollWidth
       });
+      
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pageHeight = 297;
+      const pageWidth = 210;
+      const margin = { top: 15, left: 15, right: 15, bottom: 15 };
+      const usableWidth = pageWidth - margin.left - margin.right;
+      const usableHeight = pageHeight - margin.top - margin.bottom;
+      
+      // Calculate scaled image dimensions
+      const imgWidth = usableWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pageCount = Math.ceil(imgHeight / usableHeight);
+      
+      // Add pages with image slices
+      for (let page = 0; page < pageCount; page++) {
+        if (page > 0) pdf.addPage();
+        const yPosition = margin.top - (page * usableHeight);
+        pdf.addImage(imgData, 'JPEG', margin.left, yPosition, imgWidth, imgHeight);
+      }
       
       pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
     } catch (err) {
