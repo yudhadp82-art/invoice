@@ -264,17 +264,20 @@ export default function PurchaseNoteForm() {
     const newItems = [...items];
     const it = { ...newItems[index] };
 
-    // Proportional Split Logic for S5/S2/S3
+    // Proportional Split Logic for S5/S2/S3 (Gabung Nota)
     if (field === 'qtyNota' && it.invoiceBreakdown && it.invoiceQty > 0) {
       const totalInv = it.invoiceQty;
+      const newQty = Number(value) || 0;
+      
       const ratioS5 = (it.invoiceBreakdown.s5 || 0) / totalInv;
       const ratioS2 = (it.invoiceBreakdown.s2 || 0) / totalInv;
       const ratioS3 = (it.invoiceBreakdown.s3 || 0) / totalInv;
-      
-      const newQty = Number(value) || 0;
+
+      // Update Qty and NetQty for all branches proportionally
       it.splits.s5 = { ...it.splits.s5, qty: newQty * ratioS5, netQty: newQty * ratioS5 - (it.splits.s5.shrinkage || 0) };
       it.splits.s2 = { ...it.splits.s2, qty: newQty * ratioS2, netQty: newQty * ratioS2 - (it.splits.s2.shrinkage || 0) };
       it.splits.s3 = { ...it.splits.s3, qty: newQty * ratioS3, netQty: newQty * ratioS3 - (it.splits.s3.shrinkage || 0) };
+      
       newItems[index] = it;
     }
 
@@ -331,11 +334,12 @@ export default function PurchaseNoteForm() {
         newItems[index].totalCost = q * p;
       }
 
-      // Auto-calculate shrinkage if invoiceQty exists
-      if (field === 'qtyNota' && newItems[index].invoiceQty > 0) {
+      // Shrinkage Auto-Calculation (Only if it hasn't been split proportionally)
+      if (field === 'qtyNota' && newItems[index].invoiceQty > 0 && !newItems[index].invoiceBreakdown) {
         const invQty = newItems[index].invoiceQty;
         const diff = q - invQty;
 
+        // Default to S5 for non-merged single invoices (Legacy fallback)
         newItems[index].splits.s5.qty = q;
         newItems[index].splits.s5.shrinkage = diff;
         newItems[index].splits.s5.netQty = q - diff;
