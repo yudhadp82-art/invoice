@@ -188,8 +188,12 @@ export default function PurchaseNotes() {
       element.style.display = 'block';
 
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageHeight = 297; // A4 height in mm
+      pdf.setProperties({ title: `Laporan_Pembelian_${grp}` });
+      
+      const pageHeight = 277; // A4 height minus margins (297 - 20mm margins)
       const pageWidth = 210; // A4 width in mm
+      const marginTop = 10;
+      const marginBottom = 10;
       const scale = 2;
       const quality = 0.95;
 
@@ -198,14 +202,14 @@ export default function PurchaseNotes() {
       const imgData = fullCanvas.toDataURL('image/jpeg', quality);
       
       // Calculate total image dimensions
-      const imgWidth = pageWidth;
-      const totalHeight = (fullCanvas.height * pageWidth) / fullCanvas.width;
+      const imgWidth = pageWidth - 20; // Account for page margins
+      const totalHeight = (fullCanvas.height * imgWidth) / fullCanvas.width;
       
       if (!fullCanvas.width || !fullCanvas.height) {
         throw new Error('Failed to capture report element');
       }
 
-      // Add pages with proper slicing
+      // Add pages with proper margins
       let currentPosition = 0;
       let pageIndex = 0;
 
@@ -213,7 +217,8 @@ export default function PurchaseNotes() {
         if (pageIndex > 0) {
           pdf.addPage();
         }
-        pdf.addImage(imgData, 'JPEG', 0, -currentPosition, imgWidth, totalHeight);
+        // Position image with proper margins: 10mm from left, position from top accounting for margin
+        pdf.addImage(imgData, 'JPEG', 10, marginTop - (currentPosition / totalHeight * pageHeight), imgWidth, totalHeight);
         currentPosition += pageHeight;
         pageIndex += 1;
       }
