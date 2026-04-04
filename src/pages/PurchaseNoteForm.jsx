@@ -52,6 +52,8 @@ export default function PurchaseNoteForm() {
   const [allSuppliers, setAllSuppliers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [itemsCount, setItemsCount] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -99,161 +101,153 @@ export default function PurchaseNoteForm() {
 
   async function loadData() {
     try {
-      const [master, invs, history, officialSuppliers, allCustomers] = await Promise.all([
-      MasterItems.getAll(),
-      Invoices.getAll(),
-      PurchaseNotes.getAll(),
-      Suppliers.getAll(),
-      Customers.getAll()
-    ]);
-    setMasterBahan(master);
-    setInvoices(invs.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)));
-    setAllSuppliers(officialSuppliers);
-    setPurchaseHistory(history);
-    // Collect unique supplier names from official List and history for suggestions
-    const supplierSet = new Set();
-    
-    // Add official suppliers first
-    officialSuppliers.forEach(s => {
-      if (s.name) supplierSet.add(s.name);
-      if (s.company) supplierSet.add(s.company);
-    });
-
-    history.forEach(pn => {
-      if (pn.supplierName) supplierSet.add(pn.supplierName);
-      (pn.items || []).forEach(it => { if (it.supplier) supplierSet.add(it.supplier); });
-    });
-    setSupplierHistory(Array.from(supplierSet).sort());
-
-    const usedIds = new Set();
-    history.forEach(pn => {
-      if (pn.invoiceId) usedIds.add(pn.invoiceId);
-      if (Array.isArray(pn.sourceInvoiceIds)) {
-        pn.sourceInvoiceIds.forEach(sid => usedIds.add(sid));
-      }
-    });
-    setUsedInvoiceIds(usedIds);
-
-    // Build group recap from today's invoices (for "Tarik dari Rekap Grup")
-    const nameToGroup = {};
-    allCustomers.forEach(c => {
-      if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group;
-    });
-    const groupAgg = {};
-    const groupInvs = {};
-    invs.forEach(inv => {
-      if (usedIds.has(inv.id)) return;
-      // We no longer strictly filter by todayStr here to allow all pending 
-      // invoices for the group to be recapped and seen in the PDF.
+      setStatusMessage(`🔄 Mencari Nota ID: ${id || 'New'}...`);
       
-      const grp = nameToGroup[(inv.customerName || '').toLowerCase()];
-      if (!grp) return;
-      
-      if (!groupAgg[grp]) groupAgg[grp] = {};
-      if (!groupInvs[grp]) groupInvs[grp] = [];
-      groupInvs[grp].push(inv);
-
-      (inv.items || []).forEach(it => {
-        const key = (it.productName || '').trim();
-        if (!key) return;
-        if (!groupAgg[grp][key]) groupAgg[grp][key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
-        groupAgg[grp][key].totalQty += (Number(it.qty) || 0);
-      });
-    });
-    const grpResult = {};
-    Object.keys(groupAgg).sort().forEach(grp => {
-      grpResult[grp] = Object.values(groupAgg[grp]).sort((a, b) => a.name.localeCompare(b.name));
-    });
-    setGroupRecapData(grpResult);
-    setGroupInvoices(groupInvs);
-
-    if (isEditing) {
-      const note = await PurchaseNotes.getById(id);
-      if (note) {
-        setDate(note.date);
-        setSupplierName(note.supplierName || '');
-          const hydratedItems = (note.items || []).map(it => {
-            let newItem = { ...it };
-            const mName = (newItem.materialName || '').toLowerCase();
-            
-            // Recover materialId if missing
-            if (!newItem.materialId && mName) {
-              const mb = master.find(m => (m.name || '').toLowerCase() === mName);
-              if (mb) newItem.materialId = mb.id;
-            }
-            // Ensure splits object exists to prevent render crash
-            if (!newItem.splits) {
-              newItem.splits = {
-                s5: { qty: 0, shrinkage: 0, netQty: 0 },
-                s2: { qty: 0, shrinkage: 0, netQty: 0 },
-                s3: { qty: 0, shrinkage: 0, netQty: 0 }
-              };
-            } else {
-              // Ensure each sub-split exists
-              if (!newItem.splits.s5) newItem.splits.s5 = { qty: 0, shrinkage: 0, netQty: 0 };
-              if (!newItem.splits.s2) newItem.splits.s2 = { qty: 0, shrinkage: 0, netQty: 0 };
-              if (!newItem.splits.s3) newItem.splits.s3 = { qty: 0, shrinkage: 0, netQty: 0 };
-            }
-            return newItem;
-          });
-          
-          if (hydratedItems.length > 0) {
-            setItems(hydratedItems);
+      // 1. Fetch the Note FIRST if editing
+      if (isEditing) {
+        try {
+          const noteData = await PurchaseNotes.getById(id);
+          if (noteData) {
+            setDate(noteData.date || new Date().toISOString().slice(0, 10));
+            setSupplierName(noteData.supplierName || '');
+            const rawItems = noteData.items || [];
+            setItems(rawItems.length > 0 ? rawItems : [{ ...emptyItem }]);
+            setItemsCount(rawItems.length);
+            setNotes(noteData.notes || '');
+            setInvoiceId(noteData.invoiceId || null);
+            setInvoiceNumber(noteData.invoiceNumber || '');
+            setCurrentGroupName(noteData.groupName || '');
+            setSourceInvoiceIds(noteData.sourceInvoiceIds || []);
+            setStatusMessage(`✅ Ditemukan ${rawItems.length} barang.`);
           } else {
-            setItems([{ ...emptyItem }]);
+            setStatusMessage(`⚠️ Nota ID "${id}" TIDAK DITEMUKAN.`);
           }
-        setNotes(note.notes || '');
-        setInvoiceId(note.invoiceId || null);
-        setInvoiceNumber(note.invoiceNumber || '');
-        setCurrentGroupName(note.groupName || '');
-        setSourceInvoiceIds(note.sourceInvoiceIds || []);
+        } catch (err) {
+          console.error("Error fetching individual note:", err);
+          setStatusMessage(`❌ Error mencari nota: ${err.message}`);
+        }
       }
-    } else if (location.state?.invoiceId) {
-      const invId = location.state.invoiceId;
-      const inv = invs.find(i => i.id === invId);
-      if (inv) {
-        setInvoiceId(inv.id);
-        setInvoiceNumber(inv.invoiceNumber);
-        setSourceInvoiceIds([inv.id]);
+
+      // 2. Fetch Master Bahan (needed for rehydration and select options)
+      let master = [];
+      try {
+        master = await MasterItems.getAll();
+        setMasterBahan(master);
+      } catch (err) {
+        console.error("Error loading master bahan:", err);
+      }
+
+      // 3. Rehydrate items once Master is loaded
+      if (isEditing && items.length > 0) {
+        const hydrated = items.map(it => {
+          let newItem = { ...it };
+          const mName = (newItem.materialName || '').toLowerCase();
+          if (!newItem.materialId && mName && master.length > 0) {
+            const mb = master.find(m => (m.name || '').toLowerCase() === mName);
+            if (mb) newItem.materialId = mb.id;
+          }
+          if (!newItem.splits) {
+            newItem.splits = {
+              s5: { qty: 0, shrinkage: 0, netQty: 0 },
+              s2: { qty: 0, shrinkage: 0, netQty: 0 },
+              s3: { qty: 0, shrinkage: 0, netQty: 0 }
+            };
+          } else {
+            if (!newItem.splits.s5) newItem.splits.s5 = { qty: 0, shrinkage: 0, netQty: 0 };
+            if (!newItem.splits.s2) newItem.splits.s2 = { qty: 0, shrinkage: 0, netQty: 0 };
+            if (!newItem.splits.s3) newItem.splits.s3 = { qty: 0, shrinkage: 0, netQty: 0 };
+          }
+          return newItem;
+        });
+        setItems(hydrated);
+      }
+
+      // 4. Fetch Background Data (Invoices, History, etc.)
+      try {
+        const [invs, history, officialSuppliers, allCustomers] = await Promise.all([
+          Invoices.getAll(),
+          PurchaseNotes.getAll(),
+          Suppliers.getAll(),
+          Customers.getAll()
+        ]);
+        setInvoices(invs.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)));
+        setAllSuppliers(officialSuppliers);
+        setPurchaseHistory(history);
+        
+        // Supplier suggestions
+        const supplierSet = new Set();
+        officialSuppliers.forEach(s => { if (s.name) supplierSet.add(s.name); if (s.company) supplierSet.add(s.company); });
+        history.forEach(pn => { if (pn.supplierName) supplierSet.add(pn.supplierName); (pn.items || []).forEach(it => { if (it.supplier) supplierSet.add(it.supplier); }); });
+        setSupplierHistory(Array.from(supplierSet).sort());
+
+        // Invoice usage
+        const usedIds = new Set();
+        history.forEach(pn => { if (pn.invoiceId) usedIds.add(pn.invoiceId); if (Array.isArray(pn.sourceInvoiceIds)) pn.sourceInvoiceIds.forEach(sid => usedIds.add(sid)); });
+        setUsedInvoiceIds(usedIds);
+
+        // Group recap building
+        const nameToGroup = {};
+        allCustomers.forEach(c => { if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group; });
+        const groupAgg = {};
+        const groupInvs = {};
+        invs.forEach(inv => {
+          if (usedIds.has(inv.id)) return;
+          const grp = nameToGroup[(inv.customerName || '').toLowerCase()];
+          if (!grp) return;
+          if (!groupAgg[grp]) groupAgg[grp] = {};
+          if (!groupInvs[grp]) groupInvs[grp] = [];
+          groupInvs[grp].push(inv);
+          (inv.items || []).forEach(it => {
+            const key = (it.productName || '').trim();
+            if (!key) return;
+            if (!groupAgg[grp][key]) groupAgg[grp][key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
+            groupAgg[grp][key].totalQty += (Number(it.qty) || 0);
+          });
+        });
+        const grpResult = {};
+        Object.keys(groupAgg).sort().forEach(grp => { grpResult[grp] = Object.values(groupAgg[grp]).sort((a, b) => a.name.localeCompare(b.name)); });
+        setGroupRecapData(grpResult);
+        setGroupInvoices(groupInvs);
+      } catch (err) {
+        console.error("Error loading secondary/background data:", err);
+      }
+
+      // Handle direct invoice import from route state if NEW
+      if (!isEditing && location.state?.invoiceId) {
+        const invId = location.state.invoiceId;
+        // invs isn't available here as we didn't wait for it. We'll fetch it individually.
+        const inv = await Invoices.getById(invId);
+        if (inv) {
+          setInvoiceId(inv.id);
+          setInvoiceNumber(inv.invoiceNumber);
+          setSourceInvoiceIds([inv.id]);
           const materials = (inv.items || [])
-            .filter(it => {
-              if (it.type === 'material') return true;
-              const pName = (it.productName || '').toLowerCase();
-              return master.some(m => (m.name || '').toLowerCase() === pName);
-            })
             .map(it => {
               const pName = (it.productName || '').toLowerCase();
               const mb = master.find(m => (m.name || '').toLowerCase() === pName);
-            return {
-              materialId: it.productId || (mb ? mb.id : ''),
-              materialName: it.productName,
-              unit: it.unit || (mb ? mb.unit : 'kg'),
-            qtyNota: Number(it.qty) || 0,
-            invoiceQty: Number(it.qty) || 0,
-            pricePerUnit: Number(it.unitPrice) || 0,
-            sellPrice: Number(it.unitPrice) || 0,
-            splits: {
-              s5: { qty: Number(it.qty) || 0, shrinkage: 0, netQty: Number(it.qty) || 0 },
-              s2: { qty: 0, shrinkage: 0, netQty: 0 },
-              s3: { qty: 0, shrinkage: 0, netQty: 0 }
-            },
-            totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
-            };
-          });
-
-        const expanded = expandItems(materials, master);
-
-        if (expanded.length > 0) {
-          setItems(expanded);
-          setSupplierName(inv.customerName || '');
-          setInvoiceId(inv.id);
-          setInvoiceNumber(inv.invoiceNumber);
-          setNotes(n => `${n}${n ? '\n' : ''}Otomatis dari Invoice: ${inv.invoiceNumber}`);
-        }
+              return {
+                materialId: it.productId || (mb ? mb.id : ''),
+                materialName: it.productName,
+                unit: it.unit || (mb ? mb.unit : 'kg'),
+                qtyNota: Number(it.qty) || 0,
+                invoiceQty: Number(it.qty) || 0,
+                pricePerUnit: Number(it.unitPrice) || 0,
+                sellPrice: Number(it.unitPrice) || 0,
+                splits: { s5: { qty: Number(it.qty) || 0, shrinkage: 0, netQty: Number(it.qty) || 0 }, s2: { qty: 0, shrinkage: 0, netQty: 0 }, s3: { qty: 0, shrinkage: 0, netQty: 0 } },
+                totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
+              };
+            });
+          const expanded = expandItems(materials, master);
+          if (expanded.length > 0) {
+            setItems(expanded);
+            setSupplierName(inv.customerName || '');
+            setNotes(n => `${n}${n ? '\n' : ''}Otomatis dari Invoice: ${inv.invoiceNumber}`);
+          }
         }
       }
     } catch (err) {
-      console.error("Error loading data:", err);
+      console.error("Global Error loading data:", err);
+      setStatusMessage(`❌ Error Fatal: ${err.message}`);
     }
   }
 
@@ -540,6 +534,14 @@ export default function PurchaseNoteForm() {
           )}
         </div>
       </div>
+
+      {statusMessage && (
+        <div style={{ padding: '12px', background: statusMessage.includes('❌') ? 'rgba(239, 68, 68, 0.15)' : 'rgba(99, 102, 241, 0.15)', border: `1px solid ${statusMessage.includes('❌') ? '#ef4444' : '#6366f1'}`, borderRadius: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 18 }}>{statusMessage.includes('❌') ? '⚠️' : 'ℹ️'}</span>
+          <span style={{ fontWeight: 600, fontSize: 14 }}>{statusMessage}</span>
+          {isEditing && itemsCount > 0 && <span className="badge badge-success">OK ({itemsCount} item)</span>}
+        </div>
+      )}
 
       <form className="grid gap-lg" onSubmit={handleSave}>
         <div className="card">
