@@ -184,15 +184,40 @@ export default function PurchaseNotes() {
       element = document.getElementById('purchase-note-report-render');
       if (!element) throw new Error('Render element not found');
 
-      // Temporarily show the element for html2canvas
       originalDisplay = element.style.display;
       element.style.display = 'block';
 
       const pdf = new jsPDF('p', 'mm', 'a4');
-      await pdf.html(element, {
-        html2canvas: { scale: 2, useCORS: true },
-        margin: [10, 10, 10, 10],
-      });
+      const pageHeight = 297; // A4 height in mm
+      const pageWidth = 210; // A4 width in mm
+      const scale = 2;
+      const quality = 0.95;
+
+      // Capture entire element as one large canvas
+      const fullCanvas = await html2canvas(element, { scale, useCORS: true, logging: false });
+      const imgData = fullCanvas.toDataURL('image/jpeg', quality);
+      
+      // Calculate total image dimensions
+      const imgWidth = pageWidth;
+      const totalHeight = (fullCanvas.height * pageWidth) / fullCanvas.width;
+      
+      if (!fullCanvas.width || !fullCanvas.height) {
+        throw new Error('Failed to capture report element');
+      }
+
+      // Add pages with proper slicing
+      let currentPosition = 0;
+      let pageIndex = 0;
+
+      while (currentPosition < totalHeight) {
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(imgData, 'JPEG', 0, -currentPosition, imgWidth, totalHeight);
+        currentPosition += pageHeight;
+        pageIndex += 1;
+      }
+
       pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
     } catch (err) {
       console.error(err);
