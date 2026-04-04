@@ -18,14 +18,15 @@ export default function PurchaseNoteReportPdf({
     ? { width: '800px', margin: '0 auto', background: 'white', color: 'black', padding: '20px' }
     : { 
         position: 'absolute', 
-        top: -30000, // Further away
+        top: -30000,
         left: 0, 
         width: '1000px', 
-        minHeight: 'auto', // Important: let it expand!
+        minHeight: 'min-content', 
         background: 'white', 
         color: 'black', 
-        padding: '40px',
-        zIndex: -9999
+        padding: '0', // Let internal sections handle padding
+        zIndex: -9999,
+        overflow: 'visible'
       };
  
   // Aggregate items by Supplier for grouping (Case-insensitive)

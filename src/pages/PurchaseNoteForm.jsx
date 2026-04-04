@@ -504,17 +504,23 @@ export default function PurchaseNoteForm() {
 
   async function handlePrintPdf() {
     setIsGeneratingPdf(true);
-    await new Promise(r => setTimeout(r, 800)); // More time for styling to settle
+    // Give more time for the hidden template to fully render its content
+    await new Promise(r => setTimeout(r, 1200)); 
     
     try {
       const element = document.getElementById('purchase-note-report-render');
       if (!element) throw new Error('Render element not found');
 
+      // Crucial: define exactly how much of the "world" to capture
       const canvas = await html2canvas(element, { 
         scale: 2, 
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 1024,
+        windowHeight: element.scrollHeight + 200 // Capture the ENTIRE scrollable height!
       });
       
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -526,25 +532,22 @@ export default function PurchaseNoteForm() {
       const canvasHeight = canvas.height;
       const imgHeightInPdf = (canvasHeight * pageWidth) / canvasWidth;
       
-      let heightLeft = imgHeightInPdf;
-      let position = 0;
+      const totalPages = Math.ceil(imgHeightInPdf / pageHeight);
 
-      // Page 1
-      pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeightInPdf);
-      heightLeft -= pageHeight;
-
-      // Subsequent Pages
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeightInPdf;
-        pdf.addPage();
+      for (let i = 0; i < totalPages; i++) {
+        if (i > 0) {
+          pdf.addPage();
+        }
+        // Shift up for each new page
+        const position = -(i * pageHeight);
         pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeightInPdf);
-        heightLeft -= pageHeight;
       }
 
-      pdf.save(`Laporan_Pembelian_${(currentGroupName || invoiceNumber || 'NoRec').replace(/\s+/g, '_')}_${date}.pdf`);
+      const fileName = `Laporan_Pembelian_${(currentGroupName || invoiceNumber || 'NoRec').replace(/\s+/g, '_')}_${date}.pdf`;
+      pdf.save(fileName);
     } catch (err) {
-      console.error('PDF Generation Error:', err);
-      alert('Gagal membuat PDF multi-halaman: ' + err.message);
+      console.error('CRITICAL PDF ERROR:', err);
+      alert('Gagal membuat laporan PDF: ' + err.message);
     } finally {
       setIsGeneratingPdf(false);
     }
