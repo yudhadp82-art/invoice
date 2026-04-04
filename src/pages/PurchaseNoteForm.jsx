@@ -83,13 +83,13 @@ export default function PurchaseNoteForm() {
             isSubItem: true,
             parentName: it.materialName || 'Mix Vegetable',
             unit: mb ? mb.unit : 'kg',
-            qtyNota: q.toFixed(2),
-            invoiceQty: iq.toFixed(2),
-            pricePerUnit: basePrice, // Assume same price or distribute? Usually same for raw material cost.
-            totalCost: (q * basePrice).toFixed(2),
+            qtyNota: Number(q.toFixed(2)),
+            invoiceQty: Number(iq.toFixed(2)),
+            pricePerUnit: basePrice,
+            totalCost: Number((q * basePrice).toFixed(2)),
             supplier: it.supplier || '',
             splits: {
-              s5: { qty: q.toFixed(2), shrinkage: 0, netQty: q.toFixed(2) },
+              s5: { qty: Number(q.toFixed(2)), shrinkage: 0, netQty: Number(q.toFixed(2)) },
               s2: { qty: 0, shrinkage: 0, netQty: 0 },
               s3: { qty: 0, shrinkage: 0, netQty: 0 }
             }
@@ -410,7 +410,7 @@ export default function PurchaseNoteForm() {
     e.preventDefault();
     setSaving(true);
     try {
-      const grandTotal = items.reduce((sum, it) => sum + it.totalCost, 0);
+      const grandTotal = items.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
       const payload = {
         date,
         supplierName,
@@ -516,7 +516,7 @@ export default function PurchaseNoteForm() {
     }
   }
 
-  const grandTotalValue = items.reduce((s, it) => s + (it.totalCost || 0), 0);
+   const grandTotalValue = (items || []).reduce((s, it) => s + (Number(it.totalCost) || 0), 0);
 
   return (
     <div className="animate-in">
@@ -956,10 +956,10 @@ export default function PurchaseNoteForm() {
 
               const materials = Object.values(matMap).map(m => {
                 // Initialize splits from aggregate qty
-                m.splits.s5.qty = m.invoiceBreakdown.s5; m.splits.s5.netQty = m.invoiceBreakdown.s5;
-                m.splits.s2.qty = m.invoiceBreakdown.s2; m.splits.s2.netQty = m.invoiceBreakdown.s2;
-                m.splits.s3.qty = m.invoiceBreakdown.s3; m.splits.s3.netQty = m.invoiceBreakdown.s3;
-                m.totalCost = m.qtyNota * m.pricePerUnit;
+                m.splits.s5.qty = Number(m.invoiceBreakdown.s5) || 0; m.splits.s5.netQty = m.splits.s5.qty;
+                m.splits.s2.qty = Number(m.invoiceBreakdown.s2) || 0; m.splits.s2.netQty = m.splits.s2.qty;
+                m.splits.s3.qty = Number(m.invoiceBreakdown.s3) || 0; m.splits.s3.netQty = m.splits.s3.qty;
+                m.totalCost = (Number(m.qtyNota) || 0) * (Number(m.pricePerUnit) || 0);
                 return m;
               });
 
