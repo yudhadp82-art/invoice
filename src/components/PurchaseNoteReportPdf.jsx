@@ -17,15 +17,17 @@ export default function PurchaseNoteReportPdf({
   const containerStyle = forPrint 
     ? { width: '800px', margin: '0 auto', background: 'white', color: 'black', padding: '20px' }
     : { 
-        position: 'absolute', 
-        top: -30000,
+        position: 'fixed', 
+        top: 0,
         left: 0, 
-        width: '800px', // Adjusted for better A4 proportion (800px at capture = legible)
+        width: '800px', 
         minHeight: 'min-content', 
         background: 'white', 
         color: 'black', 
         padding: '0', 
         zIndex: -9999,
+        opacity: 0, // Hidden but in the render tree for full-height calculation!
+        pointerEvents: 'none',
         overflow: 'visible'
       };
  

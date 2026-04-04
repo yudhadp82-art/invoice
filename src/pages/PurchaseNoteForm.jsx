@@ -512,6 +512,10 @@ export default function PurchaseNoteForm() {
       if (!element) throw new Error('Render element not found');
 
       // Crucial: define exactly how much of the "world" to capture
+      // By using offsetHeight, we ensure we capture all data even if off-screen
+      const width = element.offsetWidth;
+      const height = element.offsetHeight;
+      
       const canvas = await html2canvas(element, { 
         scale: 2, 
         useCORS: true,
@@ -519,8 +523,8 @@ export default function PurchaseNoteForm() {
         backgroundColor: '#ffffff',
         scrollX: 0,
         scrollY: 0,
-        windowWidth: 800,
-        windowHeight: element.scrollHeight + 200 // Capture the ENTIRE scrollable height!
+        width: width,
+        height: height
       });
       
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -538,7 +542,7 @@ export default function PurchaseNoteForm() {
         if (i > 0) {
           pdf.addPage();
         }
-        // Shift up for each new page
+        // Shift exact pageHeight to show the next A4 section of the capture
         const position = -(i * pageHeight);
         pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeightInPdf);
       }
