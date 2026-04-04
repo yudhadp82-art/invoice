@@ -18,16 +18,23 @@ export default function PurchaseNoteReportPdf({
     ? { width: '800px', margin: '0 auto', background: 'white', color: 'black', padding: '20px' }
     : { position: 'absolute', top: -20000, left: -20000, width: '1000px', background: 'white', color: 'black', padding: '40px' };
  
-  // Aggregate items by Supplier for grouping
+  // Aggregate items by Supplier for grouping (Case-insensitive)
   const supplierMap = {};
+  const displayNames = {}; // Normalized Key -> Original Display Name for rendering
+
   (purchaseItems || []).forEach(it => {
-    // If item supplier is empty, use the note-level supplierName, default to 'Penyedia Barang'
-    const rawSup = it.supplier || supplierName || 'Penyedia Barang';
-    const s = rawSup.trim();
-    if (!supplierMap[s]) supplierMap[s] = [];
-    supplierMap[s].push(it);
+    const rawSup = (it.supplier || supplierName || 'Penyedia Barang').trim();
+    const key = rawSup.toUpperCase();
+    
+    if (!supplierMap[key]) {
+      supplierMap[key] = [];
+      displayNames[key] = rawSup; 
+    }
+    supplierMap[key].push(it);
   });
-  const supplierGroups = Object.entries(supplierMap).sort((a, b) => a[0].localeCompare(b[0]));
+
+  // Sort by name and convert back to entries for the component to map over
+  const supplierGroups = Object.keys(supplierMap).sort().map(key => [displayNames[key], supplierMap[key]]);
   
   const totalItemsCost = (purchaseItems || []).reduce((n, it) => n + (Number(it.totalCost) || 0), 0);
   const totalDiscounts = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);

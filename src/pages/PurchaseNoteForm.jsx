@@ -504,23 +504,47 @@ export default function PurchaseNoteForm() {
 
   async function handlePrintPdf() {
     setIsGeneratingPdf(true);
-    await new Promise(r => setTimeout(r, 600)); // Give time for hidden template to render
+    await new Promise(r => setTimeout(r, 800)); // More time for styling to settle
     
     try {
       const element = document.getElementById('purchase-note-report-render');
       if (!element) throw new Error('Render element not found');
 
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL('image/jpeg', 0.8);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 210;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const canvas = await html2canvas(element, { 
+        scale: 2, 
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
       
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`Laporan_Pembelian_${currentGroupName || invoiceNumber || 'NoRec'}_${date}.pdf`);
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const imgHeightInPdf = (canvasHeight * pageWidth) / canvasWidth;
+      
+      let heightLeft = imgHeightInPdf;
+      let position = 0;
+
+      // Page 1
+      pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeightInPdf);
+      heightLeft -= pageHeight;
+
+      // Subsequent Pages
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeightInPdf;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, imgHeightInPdf);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Laporan_Pembelian_${(currentGroupName || invoiceNumber || 'NoRec').replace(/\s+/g, '_')}_${date}.pdf`);
     } catch (err) {
-      console.error(err);
-      alert('Gagal membuat PDF: ' + err.message);
+      console.error('PDF Generation Error:', err);
+      alert('Gagal membuat PDF multi-halaman: ' + err.message);
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -767,13 +791,18 @@ export default function PurchaseNoteForm() {
         {/* Rekap per Supplier */}
         {(() => {
           const supplierMap = {};
+          const displayNames = {};
           (items || []).forEach(item => {
             if (!item) return;
-            const sup = (item.supplier || supplierName || '(Supplier Tidak Diisi)').trim();
-            if (!supplierMap[sup]) supplierMap[sup] = [];
-            supplierMap[sup].push(item);
+            const rawSup = (item.supplier || supplierName || '(Supplier Tidak Diisi)').trim();
+            const key = rawSup.toUpperCase();
+            if (!supplierMap[key]) {
+              supplierMap[key] = [];
+              displayNames[key] = rawSup;
+            }
+            supplierMap[key].push(item);
           });
-          const supplierGroups = Object.entries(supplierMap);
+          const supplierGroups = Object.keys(supplierMap).sort().map(key => [displayNames[key], supplierMap[key]]);
           if (supplierGroups.length === 0) return null;
           return (
             <div className="card" style={{ border: '1px solid rgba(99,102,241,0.2)' }}>
