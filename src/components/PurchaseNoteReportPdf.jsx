@@ -16,7 +16,17 @@ export default function PurchaseNoteReportPdf({
 
   const containerStyle = forPrint 
     ? { width: '800px', margin: '0 auto', background: 'white', color: 'black', padding: '20px' }
-    : { position: 'absolute', top: -20000, left: -20000, width: '1000px', background: 'white', color: 'black', padding: '40px' };
+    : { 
+        position: 'absolute', 
+        top: -30000, // Further away
+        left: 0, 
+        width: '1000px', 
+        minHeight: 'auto', // Important: let it expand!
+        background: 'white', 
+        color: 'black', 
+        padding: '40px',
+        zIndex: -9999
+      };
  
   // Aggregate items by Supplier for grouping (Case-insensitive)
   const supplierMap = {};

@@ -582,11 +582,10 @@ export default function PurchaseNoteForm() {
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
             <FiSave /> {saving ? 'Menyimpan...' : 'Simpan Nota'}
           </button>
-          {(currentGroupName || invoiceId) && (
-            <button className="btn btn-secondary" onClick={handlePrintPdf} disabled={isGeneratingPdf} style={{ background: 'var(--accent-purple)', borderColor: 'var(--accent-purple)', color: 'white' }}>
-              {isGeneratingPdf ? '⏳...' : <><FiFileText /> Cetak PDF</>}
-            </button>
-          )}
+          
+          <button className="btn btn-secondary" onClick={handlePrintPdf} disabled={isGeneratingPdf} style={{ background: 'var(--accent-purple)', borderColor: 'var(--accent-purple)', color: 'white' }}>
+            {isGeneratingPdf ? '⏳...' : <><FiFileText /> Cetak PDF</>}
+          </button>
         </div>
       </div>
 
@@ -1092,26 +1091,24 @@ export default function PurchaseNoteForm() {
         </div>
       </Modal>
 
-      {/* PDF Rendering Area (Hidden) */}
-      {(currentGroupName || invoiceId) && (
-        <PurchaseNoteReportPdf 
-          groupName={currentGroupName || invoiceNumber || 'Pembelian Umum'} 
-          date={date}
-          groupRecap={groupRecapData[currentGroupName] || []}
-          purchaseItems={items}
-          supplierName={supplierName}
-          supplierDiscounts={supplierDiscounts}
-          invoicesList={
-            sourceInvoiceIds && sourceInvoiceIds.length > 0 
-              ? invoices.filter(inv => sourceInvoiceIds.includes(inv.id))
-              : invoiceId 
-                ? invoices.filter(inv => inv.id === invoiceId)
-                : (groupInvoices[currentGroupName] || [])
-          }
-          suppliersData={allSuppliers}
-          forPrint={false}
-        />
-      )}
+      {/* PDF Rendering Area (Hidden) - Always render for capture */}
+      <PurchaseNoteReportPdf 
+        groupName={currentGroupName || invoiceNumber || 'Pembelian Umum'} 
+        date={date}
+        groupRecap={groupRecapData[currentGroupName] || []}
+        purchaseItems={items}
+        supplierName={supplierName}
+        supplierDiscounts={supplierDiscounts}
+        invoicesList={
+          sourceInvoiceIds && sourceInvoiceIds.length > 0 
+            ? invoices.filter(inv => sourceInvoiceIds.includes(inv.id))
+            : invoiceId 
+              ? invoices.filter(inv => inv.id === invoiceId)
+              : (groupInvoices[currentGroupName] || [])
+        }
+        suppliersData={allSuppliers}
+        forPrint={false}
+      />
     </div>
   );
 }
