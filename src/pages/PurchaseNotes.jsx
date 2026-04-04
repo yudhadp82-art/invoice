@@ -188,6 +188,10 @@ export default function PurchaseNotes() {
       const imgWidth = 210;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
+      if (!canvas.width || !canvas.height || !isFinite(imgHeight) || imgHeight <= 0) {
+        throw new Error('Invalid canvas dimensions or calculated height');
+      }
+      
       pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
       pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
     } catch (err) {
