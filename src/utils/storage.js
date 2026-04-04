@@ -1,5 +1,4 @@
-import { db } from './firebase';
-import { collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { supabase } from './supabase';
 
 const COLLECTIONS = {
   PRODUCTS: 'products',
@@ -34,9 +33,12 @@ function notifyMutation(action, collectionName, payload) {
 
 async function getAllFromStore(collectionName) {
   try {
-    const colRef = collection(db, collectionName);
-    const snapshot = await getDocs(colRef);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const { data, error } = await supabase
+      .from(collectionName)
+      .select('*');
+    
+    if (error) throw error;
+    return (data || []).map(item => ({ id: item.id, ...item.data }));
   } catch (error) {
     console.error(`Error getting all from ${collectionName}:`, error);
     return [];
@@ -45,9 +47,14 @@ async function getAllFromStore(collectionName) {
 
 async function getByIdFromStore(collectionName, id) {
   try {
-    const docRef = doc(db, collectionName, id);
-    const snapshot = await getDoc(docRef);
-    return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+    const { data, error } = await supabase
+      .from(collectionName)
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    
+    if (error) throw error;
+    return data ? { id: data.id, ...data.data } : null;
   } catch (error) {
     console.error(`Error getting ${id} from ${collectionName}:`, error);
     return null;
@@ -56,23 +63,30 @@ async function getByIdFromStore(collectionName, id) {
 
 async function createInStore(collectionName, item) {
   try {
-    const newItem = {
-      ...item,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    let savedItem = null;
-    if (item.id) {
-      const docRef = doc(db, collectionName, item.id);
-      await setDoc(docRef, newItem);
-      savedItem = { ...newItem, id: item.id };
-    } else {
-      const colRef = collection(db, collectionName);
-      const docRef = await addDoc(colRef, newItem);
-      savedItem = { id: docRef.id, ...newItem };
-    }
+    const id = item.id || crypto.randomUUID();
+    const now = new Date().toISOString();
     
-    notifyMutation('create', collectionName, { id: savedItem.id, item: savedItem });
+    const dataPayload = {
+      ...item,
+      createdAt: item.createdAt || now,
+      updatedAt: now,
+    };
+    // Hapus id dari dataPayload agar tidak duplikat dengan kolom id
+    delete dataPayload.id;
+
+    const { error } = await supabase
+      .from(collectionName)
+      .insert({
+        id: id,
+        data: dataPayload,
+        created_at: dataPayload.createdAt,
+        updated_at: dataPayload.updatedAt
+      });
+
+    if (error) throw error;
+    
+    const savedItem = { id, ...dataPayload };
+    notifyMutation('create', collectionName, { id, item: savedItem });
     return savedItem;
   } catch (error) {
     console.error(`Error creating in ${collectionName}:`, error);
@@ -82,18 +96,31 @@ async function createInStore(collectionName, item) {
 
 async function updateInStore(collectionName, id, updates) {
   try {
-    const docRef = doc(db, collectionName, id);
-    const snap = await getDoc(docRef);
-    const previous = snap.exists() ? snap.data() : null; // Simpan untuk Undo
-
+    // Ambil data lama untuk Undo
+    const previousItem = await getByIdFromStore(collectionName, id);
+    
+    const now = new Date().toISOString();
     const updatedData = {
+      ...previousItem,
       ...updates,
-      updatedAt: new Date().toISOString()
+      updatedAt: now
     };
-    await updateDoc(docRef, updatedData);
+    const idToSave = updatedData.id;
+    delete updatedData.id;
 
-    notifyMutation('update', collectionName, { id, previous: { id, ...previous }, updates: updatedData });
-    return { id, ...updatedData };
+    const { error } = await supabase
+      .from(collectionName)
+      .update({
+        data: updatedData,
+        updated_at: now
+      })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    const result = { id, ...updatedData };
+    notifyMutation('update', collectionName, { id, previous: { id, ...previousItem }, updates: result });
+    return result;
   } catch (error) {
     console.error(`Error updating ${id} in ${collectionName}:`, error);
     return null;
@@ -102,13 +129,16 @@ async function updateInStore(collectionName, id, updates) {
 
 async function removeInStore(collectionName, id) {
   try {
-    const docRef = doc(db, collectionName, id);
-    const snap = await getDoc(docRef);
-    const previous = snap.exists() ? snap.data() : null; // Simpan untuk Restore
+    const previousItem = await getByIdFromStore(collectionName, id);
+    
+    const { error } = await supabase
+      .from(collectionName)
+      .delete()
+      .eq('id', id);
 
-    await deleteDoc(docRef);
+    if (error) throw error;
 
-    notifyMutation('delete', collectionName, { id, previous: { id, ...previous } });
+    notifyMutation('delete', collectionName, { id, previous: { id, ...previousItem } });
     return true;
   } catch (error) {
     console.error(`Error deleting ${id} in ${collectionName}:`, error);
@@ -331,11 +361,6 @@ export async function seedDemoData() {
     { name: 'Label Stiker', unit: 'pcs', defaultPrice: 500, stock: 0, availableInS2: true, availableInS5: true },
   ];
 
-  // These were duplicates calling create outside the check blocks, causing ReferenceError
-  // for (const p of products) await Products.create(p);
-  // for (const c of customers) await Customers.create(c);
-  // for (const s of suppliers) await Suppliers.create(s);
-
   const materials = await SupportingMaterialItems.getAll();
   if (materials.length === 0) {
     for (const m of materialItems) await SupportingMaterialItems.create(m);
@@ -372,20 +397,33 @@ export async function seedDemoData() {
 
 // Fungsi Eksekusi Undo
 export async function executeUndo(mutation) {
-  const { action, collection, id, previous, item } = mutation;
+  const { action, collection, id, previous } = mutation;
   try {
     if (action === 'delete') {
       // Restore kembali data yang dihapus
-      const docRef = doc(db, collection, id);
-      await setDoc(docRef, previous);
+      const now = new Date().toISOString();
+      const dataPayload = { ...previous };
+      delete dataPayload.id;
+      
+      await supabase.from(collection).insert({
+        id: id,
+        data: dataPayload,
+        created_at: dataPayload.createdAt || now,
+        updated_at: now
+      });
     } else if (action === 'update') {
       // Balikkan ke data sebelumnya
-      const docRef = doc(db, collection, id);
-      await setDoc(docRef, previous);
+      const now = new Date().toISOString();
+      const dataPayload = { ...previous };
+      delete dataPayload.id;
+
+      await supabase.from(collection).update({
+        data: dataPayload,
+        updated_at: now
+      }).eq('id', id);
     } else if (action === 'create') {
       // Hapus data yang ditambahkan
-      const docRef = doc(db, collection, id);
-      await deleteDoc(docRef);
+      await supabase.from(collection).delete().eq('id', id);
     }
     // Dispatch reload layout/pages
     window.dispatchEvent(new Event('app-data-mutation'));

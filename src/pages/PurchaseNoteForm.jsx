@@ -4,8 +4,6 @@ import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiShoppingBag, FiInfo, FiUsers, 
 import { PurchaseNotes, SupportingMaterialItems as MasterItems, Invoices, Suppliers, Customers } from '../utils/storage';
 import { formatCurrency } from '../utils/formatter';
 import Modal from '../components/Modal';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
 
 const emptyItem = {
