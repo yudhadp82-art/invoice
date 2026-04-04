@@ -1070,6 +1070,7 @@ export default function PurchaseNoteForm() {
           date={date}
           groupRecap={groupRecapData[currentGroupName] || []}
           purchaseItems={items}
+          supplierName={supplierName}
           supplierDiscounts={supplierDiscounts}
           invoicesList={
             sourceInvoiceIds && sourceInvoiceIds.length > 0 

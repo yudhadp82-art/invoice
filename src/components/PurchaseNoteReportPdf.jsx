@@ -6,6 +6,7 @@ export default function PurchaseNoteReportPdf({
   date, 
   groupRecap, 
   purchaseItems, 
+  supplierName,
   supplierDiscounts = {}, 
   invoicesList, 
   suppliersData = [], 
@@ -20,7 +21,9 @@ export default function PurchaseNoteReportPdf({
   // Aggregate items by Supplier for grouping
   const supplierMap = {};
   (purchaseItems || []).forEach(it => {
-    const s = it.supplier || 'Penyedia Barang';
+    // If item supplier is empty, use the note-level supplierName, default to 'Penyedia Barang'
+    const rawSup = it.supplier || supplierName || 'Penyedia Barang';
+    const s = rawSup.trim();
     if (!supplierMap[s]) supplierMap[s] = [];
     supplierMap[s].push(it);
   });
