@@ -194,6 +194,9 @@ export default function PurchaseNotes() {
         compress: true
       });
       
+      // Wait for render to complete
+      await new Promise(r => setTimeout(r, 300));
+      
       // Capture element to canvas with A4 width constraint
       const pageWidth = 210; // A4 width in mm
       const dpi = 96;
@@ -204,7 +207,8 @@ export default function PurchaseNotes() {
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        width: pixelWidth
+        width: pixelWidth,
+        allowTaint: true
       });
       
       const pageHeight = 297; // A4 height in mm
@@ -213,15 +217,20 @@ export default function PurchaseNotes() {
       const marginLeft = 15;
       const marginRight = 15;
       
-      const usableHeight = pageHeight - marginTop - marginBottom;
-      const imgWidth = pageWidth - marginLeft - marginRight;
+      // Calculate usable height per page
+      const usableHeight = pageHeight - marginTop - marginBottom; // 267mm
+      const imgWidth = pageWidth - marginLeft - marginRight; // 180mm
+      
+      // Calculate image dimensions
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       const totalPages = Math.ceil(imgHeight / usableHeight);
       
       const imgData = canvas.toDataURL('image/jpeg', 0.98);
       
+      // Add pages with proper offset calculation
       for (let i = 0; i < totalPages; i++) {
         if (i > 0) pdf.addPage();
+        // Position each page's image with proper margin offset
         const yOffset = marginTop - (i * usableHeight);
         pdf.addImage(imgData, 'JPEG', marginLeft, yOffset, imgWidth, imgHeight);
       }

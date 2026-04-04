@@ -845,15 +845,23 @@ body {
 
   /* Section spacing for print - allow page breaks between sections */
   .print-section {
-    page-break-inside: auto !important;
-    margin-bottom: 18px !important;
-    margin-top: 8px !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 20px !important;
+    margin-top: 16px !important;
     display: block !important;
     page-break-after: auto;
     overflow: visible !important;
   }
 
-  /* Force background colors in print */
+  /* Prevent supplier section from breaking if possible */
+  .print-section:first-of-type {
+    page-break-before: auto !important;
+  }
+
+  .print-section:not(:first-of-type) {
+    page-break-before: auto !important;
+  }
+
   th {
     background-color: #f8fafc !important;
     font-weight: bold !important;

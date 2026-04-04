@@ -16,7 +16,7 @@ export default function PurchaseNoteReportPdf({
 
   const containerStyle = {
     width: '210mm',
-    minHeight: '297mm',
+    minHeight: '100%',
     background: 'white',
     color: 'black',
     padding: '15mm',
@@ -105,7 +105,7 @@ export default function PurchaseNoteReportPdf({
         );
 
         return (
-          <div key={idx} className="print-section" style={{ border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'visible', marginBottom: 14, pageBreakInside: 'auto', width: '100%' }}>
+          <div key={idx} className="print-section" style={{ border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'visible', marginBottom: 20, marginTop: 16, pageBreakInside: 'avoid', pageBreakBefore: idx > 0 ? 'auto' : 'auto', width: '100%', minHeight: 'auto' }}>
             {/* Supplier Header Box */}
             <div style={{ background: '#f8fafc', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', gap: 10 }}>
                <div>
