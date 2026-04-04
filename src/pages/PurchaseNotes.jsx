@@ -173,7 +173,8 @@ export default function PurchaseNotes() {
       date: note.date,
       groupRecap: recapArray,
       purchaseItems: note.items || [],
-      invoicesList: invsForGroup
+      invoicesList: invsForGroup,
+      additionalCosts: note.additionalCosts || {}
     });
 
     // Generate PDF
@@ -568,6 +569,7 @@ export default function PurchaseNotes() {
           purchaseItems={printData.purchaseItems}
           invoicesList={printData.invoicesList}
           suppliersData={allSuppliers}
+          additionalCosts={printData.additionalCosts}
           forPrint={false}
         />
       )}

@@ -55,6 +55,7 @@ export default function PurchaseNoteForm() {
   const [groupInvoices, setGroupInvoices] = useState({});
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
   const [supplierDiscounts, setSupplierDiscounts] = useState({}); // { supplierName: amount }
+  const [additionalCosts, setAdditionalCosts] = useState({ labor: 0, shipping: 0, productionMaterial: 0 });
   const [saving, setSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -125,6 +126,7 @@ export default function PurchaseNoteForm() {
             setSupplierDiscounts(noteData.supplierDiscounts || {});
             setStatusMessage(`✅ Berhasil menarik ${actualItems.length} barang dari database.`);
             setItemsCount(actualItems.length);
+            setAdditionalCosts(noteData.additionalCosts || { labor: 0, shipping: 0, productionMaterial: 0 });
           } else {
             setStatusMessage(`⚠️ Nota ID "${id}" TIDAK DITEMUKAN.`);
           }
@@ -420,6 +422,10 @@ export default function PurchaseNoteForm() {
     setSaving(true);
     try {
       const grandTotal = items.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+      const totalDiscount = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);
+      const totalAdditionalCosts = Object.values(additionalCosts).reduce((s, c) => s + (Number(c) || 0), 0);
+      const finalTotal = Math.max(0, grandTotal - totalDiscount) + totalAdditionalCosts;
+      
       const payload = {
         date,
         supplierName,
@@ -430,7 +436,9 @@ export default function PurchaseNoteForm() {
         invoiceNumber,
         groupName: currentGroupName,
         sourceInvoiceIds,
-        supplierDiscounts
+        supplierDiscounts,
+        additionalCosts,
+        finalTotal
       };
 
       if (isEditing) {
@@ -508,7 +516,8 @@ export default function PurchaseNoteForm() {
 
   const totalItemCost = (items || []).reduce((s, it) => s + (Number(it.totalCost) || 0), 0);
   const totalDiscount = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);
-  const grandTotalValue = Math.max(0, totalItemCost - totalDiscount);
+  const totalAdditionalCosts = Object.values(additionalCosts).reduce((s, c) => s + (Number(c) || 0), 0);
+  const grandTotalValue = Math.max(0, totalItemCost - totalDiscount) + totalAdditionalCosts;
 
   return (
     <div className="animate-in">
@@ -825,6 +834,47 @@ export default function PurchaseNoteForm() {
         })()}
 
         <div className="card shadow-lg" style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' }}>
+          <div className="card-header">
+            <h3 className="card-title">Biaya Tambahan</h3>
+          </div>
+          <div className="grid grid-3 gap-md p-md">
+            <div className="form-group">
+              <label className="form-label">Biaya Tenaga Kerja (Rp)</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                value={additionalCosts.labor || 0}
+                onChange={e => setAdditionalCosts(prev => ({ ...prev, labor: Number(e.target.value) || 0 }))}
+                min="0"
+                placeholder="0"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Biaya Pengiriman (Rp)</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                value={additionalCosts.shipping || 0}
+                onChange={e => setAdditionalCosts(prev => ({ ...prev, shipping: Number(e.target.value) || 0 }))}
+                min="0"
+                placeholder="0"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Biaya Bahan Produksi (Rp)</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                value={additionalCosts.productionMaterial || 0}
+                onChange={e => setAdditionalCosts(prev => ({ ...prev, productionMaterial: Number(e.target.value) || 0 }))}
+                min="0"
+                placeholder="0"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="card shadow-lg" style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' }}>
           <div className="p-lg flex-between">
             <div>
               <h3 style={{ margin: 0 }}>Total Nota</h3>
@@ -1063,6 +1113,7 @@ export default function PurchaseNoteForm() {
               : (groupInvoices[currentGroupName] || [])
         }
         suppliersData={allSuppliers}
+        additionalCosts={additionalCosts}
         forPrint={false}
       />
     </div>
