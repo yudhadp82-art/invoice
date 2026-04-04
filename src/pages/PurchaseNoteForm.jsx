@@ -619,8 +619,8 @@ export default function PurchaseNoteForm() {
                   }
 
                   return (
-                    <tr key={idx} className="animate-in">
-                      <td className="text-center">
+                    <tr key={idx} className="animate-in" style={{ backgroundColor: !item.materialId ? 'rgba(239, 68, 68, 0.03)' : undefined }}>
+                      <td className="text-center" style={{ verticalAlign: 'middle' }}>
                         <span className="badge badge-primary">{idx + 1}</span>
                       </td>
                       <td>
@@ -638,9 +638,21 @@ export default function PurchaseNoteForm() {
                         </datalist>
                       </td>
                       <td>
-                        <div className="flex-center gap-xs">
+                        <div className="flex-center gap-xs" style={{ flex: 1 }}>
                           {item.isSubItem && <span style={{ color: 'var(--primary)', fontWeight: 800, marginRight: 2 }}>↳ </span>}
-                          <select className="form-select form-select-sm" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required style={{ paddingLeft: item.isSubItem ? '16px' : undefined, flex: 1 }}>
+                          <select 
+                            className="form-select form-select-sm" 
+                            value={item.materialId} 
+                            onChange={e => updateItem(idx, 'materialId', e.target.value)} 
+                            required 
+                            style={{ 
+                              paddingLeft: item.isSubItem ? '16px' : undefined, 
+                              flex: 1,
+                              borderColor: !item.materialId ? '#ef4444' : undefined,
+                              borderWidth: !item.materialId ? '2px' : undefined,
+                              boxShadow: !item.materialId ? '0 0 0 1px rgba(239, 68, 68, 0.1)' : undefined
+                            }}
+                          >
                             <option value="">-- {currentInvoice ? 'Invoice Item' : 'Pilih Bahan'} --</option>
                             {selectable.map(m => (
                               <option key={m.id} value={m.id}>{m.name}</option>
@@ -656,6 +668,11 @@ export default function PurchaseNoteForm() {
                             )}
                           </select>
                           {item.isSubItem && <span className="badge badge-purple" style={{ fontSize: 10, padding: '2px 4px' }}>Sub-Mix</span>}
+                          {!item.materialId && (
+                            <span className="badge" style={{ backgroundColor: '#ef4444', color: 'white', fontSize: 10, padding: '2px 6px', whiteSpace: 'nowrap' }}>
+                              ⚠️ {item.materialName ? 'Baru' : 'Pilih Bahan'}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td>
