@@ -19,14 +19,14 @@ export default function PurchaseNoteReportPdf({
     : { 
         position: 'fixed', 
         top: 0,
-        left: 0, 
+        left: '-5000px', // Horizontal off-screen is better for height calculation
         width: '800px', 
         minHeight: 'min-content', 
         background: 'white', 
         color: 'black', 
         padding: '0', 
         zIndex: -9999,
-        opacity: 0, // Hidden but in the render tree for full-height calculation!
+        opacity: 1, // Must be 1 for html2canvas to capture correctly!
         pointerEvents: 'none',
         overflow: 'visible'
       };
