@@ -181,22 +181,27 @@ export default function PurchaseNoteForm() {
               const mb = master.find(m => (m.name || '').toLowerCase() === mName);
               if (mb) newItem.materialId = mb.id;
             }
-          // Ensure splits object exists to prevent render crash
-          if (!newItem.splits) {
-            newItem.splits = {
-              s5: { qty: 0, shrinkage: 0, netQty: 0 },
-              s2: { qty: 0, shrinkage: 0, netQty: 0 },
-              s3: { qty: 0, shrinkage: 0, netQty: 0 }
-            };
+            // Ensure splits object exists to prevent render crash
+            if (!newItem.splits) {
+              newItem.splits = {
+                s5: { qty: 0, shrinkage: 0, netQty: 0 },
+                s2: { qty: 0, shrinkage: 0, netQty: 0 },
+                s3: { qty: 0, shrinkage: 0, netQty: 0 }
+              };
+            } else {
+              // Ensure each sub-split exists
+              if (!newItem.splits.s5) newItem.splits.s5 = { qty: 0, shrinkage: 0, netQty: 0 };
+              if (!newItem.splits.s2) newItem.splits.s2 = { qty: 0, shrinkage: 0, netQty: 0 };
+              if (!newItem.splits.s3) newItem.splits.s3 = { qty: 0, shrinkage: 0, netQty: 0 };
+            }
+            return newItem;
+          });
+          
+          if (hydratedItems.length > 0) {
+            setItems(hydratedItems);
           } else {
-            // Ensure each sub-split exists
-            if (!newItem.splits.s5) newItem.splits.s5 = { qty: 0, shrinkage: 0, netQty: 0 };
-            if (!newItem.splits.s2) newItem.splits.s2 = { qty: 0, shrinkage: 0, netQty: 0 };
-            if (!newItem.splits.s3) newItem.splits.s3 = { qty: 0, shrinkage: 0, netQty: 0 };
+            setItems([{ ...emptyItem }]);
           }
-          return newItem;
-        });
-        setItems(hydratedItems);
         setNotes(note.notes || '');
         setInvoiceId(note.invoiceId || null);
         setInvoiceNumber(note.invoiceNumber || '');
@@ -619,6 +624,12 @@ export default function PurchaseNoteForm() {
                             {selectable.map(m => (
                               <option key={m.id} value={m.id}>{m.name}</option>
                             ))}
+                            {item.materialId && !selectable.some(m => m.id === item.materialId) && (
+                              <option value={item.materialId}>{item.materialName || 'Unknown Material'}</option>
+                            )}
+                            {!item.materialId && item.materialName && (
+                              <option value="">{item.materialName} (Belum di Master)</option>
+                            )}
                             {currentInvoice && selectable.length < masterBahan.length && (
                               <option value="all-master">Lainnya...</option>
                             )}
@@ -644,24 +655,24 @@ export default function PurchaseNoteForm() {
                       </td>
                       <td style={{ backgroundColor: 'rgba(56, 189, 248, 0.02)' }}>
                         <div className="flex gap-xs">
-                          <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s5.qty} onChange={e => updateSplit(idx, 's5', 'qty', e.target.value)} />
-                          <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s5.shrinkage} onChange={e => updateSplit(idx, 's5', 'shrinkage', e.target.value)} />
+                          <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits?.s5?.qty || 0} onChange={e => updateSplit(idx, 's5', 'qty', e.target.value)} />
+                          <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits?.s5?.shrinkage || 0} onChange={e => updateSplit(idx, 's5', 'shrinkage', e.target.value)} />
                         </div>
-                        <div className="text-xs mt-xs text-primary font-bold">Net: {item.splits.s5.netQty}</div>
+                        <div className="text-xs mt-xs text-primary font-bold">Net: {item.splits?.s5?.netQty || 0}</div>
                       </td>
                       <td style={{ backgroundColor: 'rgba(16, 185, 129, 0.02)' }}>
                         <div className="flex gap-xs">
-                          <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s2.qty} onChange={e => updateSplit(idx, 's2', 'qty', e.target.value)} />
-                          <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s2.shrinkage} onChange={e => updateSplit(idx, 's2', 'shrinkage', e.target.value)} />
+                          <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits?.s2?.qty || 0} onChange={e => updateSplit(idx, 's2', 'qty', e.target.value)} />
+                          <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits?.s2?.shrinkage || 0} onChange={e => updateSplit(idx, 's2', 'shrinkage', e.target.value)} />
                         </div>
-                        <div className="text-xs mt-xs text-success font-bold">Net: {item.splits.s2.netQty}</div>
+                        <div className="text-xs mt-xs text-success font-bold">Net: {item.splits?.s2?.netQty || 0}</div>
                       </td>
                       <td style={{ backgroundColor: 'rgba(251, 146, 60, 0.02)' }}>
                         <div className="flex gap-xs">
-                          <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits.s3.qty} onChange={e => updateSplit(idx, 's3', 'qty', e.target.value)} />
-                          <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits.s3.shrinkage} onChange={e => updateSplit(idx, 's3', 'shrinkage', e.target.value)} />
+                          <input type="number" className="form-input form-input-sm" placeholder="Qty" value={item.splits?.s3?.qty || 0} onChange={e => updateSplit(idx, 's3', 'qty', e.target.value)} />
+                          <input type="number" className="form-input form-input-sm text-danger" placeholder="Sst" value={item.splits?.s3?.shrinkage || 0} onChange={e => updateSplit(idx, 's3', 'shrinkage', e.target.value)} />
                         </div>
-                        <div className="text-xs mt-xs text-orange font-bold">Net: {item.splits.s3.netQty}</div>
+                        <div className="text-xs mt-xs text-orange font-bold">Net: {item.splits?.s3?.netQty || 0}</div>
                       </td>
                       <td>
                         <input type="number" className="form-input form-input-sm" value={item.sellPrice} onChange={e => updateItem(idx, 'sellPrice', e.target.value)} />
@@ -777,6 +788,11 @@ export default function PurchaseNoteForm() {
         </button>
       </div>
 
+      {isEditing && (
+        <div style={{ padding: '4px 12px', background: 'rgba(99,102,241,0.1)', borderRadius: 4, display: 'inline-block', fontSize: 10, color: 'var(--muted)', marginTop: 8 }}>
+          Debug: {items.length} items loaded for note ID {id}
+        </div>
+      )}
       <div style={{ height: 100 }}></div>
 
       <style>{`
