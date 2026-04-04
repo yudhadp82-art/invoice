@@ -513,18 +513,21 @@ export default function PurchaseNoteForm() {
 
       // Crucial: define exactly how much of the "world" to capture
       // By using offsetHeight, we ensure we capture all data even if off-screen
-      const width = element.offsetWidth;
-      const height = element.offsetHeight;
+      // When using position: absolute/fixed, offsetHeight is the full content height.
+      const captureWidth = 800; // Match the component width
+      const captureHeight = element.scrollHeight || element.offsetHeight;
       
       const canvas = await html2canvas(element, { 
         scale: 2, 
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
+        width: captureWidth,
+        height: captureHeight,
         scrollX: 0,
         scrollY: 0,
-        width: width,
-        height: height
+        x: 0,
+        y: 0
       });
       
       const imgData = canvas.toDataURL('image/jpeg', 0.95);

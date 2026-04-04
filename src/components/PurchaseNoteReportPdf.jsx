@@ -17,9 +17,9 @@ export default function PurchaseNoteReportPdf({
   const containerStyle = forPrint 
     ? { width: '800px', margin: '0 auto', background: 'white', color: 'black', padding: '20px' }
     : { 
-        position: 'fixed', 
+        position: 'absolute', 
         top: 0,
-        left: '-5000px', // Horizontal off-screen is better for height calculation
+        left: '-9000px', // Horizontal off-screen is better for height calculation
         width: '800px', 
         minHeight: 'min-content', 
         background: 'white', 
