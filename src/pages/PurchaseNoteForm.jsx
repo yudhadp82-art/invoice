@@ -172,11 +172,26 @@ export default function PurchaseNoteForm() {
         setDate(note.date);
         setSupplierName(note.supplierName || '');
         const hydratedItems = (note.items || []).map(it => {
-          if (!it.materialId && it.materialName) {
-            const mb = master.find(m => m.name.toLowerCase() === it.materialName.toLowerCase());
-            if (mb) return { ...it, materialId: mb.id };
+          let newItem = { ...it };
+          // Recover materialId if missing
+          if (!newItem.materialId && newItem.materialName) {
+            const mb = master.find(m => m.name.toLowerCase() === newItem.materialName.toLowerCase());
+            if (mb) newItem.materialId = mb.id;
           }
-          return it;
+          // Ensure splits object exists to prevent render crash
+          if (!newItem.splits) {
+            newItem.splits = {
+              s5: { qty: 0, shrinkage: 0, netQty: 0 },
+              s2: { qty: 0, shrinkage: 0, netQty: 0 },
+              s3: { qty: 0, shrinkage: 0, netQty: 0 }
+            };
+          } else {
+            // Ensure each sub-split exists
+            if (!newItem.splits.s5) newItem.splits.s5 = { qty: 0, shrinkage: 0, netQty: 0 };
+            if (!newItem.splits.s2) newItem.splits.s2 = { qty: 0, shrinkage: 0, netQty: 0 };
+            if (!newItem.splits.s3) newItem.splits.s3 = { qty: 0, shrinkage: 0, netQty: 0 };
+          }
+          return newItem;
         });
         setItems(hydratedItems);
         setNotes(note.notes || '');
