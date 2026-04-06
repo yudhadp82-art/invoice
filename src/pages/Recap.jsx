@@ -93,22 +93,42 @@ export default function Recap() {
   const balance = totalSalesRevenue - totalPurchaseCost;
   const marginPercentage = totalSalesRevenue > 0 ? ((balance / totalSalesRevenue) * 100).toFixed(1) : 0;
 
-  // Calculate margin per invoice
+  // Calculate margin per invoice with item breakdown
   const invoiceMarginAnalysis = filteredInvoices.map(inv => {
     let totalCost = 0;
-    (inv.items || []).forEach(invItem => {
+    const itemBreakdown = (inv.items || []).map(invItem => {
       // Try to find matching purchase note item
+      let itemCost = 0;
+      let purchasePricePerUnit = 0;
+
       filteredPurchases.forEach(pn => {
         (pn.items || []).forEach(pnItem => {
           // Match by product name or material name
           if ((invItem.productName || '').toLowerCase() === (pnItem.materialName || '').toLowerCase()) {
-            // Calculate cost proportionally
-            const purchasePricePerUnit = Number(pnItem.pricePerUnit) || 0;
+            purchasePricePerUnit = Number(pnItem.pricePerUnit) || 0;
             const qty = Number(invItem.qty) || 0;
-            totalCost += purchasePricePerUnit * qty;
+            itemCost = purchasePricePerUnit * qty;
           }
         });
       });
+
+      const itemRevenue = Number(invItem.subtotal) || (Number(invItem.qty) || 0) * (Number(invItem.unitPrice) || 0);
+      const itemProfit = itemRevenue - itemCost;
+      const itemMarginPercent = itemRevenue > 0 ? ((itemProfit / itemRevenue) * 100) : 0;
+
+      totalCost += itemCost;
+
+      return {
+        productName: invItem.productName || 'Tanpa Nama',
+        qty: Number(invItem.qty) || 0,
+        unit: invItem.unit || '',
+        unitPrice: Number(invItem.unitPrice) || 0,
+        revenue: itemRevenue,
+        cost: itemCost,
+        purchasePricePerUnit,
+        profit: itemProfit,
+        marginPercent: itemMarginPercent
+      };
     });
 
     const revenue = Number(inv.grandTotal) || 0;
@@ -116,6 +136,7 @@ export default function Recap() {
     const marginPercent = revenue > 0 ? ((profit / revenue) * 100) : 0;
 
     return {
+      id: inv.id,
       invoiceNumber: inv.invoiceNumber,
       customerName: inv.customerName,
       date: inv.date || inv.createdAt,
@@ -123,9 +144,13 @@ export default function Recap() {
       cost: totalCost,
       profit,
       marginPercent,
-      itemCount: (inv.items || []).length
+      itemCount: (inv.items || []).length,
+      itemBreakdown
     };
   }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  // State for expanded rows
+  const [expandedInvoices, setExpandedInvoices] = useState(new Set());
 
   if (loading) {
     return (
@@ -346,6 +371,7 @@ export default function Recap() {
           <table className="table table-hover">
             <thead>
               <tr>
+                <th style={{ width: '40px' }}></th>
                 <th>No. Invoice</th>
                 <th>Customer</th>
                 <th>Tanggal</th>
@@ -359,36 +385,126 @@ export default function Recap() {
             <tbody>
               {invoiceMarginAnalysis.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center text-muted p-md">
+                  <td colSpan="9" className="text-center text-muted p-md">
                     Tidak ada data invoice
                   </td>
                 </tr>
               ) : (
-                invoiceMarginAnalysis.map((inv, idx) => (
-                  <tr key={idx}>
-                    <td><strong>{inv.invoiceNumber}</strong></td>
-                    <td>{inv.customerName}</td>
-                    <td className="text-muted">{formatDateShort(inv.date)}</td>
-                    <td className="text-right" style={{ color: '#3b82f6', fontWeight: 600 }}>
-                      {formatCurrency(inv.revenue)}
-                    </td>
-                    <td className="text-right" style={{ color: '#f97316', fontWeight: 600 }}>
-                      {formatCurrency(inv.cost)}
-                    </td>
-                    <td className="text-right" style={{
-                      color: inv.profit >= 0 ? '#10b981' : '#ef4444',
-                      fontWeight: 700
-                    }}>
-                      {formatCurrency(inv.profit)}
-                    </td>
-                    <td className="text-right">
-                      <span className={`badge ${inv.marginPercent >= 20 ? 'badge-success' : inv.marginPercent >= 10 ? 'badge-warning' : 'badge-danger'}`}>
-                        {inv.marginPercent.toFixed(1)}%
-                      </span>
-                    </td>
-                    <td className="text-center text-muted">{inv.itemCount}</td>
-                  </tr>
-                ))
+                invoiceMarginAnalysis.map((inv, idx) => {
+                  const isExpanded = expandedInvoices.has(inv.id);
+                  return (
+                    <React.Fragment key={idx}>
+                      <tr
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          const newExpanded = new Set(expandedInvoices);
+                          if (isExpanded) {
+                            newExpanded.delete(inv.id);
+                          } else {
+                            newExpanded.add(inv.id);
+                          }
+                          setExpandedInvoices(newExpanded);
+                        }}
+                      >
+                        <td style={{ textAlign: 'center' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            transition: 'transform 0.2s',
+                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                            fontSize: '12px',
+                            color: '#64748b'
+                          }}>▶</span>
+                        </td>
+                        <td><strong>{inv.invoiceNumber}</strong></td>
+                        <td>{inv.customerName}</td>
+                        <td className="text-muted">{formatDateShort(inv.date)}</td>
+                        <td className="text-right" style={{ color: '#3b82f6', fontWeight: 600 }}>
+                          {formatCurrency(inv.revenue)}
+                        </td>
+                        <td className="text-right" style={{ color: '#f97316', fontWeight: 600 }}>
+                          {formatCurrency(inv.cost)}
+                        </td>
+                        <td className="text-right" style={{
+                          color: inv.profit >= 0 ? '#10b981' : '#ef4444',
+                          fontWeight: 700
+                        }}>
+                          {formatCurrency(inv.profit)}
+                        </td>
+                        <td className="text-right">
+                          <span className={`badge ${inv.marginPercent >= 20 ? 'badge-success' : inv.marginPercent >= 10 ? 'badge-warning' : 'badge-danger'}`}>
+                            {inv.marginPercent.toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="text-center text-muted">{inv.itemCount}</td>
+                      </tr>
+
+                      {/* Expanded Item Details */}
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan="9" style={{ padding: 0, backgroundColor: '#f8fafc' }}>
+                            <div style={{ padding: '16px' }}>
+                              <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: 600, color: '#475569' }}>
+                                Detail Breakdown per Item
+                              </h4>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                <thead>
+                                  <tr style={{ backgroundColor: '#e2e8f0' }}>
+                                    <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #cbd5e1' }}>Nama Barang</th>
+                                    <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1', width: '80px' }}>Qty</th>
+                                    <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', width: '120px' }}>Harga Jual</th>
+                                    <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', width: '120px' }}>Harga Beli</th>
+                                    <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', width: '120px' }}>Revenue</th>
+                                    <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', width: '120px' }}>Cost</th>
+                                    <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', width: '120px' }}>Laba</th>
+                                    <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1', width: '100px' }}>Margin %</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {inv.itemBreakdown.map((item, itemIdx) => (
+                                    <tr key={itemIdx} style={{ backgroundColor: itemIdx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                                      <td style={{ padding: '8px', border: '1px solid #e2e8f0', fontWeight: 500 }}>
+                                        {item.productName}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+                                        {formatNumber(item.qty)} {item.unit}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#3b82f6' }}>
+                                        {formatCurrency(item.unitPrice)}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#f97316' }}>
+                                        {formatCurrency(item.purchasePricePerUnit)}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0', fontWeight: 600 }}>
+                                        {formatCurrency(item.revenue)}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0', fontWeight: 600 }}>
+                                        {formatCurrency(item.cost)}
+                                      </td>
+                                      <td style={{
+                                        padding: '8px',
+                                        textAlign: 'right',
+                                        border: '1px solid #e2e8f0',
+                                        fontWeight: 700,
+                                        color: item.profit >= 0 ? '#10b981' : '#ef4444'
+                                      }}>
+                                        {formatCurrency(item.profit)}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+                                        <span className={`badge ${item.marginPercent >= 20 ? 'badge-success' : item.marginPercent >= 10 ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '10px' }}>
+                                          {item.marginPercent.toFixed(1)}%
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
