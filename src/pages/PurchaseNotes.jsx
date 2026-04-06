@@ -612,11 +612,12 @@ export default function PurchaseNotes() {
 
       {/* PDF Rendering Area (Hidden) */}
       {printData && (
-        <PurchaseNoteReportPdf 
-          groupName={printData.groupName || printData.invoiceNumber || 'Pembelian Umum'} 
+        <PurchaseNoteReportPdf
+          groupName={printData.groupName || printData.invoiceNumber || 'Pembelian Umum'}
           date={printData.date}
           groupRecap={printData.groupRecap}
           purchaseItems={printData.purchaseItems}
+          supplierDiscounts={printData.supplierDiscounts}
           invoicesList={printData.invoicesList}
           suppliersData={allSuppliers}
           additionalCosts={printData.additionalCosts}
