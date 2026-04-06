@@ -15,7 +15,7 @@ export default function DeliveryNoteForm() {
   const [products, setProducts] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [form, setForm] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split('T')[0] || '',
     customerId: '',
     customerName: '',
     customerAddress: '',
@@ -40,7 +40,7 @@ export default function DeliveryNoteForm() {
         const note = await DeliveryNotes.getById(id);
         if (note) {
           setForm({
-            date: note.date || (note.createdAt ? note.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
+            date: note.date || (note.createdAt ? String(note.createdAt).split('T')[0] : new Date().toISOString().split('T')[0]),
             customerId: note.customerId || '',
             customerName: note.customerName || '',
             customerAddress: note.customerAddress || '',

@@ -311,9 +311,9 @@ export default function PurchaseNotes() {
           const isMaterial = item.type === 'material';
           if (!isMaterial) continue;
 
-          const exists = allMaster.some(m => 
-            (item.productId && m.id === item.productId) || 
-            m.name.toLowerCase() === item.productName.toLowerCase()
+          const exists = allMaster.some(m =>
+            (item.productId && m.id === item.productId) ||
+            (m.name || '').toLowerCase() === (item.productName || '').toLowerCase()
           );
 
           if (!exists) {
@@ -528,8 +528,13 @@ export default function PurchaseNotes() {
                       <span className="badge badge-primary">
                         {(inv.items || []).filter(it => {
                           if (it.type === 'material') return true;
-                          const name = (it.productName || '').toLowerCase();
-                          return masterBahan.some(m => (m.name || '').toLowerCase() === name);
+                          try {
+                            const name = (it.productName || '').toLowerCase();
+                            return masterBahan.some(m => (m.name || '').toLowerCase() === name);
+                          } catch (e) {
+                            console.error('Error filtering item:', it, e);
+                            return false;
+                          }
                         }).length} Item
                       </span>
                     </td>
