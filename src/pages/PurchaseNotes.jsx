@@ -188,7 +188,7 @@ export default function PurchaseNotes() {
     });
     const recapArray = Object.values(groupAgg).sort((a, b) => a.name.localeCompare(b.name));
 
-    setPrintData({
+    const printDataObj = {
       groupName: grp,
       date: note.date,
       groupRecap: recapArray,
@@ -196,7 +196,17 @@ export default function PurchaseNotes() {
       supplierDiscounts: note.supplierDiscounts || {},
       invoicesList: invsForGroup,
       additionalCosts: note.additionalCosts || {}
+    };
+
+    console.log('Setting printData:', {
+      noteId: note.id,
+      hasSupplierDiscounts: !!printDataObj.supplierDiscounts,
+      supplierDiscounts: printDataObj.supplierDiscounts,
+      hasAdditionalCosts: !!printDataObj.additionalCosts,
+      itemsCount: printDataObj.purchaseItems.length
     });
+
+    setPrintData(printDataObj);
 
     // Generate PDF
     await new Promise(r => setTimeout(r, 600)); // Allow render

@@ -47,10 +47,21 @@ export default function PurchaseNoteReportPdf({
   // Sort by name and convert back to entries for the component to map over
   const supplierGroups = Object.keys(supplierMap).sort().map(key => [displayNames[key], supplierMap[key]]);
   
+  // Debug logging
+  console.log('PDF Render Debug:', {
+    purchaseItemsCount: purchaseItems?.length || 0,
+    supplierDiscounts,
+    additionalCosts,
+    sampleItem: purchaseItems?.[0],
+    totalItemsCost: (purchaseItems || []).reduce((n, it) => n + (Number(it.totalCost) || 0), 0)
+  });
+
   const totalItemsCost = (purchaseItems || []).reduce((n, it) => n + (Number(it.totalCost) || 0), 0);
-  const totalDiscounts = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);
+  const totalDiscounts = Object.values(supplierDiscounts || {}).reduce((s, d) => s + (Number(d) || 0), 0);
   const totalAdditionalCosts = Object.values(additionalCosts || {}).reduce((s, c) => s + (Number(c) || 0), 0);
   const grandTotalNet = Math.max(0, totalItemsCost - totalDiscounts) + totalAdditionalCosts;
+
+  console.log('Calculated totals:', { totalItemsCost, totalDiscounts, totalAdditionalCosts, grandTotalNet });
 
   return (
     <div id="purchase-note-report-render" className="print-only" style={containerStyle}>
