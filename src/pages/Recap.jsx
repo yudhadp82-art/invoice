@@ -151,6 +151,7 @@ export default function Recap() {
 
   // State for expanded rows
   const [expandedInvoices, setExpandedInvoices] = useState(new Set());
+  const [expandedSuppliers, setExpandedSuppliers] = useState(new Set());
   const [isPrinting, setIsPrinting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -168,7 +169,7 @@ export default function Recap() {
     );
   });
 
-  // Calculate margin per supplier
+  // Calculate margin per supplier with item breakdown
   const supplierMarginData = filteredPurchases.map(pn => {
     const supplierName = pn.supplierName || 'Unknown Supplier';
 
@@ -177,23 +178,52 @@ export default function Recap() {
     const supplierDiscount = Number((pn.supplierDiscounts && pn.supplierDiscounts[supplierName]) || 0);
     const netPurchase = totalPurchase - supplierDiscount;
 
-    // Find invoices that use items from this supplier's purchases
-    let relatedRevenue = 0;
-    filteredInvoices.forEach(inv => {
-      (inv.items || []).forEach(invItem => {
-        const matchingItem = (pn.items || []).find(pnItem =>
-          (invItem.productName || '').toLowerCase() === (pnItem.materialName || '').toLowerCase()
-        );
-        if (matchingItem) {
-          relatedRevenue += Number(invItem.subtotal) || 0;
-        }
+    // Build item breakdown for this supplier
+    const itemBreakdown = [];
+    (pn.items || []).forEach(pnItem => {
+      const materialName = pnItem.materialName || 'Unknown';
+      const purchaseCost = Number(pnItem.totalCost) || 0;
+      const purchasePricePerUnit = Number(pnItem.pricePerUnit) || 0;
+      const purchaseQty = Number(pnItem.qtyNota) || 0;
+
+      // Find all sales of this item from invoices
+      let salesRevenue = 0;
+      let salesQty = 0;
+      let salesUnitPrice = 0;
+
+      filteredInvoices.forEach(inv => {
+        (inv.items || []).forEach(invItem => {
+          if ((invItem.productName || '').toLowerCase() === materialName.toLowerCase()) {
+            salesRevenue += Number(invItem.subtotal) || 0;
+            salesQty += Number(invItem.qty) || 0;
+            salesUnitPrice = Number(invItem.unitPrice) || 0;
+          }
+        });
+      });
+
+      const profit = salesRevenue - purchaseCost;
+      const marginPercent = salesRevenue > 0 ? ((profit / salesRevenue) * 100) : 0;
+
+      itemBreakdown.push({
+        materialName,
+        purchaseQty,
+        purchasePricePerUnit,
+        purchaseCost,
+        salesQty,
+        salesUnitPrice,
+        salesRevenue,
+        profit,
+        marginPercent
       });
     });
 
+    // Calculate totals
+    const relatedRevenue = itemBreakdown.reduce((sum, item) => sum + item.salesRevenue, 0);
     const profit = relatedRevenue - netPurchase;
     const marginPercent = relatedRevenue > 0 ? ((profit / relatedRevenue) * 100) : 0;
 
     return {
+      id: supplierName, // use supplierName as unique id
       supplierName,
       totalPurchase,
       supplierDiscount,
@@ -202,7 +232,8 @@ export default function Recap() {
       profit,
       marginPercent,
       itemCount: (pn.items || []).length,
-      purchaseNoteCount: filteredPurchases.filter(p => p.supplierName === supplierName).length
+      purchaseNoteCount: filteredPurchases.filter(p => p.supplierName === supplierName).length,
+      itemBreakdown
     };
   }).filter(supplier => supplier.netPurchase > 0 || supplier.relatedRevenue > 0)
     .sort((a, b) => b.profit - a.profit);
@@ -651,16 +682,36 @@ export default function Recap() {
 
       {/* Margin Laba per Supplier */}
       <div className="card shadow-sm" style={{ marginTop: '24px' }}>
-        <div className="card-header">
+        <div className="card-header flex-between">
           <h3 className="flex-center gap-sm">
             <FiShoppingCart className="text-warning" />
             Margin Laba per Supplier
           </h3>
+          <div className="flex gap-sm">
+            <button
+              className="btn btn-sm btn-secondary no-print"
+              onClick={() => {
+                if (expandedSuppliers.size === supplierMarginData.length) {
+                  setExpandedSuppliers(new Set());
+                } else {
+                  setExpandedSuppliers(new Set(supplierMarginData.map(s => s.id)));
+                }
+              }}
+            >
+              {expandedSuppliers.size === supplierMarginData.length ? 'Collapse All' : 'Expand All'}
+            </button>
+            <div className="text-sm text-muted flex-center gap-sm no-print">
+              <span>Total {supplierMarginData.length} supplier</span>
+              <span style={{ color: '#94a3b8' }}>|</span>
+              <span>{expandedSuppliers.size} expanded</span>
+            </div>
+          </div>
         </div>
         <div className="table-container p-0">
           <table className="table table-hover">
             <thead>
               <tr>
+                <th style={{ width: '40px' }}></th>
                 <th>Nama Supplier</th>
                 <th className="text-right">Total Pembelian</th>
                 <th className="text-right">Diskon Supplier</th>
@@ -675,41 +726,136 @@ export default function Recap() {
             <tbody>
               {supplierMarginData.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center text-muted p-md">
+                  <td colSpan="10" className="text-center text-muted p-md">
                     Tidak ada data supplier
                   </td>
                 </tr>
               ) : (
-                supplierMarginData.map((supplier, idx) => (
-                  <tr key={idx}>
-                    <td><strong>{supplier.supplierName}</strong></td>
-                    <td className="text-right" style={{ color: '#f97316', fontWeight: 600 }}>
-                      {formatCurrency(supplier.totalPurchase)}
-                    </td>
-                    <td className="text-right" style={{ color: '#22c55e', fontWeight: 600 }}>
-                      {supplier.supplierDiscount > 0 ? `-${formatCurrency(supplier.supplierDiscount)}` : '-'}
-                    </td>
-                    <td className="text-right" style={{ color: '#ea580c', fontWeight: 600 }}>
-                      {formatCurrency(supplier.netPurchase)}
-                    </td>
-                    <td className="text-right" style={{ color: '#3b82f6', fontWeight: 600 }}>
-                      {formatCurrency(supplier.relatedRevenue)}
-                    </td>
-                    <td className="text-right" style={{
-                      color: supplier.profit >= 0 ? '#10b981' : '#ef4444',
-                      fontWeight: 700
-                    }}>
-                      {formatCurrency(supplier.profit)}
-                    </td>
-                    <td className="text-right">
-                      <span className={`badge ${supplier.marginPercent >= 20 ? 'badge-success' : supplier.marginPercent >= 10 ? 'badge-warning' : 'badge-danger'}`}>
-                        {supplier.marginPercent.toFixed(1)}%
-                      </span>
-                    </td>
-                    <td className="text-center text-muted">{supplier.itemCount}</td>
-                    <td className="text-center text-muted">{supplier.purchaseNoteCount}</td>
-                  </tr>
-                ))
+                supplierMarginData.map((supplier, idx) => {
+                  const isExpanded = expandedSuppliers.has(supplier.id);
+                  return (
+                    <React.Fragment key={idx}>
+                      <tr>
+                        <td style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => {
+                          const newExpanded = new Set(expandedSuppliers);
+                          if (isExpanded) {
+                            newExpanded.delete(supplier.id);
+                          } else {
+                            newExpanded.add(supplier.id);
+                          }
+                          setExpandedSuppliers(newExpanded);
+                        }}>
+                          <span style={{
+                            display: 'inline-block',
+                            transition: 'transform 0.2s',
+                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                            fontSize: '12px',
+                            color: '#64748b'
+                          }}>▶</span>
+                        </td>
+                        <td><strong>{supplier.supplierName}</strong></td>
+                        <td className="text-right" style={{ color: '#f97316', fontWeight: 600 }}>
+                          {formatCurrency(supplier.totalPurchase)}
+                        </td>
+                        <td className="text-right" style={{ color: '#22c55e', fontWeight: 600 }}>
+                          {supplier.supplierDiscount > 0 ? `-${formatCurrency(supplier.supplierDiscount)}` : '-'}
+                        </td>
+                        <td className="text-right" style={{ color: '#ea580c', fontWeight: 600 }}>
+                          {formatCurrency(supplier.netPurchase)}
+                        </td>
+                        <td className="text-right" style={{ color: '#3b82f6', fontWeight: 600 }}>
+                          {formatCurrency(supplier.relatedRevenue)}
+                        </td>
+                        <td className="text-right" style={{
+                          color: supplier.profit >= 0 ? '#10b981' : '#ef4444',
+                          fontWeight: 700
+                        }}>
+                          {formatCurrency(supplier.profit)}
+                        </td>
+                        <td className="text-right">
+                          <span className={`badge ${supplier.marginPercent >= 20 ? 'badge-success' : supplier.marginPercent >= 10 ? 'badge-warning' : 'badge-danger'}`}>
+                            {supplier.marginPercent.toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="text-center text-muted">{supplier.itemCount}</td>
+                        <td className="text-center text-muted">{supplier.purchaseNoteCount}</td>
+                      </tr>
+
+                      {/* Expanded Item Details */}
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan="10" style={{ padding: 0, backgroundColor: '#f1f5f9' }}>
+                            <div style={{ padding: '16px' }}>
+                              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
+                                Detail Breakdown per Item
+                              </h4>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                                <thead>
+                                  <tr style={{ backgroundColor: '#1e293b' }}>
+                                    <th style={{ padding: '10px 8px', textAlign: 'left', border: '1px solid #334155', color: 'white', fontWeight: 600 }}>Nama Barang</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'center', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '80px' }}>Qty Beli</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '120px' }}>Harga Beli</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '120px' }}>Total Beli</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'center', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '80px' }}>Qty Jual</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '120px' }}>Penjualan</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '120px' }}>Laba</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'center', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '100px' }}>Margin %</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {supplier.itemBreakdown.map((item, itemIdx) => (
+                                    <tr key={itemIdx} style={{ backgroundColor: itemIdx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                                      <td style={{ padding: '8px', border: '1px solid #cbd5e1', fontWeight: 600, color: '#1e293b' }}>
+                                        {item.materialName}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1', color: '#475569', fontWeight: 500 }}>
+                                        {formatNumber(item.purchaseQty)}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', color: '#ea580c', fontWeight: 600 }}>
+                                        {formatCurrency(item.purchasePricePerUnit)}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b' }}>
+                                        {formatCurrency(item.purchaseCost)}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1', color: '#475569', fontWeight: 500 }}>
+                                        {formatNumber(item.salesQty)}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b' }}>
+                                        {formatCurrency(item.salesRevenue)}
+                                      </td>
+                                      <td style={{
+                                        padding: '8px',
+                                        textAlign: 'right',
+                                        border: '1px solid #cbd5e1',
+                                        fontWeight: 800,
+                                        color: item.profit >= 0 ? '#16a34a' : '#dc2626',
+                                        fontSize: '13px'
+                                      }}>
+                                        {formatCurrency(item.profit)}
+                                      </td>
+                                      <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1' }}>
+                                        <span style={{
+                                          backgroundColor: item.marginPercent >= 20 ? '#16a34a' : item.marginPercent >= 10 ? '#ca8a04' : '#dc2626',
+                                          color: 'white',
+                                          padding: '4px 8px',
+                                          borderRadius: '4px',
+                                          fontSize: '11px',
+                                          fontWeight: 700
+                                        }}>
+                                          {item.marginPercent.toFixed(1)}%
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
