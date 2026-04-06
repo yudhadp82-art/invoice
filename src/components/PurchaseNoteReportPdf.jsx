@@ -97,9 +97,9 @@ export default function PurchaseNoteReportPdf({
       </div>
 
       {/* SECTION 1: REKAP KEBUTUHAN GRUP (AGGREGATE) */}
-      <div className="print-section">
-        <h4 style={{ margin: '0 0 8px 0', fontSize: 10, borderLeft: '4px solid #3b82f6', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b' }}>1. Rekap Kebutuhan Gabungan (Agregat)</h4>
-        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, fontSize: '9px' }}>
+      <div className="print-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+        <h4 style={{ margin: '0 0 8px 0', fontSize: 10, borderLeft: '4px solid #3b82f6', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>1. Rekap Kebutuhan Gabungan (Agregat)</h4>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, fontSize: '9px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <thead>
             <tr>
               <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '8px', fontWeight: 'bold' }}>Nama Bahan Baku</th>
@@ -123,19 +123,31 @@ export default function PurchaseNoteReportPdf({
       </div>
 
       {/* SECTION 2: REKAP & REALISASI PEMBELIAN PER SUPPLIER */}
-      <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #10b981', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b' }}>2. Rekap & Realisasi Pembelian per Supplier</h4>
-      
+      <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #10b981', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>2. Rekap & Realisasi Pembelian per Supplier</h4>
+
       {supplierGroups.map(([s, items], idx) => {
         const discount = Number(supplierDiscounts[s]) || 0;
         const subtotal = items.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
         const netToPay = Math.max(0, subtotal - discount);
-        const suppInfo = (suppliersData || []).find(sd => 
-          (sd.name || '').toLowerCase() === s.toLowerCase() || 
+        const suppInfo = (suppliersData || []).find(sd =>
+          (sd.name || '').toLowerCase() === s.toLowerCase() ||
           (sd.company || '').toLowerCase() === s.toLowerCase()
         );
 
         return (
-          <div key={idx} className="print-section" style={{ border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'visible', marginBottom: 20, marginTop: 16, pageBreakInside: 'avoid', pageBreakBefore: idx > 0 ? 'auto' : 'auto', width: '100%', minHeight: 'auto' }}>
+          <div key={idx} className="print-section" style={{
+            border: '1px solid #e2e8f0',
+            borderRadius: 6,
+            overflow: 'visible',
+            marginBottom: 20,
+            marginTop: 16,
+            pageBreakInside: 'avoid',
+            breakInside: 'avoid',
+            pageBreakBefore: idx > 0 ? 'auto' : 'auto',
+            breakBefore: idx > 0 ? 'auto' : 'auto',
+            width: '100%',
+            minHeight: 'auto'
+          }}>
             {/* Supplier Header Box */}
             <div style={{ background: '#f8fafc', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', gap: 10 }}>
                <div>
@@ -154,8 +166,8 @@ export default function PurchaseNoteReportPdf({
             </div>
 
             {/* Items Table for this Supplier */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0 }}>
-              <thead>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+              <thead style={{ pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>
                 <tr>
                   <th style={{ textAlign: 'left', color: '#475569', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '7px', fontWeight: 'bold' }}>Bahan Baku / Material</th>
                   <th style={{ textAlign: 'center', color: '#475569', width: '15%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '7px', fontWeight: 'bold' }}>Qty</th>
@@ -163,7 +175,7 @@ export default function PurchaseNoteReportPdf({
                   <th style={{ textAlign: 'right', color: '#475569', width: '18%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '7px', fontWeight: 'bold' }}>Total Biaya</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                 {items.map((it, iIdx) => (
                   <tr key={iIdx}>
                     <td style={{ color: '#1e293b', wordBreak: 'break-word', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '7px' }}>{it.isSubItem ? '↳ ' : ''}{it.materialName}</td>
@@ -173,17 +185,17 @@ export default function PurchaseNoteReportPdf({
                   </tr>
                 ))}
                 {/* Summary Rows for this Supplier */}
-                <tr style={{ background: '#fafafa' }}>
+                <tr style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                   <td colSpan="3" style={{ textAlign: 'right', color: '#64748b', fontSize: '7px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Subtotal:</td>
                   <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '7px' }}>{formatCurrency(subtotal)}</td>
                 </tr>
                 {discount > 0 && (
-                  <tr style={{ background: '#fafafa' }}>
+                  <tr style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                     <td colSpan="3" style={{ textAlign: 'right', color: '#ef4444', fontSize: '7px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Potongan Diskon:</td>
                     <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#ef4444', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '7px' }}>-{formatCurrency(discount)}</td>
                   </tr>
                 )}
-                <tr style={{ background: '#f0fdf4' }}>
+                <tr style={{ background: '#f0fdf4', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                   <td colSpan="3" style={{ textAlign: 'right', fontSize: '8px', fontWeight: '700', color: '#166534', padding: '5px 6px', border: '1px solid #e2e8f0' }}>TOTAL BAYAR KE {s.toUpperCase()}:</td>
                   <td style={{ textAlign: 'right', fontSize: '9px', fontWeight: '800', color: '#15803d', padding: '5px 6px', border: '1px solid #e2e8f0' }}>{formatCurrency(netToPay)}</td>
                 </tr>
@@ -195,9 +207,9 @@ export default function PurchaseNoteReportPdf({
 
       {/* SECTION 3: RELATED INVOICES */}
       {(invoicesList || []).length > 0 && (
-        <div className="print-section">
-          <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #f59e0b', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b' }}>3. Invoice Terhubung</h4>
-          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', borderSpacing: 0, fontSize: '8px' }}>
+        <div className="print-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+          <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #f59e0b', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>3. Invoice Terhubung</h4>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', borderSpacing: 0, fontSize: '8px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '7px', fontWeight: 'bold' }}>No Invoice</th>
@@ -229,9 +241,9 @@ export default function PurchaseNoteReportPdf({
 
       {/* SECTION 4: ADDITIONAL COSTS */}
       {totalAdditionalCosts > 0 && (
-        <div className="print-section">
-          <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #8b5cf6', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b' }}>4. Biaya Tambahan</h4>
-          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', borderSpacing: 0, fontSize: '8px' }}>
+        <div className="print-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+          <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #8b5cf6', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>4. Biaya Tambahan</h4>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', borderSpacing: 0, fontSize: '8px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
             <tbody>
               {Number(additionalCosts?.labor) > 0 && (
                 <tr>
@@ -261,7 +273,7 @@ export default function PurchaseNoteReportPdf({
       )}
 
         {/* Global Grand Total Area */}
-        <div style={{ marginTop: 24, background: '#0f172a', color: 'white', padding: '12px 16px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ marginTop: 24, background: '#0f172a', color: 'white', padding: '12px 16px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <div>
             <h4 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 10, opacity: 0.8, fontWeight: '600' }}>Grand Total Keseluruhan</h4>
             <div style={{ fontSize: 7, marginTop: 2, opacity: 0.6 }}>(Total setelah potongan + biaya tambahan)</div>
@@ -272,7 +284,7 @@ export default function PurchaseNoteReportPdf({
         </div>
 
       {/* Signatures */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, fontSize: 8, padding: '0 20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, fontSize: 8, padding: '0 20px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         <div style={{ textAlign: 'center', width: 160 }}>
           <p style={{ marginBottom: 45, margin: 0, fontSize: 8 }}>Diperiksa Oleh,</p>
           <div style={{ borderBottom: '1px solid #1e293b', width: '100%', marginBottom: 3 }}></div>
