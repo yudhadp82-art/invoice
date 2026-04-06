@@ -70,9 +70,9 @@ export default function PurchaseNotes() {
       setAllCustomers(allCustomers);
       setAllSuppliers(allSupps);
       setMasterBahan(master);
-    
+
     // Build material names set for faster lookup
-    const masterNamesLocal = new Set(master.map(m => m.name.toLowerCase()));
+    const masterNamesLocal = new Set(master.map(m => (m.name || '').toLowerCase()));
 
     // Filter pending invoices (those with materials that aren't linked to a Purchase Note)
     const linkedInvoiceIds = new Set();
