@@ -81,7 +81,65 @@ export default function PurchaseNoteReportPdf({
   });
 
   return (
-    <div id="purchase-note-report-render" className="print-only" style={containerStyle}>
+    <>
+      <style>{`
+        @media print {
+          /* Prevent breaks inside important elements */
+          .print-section {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          /* Force page breaks before major sections if needed */
+          .page-break-before {
+            page-break-before: always !important;
+            break-before: page !important;
+          }
+
+          /* Prevent breaks after headings */
+          h4 {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+          }
+
+          /* Keep tables together */
+          table {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          /* Keep table headers with data */
+          thead {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+            display: table-header-group !important;
+          }
+
+          /* Keep table footers with data */
+          tfoot {
+            display: table-footer-group !important;
+          }
+
+          /* Prevent breaks in summary rows */
+          tr.summary-row {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          /* Keep grand total and signatures together */
+          .no-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          /* Force page break after major sections */
+          .page-break-after {
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+        }
+      `}</style>
+      <div id="purchase-note-report-render" className="print-only" style={containerStyle}>
       {/* Header */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', borderBottom: '2px solid #1e293b', paddingBottom: 10, marginBottom: 20, gap: 8 }}>
         <div style={{ width: 55, height: 55, marginRight: 15, flexShrink: 0 }}>
@@ -185,17 +243,17 @@ export default function PurchaseNoteReportPdf({
                   </tr>
                 ))}
                 {/* Summary Rows for this Supplier */}
-                <tr style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                <tr className="summary-row" style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                   <td colSpan="3" style={{ textAlign: 'right', color: '#64748b', fontSize: '7px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Subtotal:</td>
                   <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '7px' }}>{formatCurrency(subtotal)}</td>
                 </tr>
                 {discount > 0 && (
-                  <tr style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                  <tr className="summary-row" style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                     <td colSpan="3" style={{ textAlign: 'right', color: '#ef4444', fontSize: '7px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Potongan Diskon:</td>
                     <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#ef4444', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '7px' }}>-{formatCurrency(discount)}</td>
                   </tr>
                 )}
-                <tr style={{ background: '#f0fdf4', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                <tr className="summary-row" style={{ background: '#f0fdf4', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                   <td colSpan="3" style={{ textAlign: 'right', fontSize: '8px', fontWeight: '700', color: '#166534', padding: '5px 6px', border: '1px solid #e2e8f0' }}>TOTAL BAYAR KE {s.toUpperCase()}:</td>
                   <td style={{ textAlign: 'right', fontSize: '9px', fontWeight: '800', color: '#15803d', padding: '5px 6px', border: '1px solid #e2e8f0' }}>{formatCurrency(netToPay)}</td>
                 </tr>
@@ -207,7 +265,7 @@ export default function PurchaseNoteReportPdf({
 
       {/* SECTION 3: RELATED INVOICES */}
       {(invoicesList || []).length > 0 && (
-        <div className="print-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+        <div className="print-section page-break-before" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #f59e0b', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>3. Invoice Terhubung</h4>
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', borderSpacing: 0, fontSize: '8px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
             <thead>
@@ -241,7 +299,7 @@ export default function PurchaseNoteReportPdf({
 
       {/* SECTION 4: ADDITIONAL COSTS */}
       {totalAdditionalCosts > 0 && (
-        <div className="print-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+        <div className="print-section page-break-before" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #8b5cf6', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>4. Biaya Tambahan</h4>
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', borderSpacing: 0, fontSize: '8px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
             <tbody>
@@ -273,7 +331,7 @@ export default function PurchaseNoteReportPdf({
       )}
 
         {/* Global Grand Total Area */}
-        <div style={{ marginTop: 24, background: '#0f172a', color: 'white', padding: '12px 16px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+        <div className="no-break" style={{ marginTop: 24, background: '#0f172a', color: 'white', padding: '12px 16px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <div>
             <h4 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 10, opacity: 0.8, fontWeight: '600' }}>Grand Total Keseluruhan</h4>
             <div style={{ fontSize: 7, marginTop: 2, opacity: 0.6 }}>(Total setelah potongan + biaya tambahan)</div>
@@ -284,7 +342,7 @@ export default function PurchaseNoteReportPdf({
         </div>
 
       {/* Signatures */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, fontSize: 8, padding: '0 20px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+      <div className="no-break" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, fontSize: 8, padding: '0 20px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         <div style={{ textAlign: 'center', width: 160 }}>
           <p style={{ marginBottom: 45, margin: 0, fontSize: 8 }}>Diperiksa Oleh,</p>
           <div style={{ borderBottom: '1px solid #1e293b', width: '100%', marginBottom: 3 }}></div>
@@ -297,5 +355,6 @@ export default function PurchaseNoteReportPdf({
         </div>
       </div>
     </div>
+    </>
   );
 }
