@@ -168,6 +168,45 @@ export default function Recap() {
     );
   });
 
+  // Calculate margin per supplier
+  const supplierMarginData = filteredPurchases.map(pn => {
+    const supplierName = pn.supplierName || 'Unknown Supplier';
+
+    // Calculate total purchases from this supplier
+    const totalPurchase = (pn.items || []).reduce((sum, item) => sum + (Number(item.totalCost) || 0), 0);
+    const supplierDiscount = Number((pn.supplierDiscounts && pn.supplierDiscounts[supplierName]) || 0);
+    const netPurchase = totalPurchase - supplierDiscount;
+
+    // Find invoices that use items from this supplier's purchases
+    let relatedRevenue = 0;
+    filteredInvoices.forEach(inv => {
+      (inv.items || []).forEach(invItem => {
+        const matchingItem = (pn.items || []).find(pnItem =>
+          (invItem.productName || '').toLowerCase() === (pnItem.materialName || '').toLowerCase()
+        );
+        if (matchingItem) {
+          relatedRevenue += Number(invItem.subtotal) || 0;
+        }
+      });
+    });
+
+    const profit = relatedRevenue - netPurchase;
+    const marginPercent = relatedRevenue > 0 ? ((profit / relatedRevenue) * 100) : 0;
+
+    return {
+      supplierName,
+      totalPurchase,
+      supplierDiscount,
+      netPurchase,
+      relatedRevenue,
+      profit,
+      marginPercent,
+      itemCount: (pn.items || []).length,
+      purchaseNoteCount: filteredPurchases.filter(p => p.supplierName === supplierName).length
+    };
+  }).filter(supplier => supplier.netPurchase > 0 || supplier.relatedRevenue > 0)
+    .sort((a, b) => b.profit - a.profit);
+
   // Handle print function
   const handlePrintMarginReport = () => {
     // Expand all invoices before printing
@@ -604,6 +643,73 @@ export default function Recap() {
                     </>
                   );
                 })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Margin Laba per Supplier */}
+      <div className="card shadow-sm" style={{ marginTop: '24px' }}>
+        <div className="card-header">
+          <h3 className="flex-center gap-sm">
+            <FiShoppingCart className="text-warning" />
+            Margin Laba per Supplier
+          </h3>
+        </div>
+        <div className="table-container p-0">
+          <table className="table table-hover">
+            <thead>
+              <tr>
+                <th>Nama Supplier</th>
+                <th className="text-right">Total Pembelian</th>
+                <th className="text-right">Diskon Supplier</th>
+                <th className="text-right">Net Pembelian</th>
+                <th className="text-right">Penjualan Barang</th>
+                <th className="text-right">Laba</th>
+                <th className="text-right">Margin %</th>
+                <th className="text-center">Item</th>
+                <th className="text-center">Nota</th>
+              </tr>
+            </thead>
+            <tbody>
+              {supplierMarginData.length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="text-center text-muted p-md">
+                    Tidak ada data supplier
+                  </td>
+                </tr>
+              ) : (
+                supplierMarginData.map((supplier, idx) => (
+                  <tr key={idx}>
+                    <td><strong>{supplier.supplierName}</strong></td>
+                    <td className="text-right" style={{ color: '#f97316', fontWeight: 600 }}>
+                      {formatCurrency(supplier.totalPurchase)}
+                    </td>
+                    <td className="text-right" style={{ color: '#22c55e', fontWeight: 600 }}>
+                      {supplier.supplierDiscount > 0 ? `-${formatCurrency(supplier.supplierDiscount)}` : '-'}
+                    </td>
+                    <td className="text-right" style={{ color: '#ea580c', fontWeight: 600 }}>
+                      {formatCurrency(supplier.netPurchase)}
+                    </td>
+                    <td className="text-right" style={{ color: '#3b82f6', fontWeight: 600 }}>
+                      {formatCurrency(supplier.relatedRevenue)}
+                    </td>
+                    <td className="text-right" style={{
+                      color: supplier.profit >= 0 ? '#10b981' : '#ef4444',
+                      fontWeight: 700
+                    }}>
+                      {formatCurrency(supplier.profit)}
+                    </td>
+                    <td className="text-right">
+                      <span className={`badge ${supplier.marginPercent >= 20 ? 'badge-success' : supplier.marginPercent >= 10 ? 'badge-warning' : 'badge-danger'}`}>
+                        {supplier.marginPercent.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="text-center text-muted">{supplier.itemCount}</td>
+                    <td className="text-center text-muted">{supplier.purchaseNoteCount}</td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
