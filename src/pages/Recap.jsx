@@ -93,6 +93,40 @@ export default function Recap() {
   const balance = totalSalesRevenue - totalPurchaseCost;
   const marginPercentage = totalSalesRevenue > 0 ? ((balance / totalSalesRevenue) * 100).toFixed(1) : 0;
 
+  // Calculate margin per invoice
+  const invoiceMarginAnalysis = filteredInvoices.map(inv => {
+    let totalCost = 0;
+    (inv.items || []).forEach(invItem => {
+      // Try to find matching purchase note item
+      filteredPurchases.forEach(pn => {
+        (pn.items || []).forEach(pnItem => {
+          // Match by product name or material name
+          if ((invItem.productName || '').toLowerCase() === (pnItem.materialName || '').toLowerCase()) {
+            // Calculate cost proportionally
+            const purchasePricePerUnit = Number(pnItem.pricePerUnit) || 0;
+            const qty = Number(invItem.qty) || 0;
+            totalCost += purchasePricePerUnit * qty;
+          }
+        });
+      });
+    });
+
+    const revenue = Number(inv.grandTotal) || 0;
+    const profit = revenue - totalCost;
+    const marginPercent = revenue > 0 ? ((profit / revenue) * 100) : 0;
+
+    return {
+      invoiceNumber: inv.invoiceNumber,
+      customerName: inv.customerName,
+      date: inv.date || inv.createdAt,
+      revenue,
+      cost: totalCost,
+      profit,
+      marginPercent,
+      itemCount: (inv.items || []).length
+    };
+  }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
   if (loading) {
     return (
       <div className="card p-lg text-center animate-in">
@@ -294,6 +328,70 @@ export default function Recap() {
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      {/* Margin Laba Per Invoice */}
+      <div className="card shadow-sm" style={{ marginTop: '24px' }}>
+        <div className="card-header flex-between">
+          <h3 className="flex-center gap-sm">
+            <FiBarChart2 className="text-success" />
+            Margin Laba per Invoice
+          </h3>
+          <div className="text-sm text-muted">
+            Total {invoiceMarginAnalysis.length} invoice
+          </div>
+        </div>
+        <div className="table-container p-0">
+          <table className="table table-hover">
+            <thead>
+              <tr>
+                <th>No. Invoice</th>
+                <th>Customer</th>
+                <th>Tanggal</th>
+                <th className="text-right">Penjualan (Revenue)</th>
+                <th className="text-right">Pembelian (Cost)</th>
+                <th className="text-right">Laba (Profit)</th>
+                <th className="text-right">Margin %</th>
+                <th className="text-center">Item</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoiceMarginAnalysis.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="text-center text-muted p-md">
+                    Tidak ada data invoice
+                  </td>
+                </tr>
+              ) : (
+                invoiceMarginAnalysis.map((inv, idx) => (
+                  <tr key={idx}>
+                    <td><strong>{inv.invoiceNumber}</strong></td>
+                    <td>{inv.customerName}</td>
+                    <td className="text-muted">{formatDateShort(inv.date)}</td>
+                    <td className="text-right" style={{ color: '#3b82f6', fontWeight: 600 }}>
+                      {formatCurrency(inv.revenue)}
+                    </td>
+                    <td className="text-right" style={{ color: '#f97316', fontWeight: 600 }}>
+                      {formatCurrency(inv.cost)}
+                    </td>
+                    <td className="text-right" style={{
+                      color: inv.profit >= 0 ? '#10b981' : '#ef4444',
+                      fontWeight: 700
+                    }}>
+                      {formatCurrency(inv.profit)}
+                    </td>
+                    <td className="text-right">
+                      <span className={`badge ${inv.marginPercent >= 20 ? 'badge-success' : inv.marginPercent >= 10 ? 'badge-warning' : 'badge-danger'}`}>
+                        {inv.marginPercent.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="text-center text-muted">{inv.itemCount}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
