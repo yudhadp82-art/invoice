@@ -169,6 +169,20 @@ export default function Recap() {
     }, 300);
   };
 
+  // Handle print individual invoice
+  const handlePrintIndividualInvoice = (invoiceId) => {
+    // Only expand this specific invoice
+    setExpandedInvoices(new Set([invoiceId]));
+    setIsPrinting(true);
+
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        setIsPrinting(false);
+      }, 500);
+    }, 300);
+  };
+
   if (loading) {
     return (
       <div className="card p-lg text-center animate-in">
@@ -419,12 +433,13 @@ export default function Recap() {
                 <th className="text-right">Laba (Profit)</th>
                 <th className="text-right">Margin %</th>
                 <th className="text-center">Item</th>
+                <th className="text-center no-print">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {invoiceMarginAnalysis.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center text-muted p-md">
+                  <td colSpan="10" className="text-center text-muted p-md">
                     Tidak ada data invoice
                   </td>
                 </tr>
@@ -433,9 +448,8 @@ export default function Recap() {
                   const isExpanded = expandedInvoices.has(inv.id);
                   return (
                     <>
-                      <tr
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => {
+                      <tr>
+                        <td style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => {
                           const newExpanded = new Set(expandedInvoices);
                           if (isExpanded) {
                             newExpanded.delete(inv.id);
@@ -443,9 +457,7 @@ export default function Recap() {
                             newExpanded.add(inv.id);
                           }
                           setExpandedInvoices(newExpanded);
-                        }}
-                      >
-                        <td style={{ textAlign: 'center' }}>
+                        }}>
                           <span style={{
                             display: 'inline-block',
                             transition: 'transform 0.2s',
@@ -475,12 +487,24 @@ export default function Recap() {
                           </span>
                         </td>
                         <td className="text-center text-muted">{inv.itemCount}</td>
+                        <td className="text-center no-print">
+                          <button
+                            className="btn btn-sm btn-primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePrintIndividualInvoice(inv.id);
+                            }}
+                            style={{ padding: '4px 8px', fontSize: '12px' }}
+                          >
+                            <FiPrinter />
+                          </button>
+                        </td>
                       </tr>
 
                       {/* Expanded Item Details */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan="9" style={{ padding: 0, backgroundColor: '#f1f5f9' }}>
+                          <td colSpan="10" style={{ padding: 0, backgroundColor: '#f1f5f9' }}>
                             <div style={{ padding: '16px' }}>
                               <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
                                 Detail Breakdown per Item
@@ -626,7 +650,7 @@ export default function Recap() {
           }
 
           /* Expand all details when printing */
-          td[colSpan="9"] {
+          td[colSpan="10"] {
             page-break-inside: avoid;
           }
 
@@ -636,9 +660,15 @@ export default function Recap() {
             print-color-adjust: exact !important;
           }
 
-          /* Hide other sections when printing margin report */
+          /* Hide other cards when printing margin report */
           .card:not(:last-child) {
-            margin-bottom: 20px;
+            display: none !important;
+          }
+
+          /* Show only the last card (margin table) when printing */
+          .card:last-child {
+            display: block !important;
+            page-break-before: always;
           }
         }
       `}</style>
