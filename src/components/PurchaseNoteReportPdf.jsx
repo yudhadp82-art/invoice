@@ -59,9 +59,26 @@ export default function PurchaseNoteReportPdf({
   const totalItemsCost = (purchaseItems || []).reduce((n, it) => n + (Number(it.totalCost) || 0), 0);
   const totalDiscounts = Object.values(supplierDiscounts || {}).reduce((s, d) => s + (Number(d) || 0), 0);
   const totalAdditionalCosts = Object.values(additionalCosts || {}).reduce((s, c) => s + (Number(c) || 0), 0);
-  const grandTotalNet = Math.max(0, totalItemsCost - totalDiscounts) + totalAdditionalCosts;
 
-  console.log('Calculated totals:', { totalItemsCost, totalDiscounts, totalAdditionalCosts, grandTotalNet });
+  // Calculate grand total by summing supplier net totals (after discounts) + additional costs
+  // This ensures the grand total matches the sum of all "TOTAL BAYAR KE [SUPPLIER]" values
+  let totalFromSuppliers = 0;
+  supplierGroups.forEach(([s, items]) => {
+    const discount = Number(supplierDiscounts[s]) || 0;
+    const subtotal = items.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+    const netToPay = Math.max(0, subtotal - discount);
+    totalFromSuppliers += netToPay;
+  });
+
+  const grandTotalNet = totalFromSuppliers + totalAdditionalCosts;
+
+  console.log('Calculated totals:', {
+    totalItemsCost,
+    totalDiscounts,
+    totalAdditionalCosts,
+    totalFromSuppliers,
+    grandTotalNet
+  });
 
   return (
     <div id="purchase-note-report-render" className="print-only" style={containerStyle}>
