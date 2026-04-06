@@ -84,8 +84,8 @@ export default function TelegramOrdersPage() {
 
   async function handleRefresh() {
     setLoading(true);
-    const custs = await Customers.getAll();
-    const prods = await ProductStorage.getAll();
+    const custs = await CustStore.getAll();
+    const prods = await ProductStore.getAll();
 
     const offset  = TelOrderStore.getOffset();
     const updates = await fetchUpdates(offset + 1);

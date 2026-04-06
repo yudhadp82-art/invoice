@@ -176,14 +176,14 @@ export default function Stock() {
     setIsSyncing(true);
     try {
       const [allProds, allMats, allPurchs, allInvs, allProdMats, allProdNeeds, allHpps, allPurchaseNotes] = await Promise.all([
-        Products.getAll(),
-        SupportingMaterialItems.getAll(),
+        ProductStore.getAll(),
+        MasterItemStore.getAll(),
         Purchases.getAll(),
-        Invoices.getAll(),
-        ProductionMaterials.getAll(),
-        ProductionNeeds.getAll(),
-        HppReports.getAll(),
-        PurchaseNotes.getAll()
+        InvoiceStore.getAll(),
+        MatStore.getAll(),
+        NeedStore.getAll(),
+        HppStore.getAll(),
+        PNStore.getAll()
       ]);
 
       // 1. Sync Products (Finished Goods / Ingredients)

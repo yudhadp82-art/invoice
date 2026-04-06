@@ -193,6 +193,7 @@ export default function PurchaseNotes() {
       date: note.date,
       groupRecap: recapArray,
       purchaseItems: note.items || [],
+      supplierDiscounts: note.supplierDiscounts || {},
       invoicesList: invsForGroup,
       additionalCosts: note.additionalCosts || {}
     });
@@ -428,13 +429,13 @@ export default function PurchaseNotes() {
                 </div>
                 {!isThisGroupCollapsed && (
                   <div style={{ padding: '0 20px 20px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       {items.map((item, idx) => (
-                        <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 15px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
-                          <div className="text-xs text-muted mb-xs uppercase tracking-wider font-semibold" style={{ lineHeight: 1.3 }}>{item.name}</div>
-                          <div className="flex-between align-baseline">
-                            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-primary-hover)' }}>{Number(item.totalQty).toLocaleString('id-ID')}</span>
-                            <span className="text-xs text-muted">{item.unit}</span>
+                        <div key={idx} style={{ background: 'rgba(255,255,255,0.02)', padding: '8px 16px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.9 }}>{item.name}</span>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                             <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent-primary-hover)' }}>{Number(item.totalQty).toLocaleString('id-ID')}</span>
+                             <span style={{ fontSize: 11, opacity: 0.5 }}>{item.unit}</span>
                           </div>
                         </div>
                       ))}
