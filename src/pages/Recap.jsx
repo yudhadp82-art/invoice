@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiBarChart2, FiCalendar, FiDownload, FiShoppingCart, FiFileText, FiPrinter } from 'react-icons/fi';
+import { FiBarChart2, FiCalendar, FiDownload, FiShoppingCart, FiFileText, FiPrinter, FiSearch } from 'react-icons/fi';
 import { Invoices as InvoiceStore, PurchaseNotes as PNStore } from '../utils/storage';
 import { formatCurrency, formatNumber, formatDateShort, isToday, isThisMonth } from '../utils/formatter';
 
@@ -152,6 +152,21 @@ export default function Recap() {
   // State for expanded rows
   const [expandedInvoices, setExpandedInvoices] = useState(new Set());
   const [isPrinting, setIsPrinting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter invoices based on search query
+  const filteredMarginData = invoiceMarginAnalysis.filter(inv => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      (inv.invoiceNumber || '').toLowerCase().includes(query) ||
+      (inv.customerName || '').toLowerCase().includes(query) ||
+      (formatDateShort(inv.date) || '').toLowerCase().includes(query) ||
+      (inv.itemBreakdown || []).some(item =>
+        (item.productName || '').toLowerCase().includes(query)
+      )
+    );
+  });
 
   // Handle print function
   const handlePrintMarginReport = () => {
@@ -389,34 +404,47 @@ export default function Recap() {
 
       {/* Margin Laba Per Invoice */}
       <div className="card shadow-sm" style={{ marginTop: '24px' }}>
-        <div className="card-header flex-between">
+        <div className="card-header">
           <h3 className="flex-center gap-sm">
             <FiBarChart2 className="text-success" />
             Margin Laba per Invoice
           </h3>
-          <div className="flex gap-sm">
-            <button
-              className="btn btn-sm btn-primary no-print"
-              onClick={handlePrintMarginReport}
-            >
-              <FiPrinter /> Print
-            </button>
-            <button
-              className="btn btn-sm btn-secondary no-print"
-              onClick={() => {
-                if (expandedInvoices.size === invoiceMarginAnalysis.length) {
-                  setExpandedInvoices(new Set());
-                } else {
-                  setExpandedInvoices(new Set(invoiceMarginAnalysis.map(inv => inv.id)));
-                }
-              }}
-            >
-              {expandedInvoices.size === invoiceMarginAnalysis.length ? 'Collapse All' : 'Expand All'}
-            </button>
-            <div className="text-sm text-muted flex-center gap-sm">
-              <span>Total {invoiceMarginAnalysis.length} invoice</span>
-              <span style={{ color: '#94a3b8' }}>|</span>
-              <span>{expandedInvoices.size} expanded</span>
+        </div>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
+          <div className="flex-between gap-md">
+            <div className="search-box" style={{ flex: 1, maxWidth: '400px' }}>
+              <FiSearch className="search-icon" />
+              <input
+                type="text"
+                placeholder="Cari invoice, customer, atau tanggal..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div className="flex gap-sm">
+              <button
+                className="btn btn-sm btn-primary no-print"
+                onClick={handlePrintMarginReport}
+              >
+                <FiPrinter /> Print All
+              </button>
+              <button
+                className="btn btn-sm btn-secondary no-print"
+                onClick={() => {
+                  if (expandedInvoices.size === filteredMarginData.length) {
+                    setExpandedInvoices(new Set());
+                  } else {
+                    setExpandedInvoices(new Set(filteredMarginData.map(inv => inv.id)));
+                  }
+                }}
+              >
+                {expandedInvoices.size === filteredMarginData.length ? 'Collapse All' : 'Expand All'}
+              </button>
+              <div className="text-sm text-muted flex-center gap-sm no-print">
+                <span>{filteredMarginData.length} dari {invoiceMarginAnalysis.length} invoice</span>
+                {searchQuery && <span style={{ color: '#94a3b8' }}>(filtered)</span>}
+              </div>
             </div>
           </div>
         </div>
@@ -437,14 +465,14 @@ export default function Recap() {
               </tr>
             </thead>
             <tbody>
-              {invoiceMarginAnalysis.length === 0 ? (
+              {filteredMarginData.length === 0 ? (
                 <tr>
                   <td colSpan="10" className="text-center text-muted p-md">
-                    Tidak ada data invoice
+                    {searchQuery ? 'Tidak ada invoice yang cocok dengan pencarian' : 'Tidak ada data invoice'}
                   </td>
                 </tr>
               ) : (
-                invoiceMarginAnalysis.map((inv, idx) => {
+                filteredMarginData.map((inv, idx) => {
                   const isExpanded = expandedInvoices.has(inv.id);
                   return (
                     <>
