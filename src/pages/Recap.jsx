@@ -441,56 +441,64 @@ export default function Recap() {
                       {/* Expanded Item Details */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan="9" style={{ padding: 0, backgroundColor: '#f8fafc' }}>
+                          <td colSpan="9" style={{ padding: 0, backgroundColor: '#f1f5f9' }}>
                             <div style={{ padding: '16px' }}>
-                              <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: 600, color: '#475569' }}>
+                              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
                                 Detail Breakdown per Item
                               </h4>
-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                                 <thead>
-                                  <tr style={{ backgroundColor: '#e2e8f0' }}>
-                                    <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #cbd5e1' }}>Nama Barang</th>
-                                    <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1', width: '80px' }}>Qty</th>
-                                    <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', width: '120px' }}>Harga Jual</th>
-                                    <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', width: '120px' }}>Harga Beli</th>
-                                    <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', width: '120px' }}>Revenue</th>
-                                    <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', width: '120px' }}>Cost</th>
-                                    <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', width: '120px' }}>Laba</th>
-                                    <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1', width: '100px' }}>Margin %</th>
+                                  <tr style={{ backgroundColor: '#1e293b' }}>
+                                    <th style={{ padding: '10px 8px', textAlign: 'left', border: '1px solid #334155', color: 'white', fontWeight: 600 }}>Nama Barang</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'center', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '80px' }}>Qty</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '120px' }}>Harga Jual</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '120px' }}>Harga Beli</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '120px' }}>Revenue</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '120px' }}>Cost</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '120px' }}>Laba</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'center', border: '1px solid #334155', color: 'white', fontWeight: 600, width: '100px' }}>Margin %</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {inv.itemBreakdown.map((item, itemIdx) => (
                                     <tr key={itemIdx} style={{ backgroundColor: itemIdx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                                      <td style={{ padding: '8px', border: '1px solid #e2e8f0', fontWeight: 500 }}>
+                                      <td style={{ padding: '8px', border: '1px solid #cbd5e1', fontWeight: 600, color: '#1e293b' }}>
                                         {item.productName}
                                       </td>
-                                      <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+                                      <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1', color: '#475569', fontWeight: 500 }}>
                                         {formatNumber(item.qty)} {item.unit}
                                       </td>
-                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#3b82f6' }}>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', color: '#2563eb', fontWeight: 600 }}>
                                         {formatCurrency(item.unitPrice)}
                                       </td>
-                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0', color: '#f97316' }}>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', color: '#ea580c', fontWeight: 600 }}>
                                         {formatCurrency(item.purchasePricePerUnit)}
                                       </td>
-                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0', fontWeight: 600 }}>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b' }}>
                                         {formatCurrency(item.revenue)}
                                       </td>
-                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0', fontWeight: 600 }}>
+                                      <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 700, color: '#1e293b' }}>
                                         {formatCurrency(item.cost)}
                                       </td>
                                       <td style={{
                                         padding: '8px',
                                         textAlign: 'right',
-                                        border: '1px solid #e2e8f0',
-                                        fontWeight: 700,
-                                        color: item.profit >= 0 ? '#10b981' : '#ef4444'
+                                        border: '1px solid #cbd5e1',
+                                        fontWeight: 800,
+                                        color: item.profit >= 0 ? '#16a34a' : '#dc2626',
+                                        fontSize: '13px'
                                       }}>
                                         {formatCurrency(item.profit)}
                                       </td>
-                                      <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-                                        <span className={`badge ${item.marginPercent >= 20 ? 'badge-success' : item.marginPercent >= 10 ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '10px' }}>
+                                      <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1' }}>
+                                        <span style={{
+                                          backgroundColor: item.marginPercent >= 20 ? '#16a34a' : item.marginPercent >= 10 ? '#ca8a04' : '#dc2626',
+                                          color: 'white',
+                                          padding: '4px 8px',
+                                          borderRadius: '4px',
+                                          fontSize: '11px',
+                                          fontWeight: 700
+                                        }}>
                                           {item.marginPercent.toFixed(1)}%
                                         </span>
                                       </td>
