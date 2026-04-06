@@ -89,6 +89,7 @@ export default function Recap() {
 
   const totalPurchaseBaseCost = Object.values(purchaseSummary).reduce((sum, item) => sum + item.total, 0);
   const totalPurchaseCost = totalPurchaseBaseCost - totalSupplierDiscounts + totalAdditionalCosts;
+  const totalSalesRevenue = Object.values(salesSummary).reduce((sum, item) => sum + item.total, 0);
   const balance = totalSalesRevenue - totalPurchaseCost;
   const marginPercentage = totalSalesRevenue > 0 ? ((balance / totalSalesRevenue) * 100).toFixed(1) : 0;
 
