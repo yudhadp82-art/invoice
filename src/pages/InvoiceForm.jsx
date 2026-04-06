@@ -340,7 +340,7 @@ export default function InvoiceForm() {
         const invoice = await Invoices.getById(id);
         if (invoice) {
           setForm({
-            date: invoice.date || (invoice.createdAt ? invoice.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
+            date: invoice.date || (invoice.createdAt ? String(invoice.createdAt).split('T')[0] : new Date().toISOString().split('T')[0]),
             customerId: invoice.customerId || '',
             customerName: invoice.customerName || '',
             customerAddress: invoice.customerAddress || '',
@@ -374,7 +374,7 @@ export default function InvoiceForm() {
           customerId: telegramOrder.matchedCustomerId || '',
           customerName: customer ? customer.name : telegramOrder.customerName,
           customerAddress: customer ? customer.address : '',
-          date: telegramOrder.createdAt ? telegramOrder.createdAt.split('T')[0] : f.date, // Carry over the date
+          date: telegramOrder.createdAt ? String(telegramOrder.createdAt).split('T')[0] : f.date, // Carry over the date
           items: items,
           notes: `Pesan Telegram:\n${telegramOrder.rawMessage}`,
           telegramChatId: telegramOrder.telegramChatId || ''

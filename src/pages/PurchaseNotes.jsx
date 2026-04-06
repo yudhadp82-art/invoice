@@ -155,9 +155,9 @@ export default function PurchaseNotes() {
     setIsGeneratingPdf(true);
     
     // Prepare data for the PDF template
-    const noteDateStr = note.date ? String(note.date).slice(0, 10) : '';
+    const noteDateStr = note.date ? String(note.date || '').slice(0, 10) : '';
     const grp = note.groupName || '(Tanpa Grup)';
-    
+
     // Build the invoices list: 3-layer check
     let invsForGroup = [];
     if (note.sourceInvoiceIds && note.sourceInvoiceIds.length > 0) {
@@ -169,10 +169,15 @@ export default function PurchaseNotes() {
       const nameToGroup = {};
       allCustomers.forEach(c => { if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group; });
       invsForGroup = fullInvoices.filter(inv => {
-        const dateObj = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
-        if (!dateObj) return false;
-        const invDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-        return invDateStr === noteDateStr && nameToGroup[(inv.customerName || '').toLowerCase()] === grp;
+        try {
+          const dateObj = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
+          if (!dateObj || isNaN(dateObj.getTime())) return false;
+          const invDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+          return invDateStr === noteDateStr && nameToGroup[(inv.customerName || '').toLowerCase()] === grp;
+        } catch (e) {
+          console.error('Error filtering invoice:', inv, e);
+          return false;
+        }
       });
     }
 
