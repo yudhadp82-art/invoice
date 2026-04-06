@@ -17,10 +17,10 @@ export default function PurchaseNoteReportPdf({
 
   const containerStyle = {
     width: '210mm',
-    minHeight: '100%',
+    minHeight: '297mm',
     background: 'white',
     color: 'black',
-    padding: '15mm',
+    padding: '0',
     margin: '0',
     boxSizing: 'border-box',
     fontFamily: 'Arial, sans-serif',
@@ -84,6 +84,19 @@ export default function PurchaseNoteReportPdf({
     <>
       <style>{`
         @media print {
+          /* A4 page size and margins */
+          @page {
+            size: A4;
+            margin: 15mm;
+          }
+
+          /* Ensure body fits A4 */
+          body {
+            width: 210mm;
+            margin: 0;
+            padding: 0;
+          }
+
           /* Prevent breaks inside important elements */
           .print-section {
             page-break-inside: avoid !important;
@@ -137,9 +150,19 @@ export default function PurchaseNoteReportPdf({
             page-break-after: always !important;
             break-after: page !important;
           }
+
+          /* Ensure print container fits A4 */
+          #purchase-note-report-render {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
         }
       `}</style>
       <div id="purchase-note-report-render" className="print-only" style={containerStyle}>
+      {/* Content wrapper with padding for A4 margins */}
+      <div style={{ padding: '15mm' }}>
       {/* Header */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', borderBottom: '2px solid #1e293b', paddingBottom: 10, marginBottom: 20, gap: 8 }}>
         <div style={{ width: 55, height: 55, marginRight: 15, flexShrink: 0 }}>
@@ -355,6 +378,7 @@ export default function PurchaseNoteReportPdf({
           <div style={{ borderBottom: '1px solid #1e293b', width: '100%', marginBottom: 3 }}></div>
           <p style={{ fontWeight: 'bold', margin: 0, fontSize: 8 }}>Admin Pembelian</p>
         </div>
+      </div>
       </div>
     </div>
     </>
