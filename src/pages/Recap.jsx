@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiBarChart2, FiCalendar, FiDownload, FiShoppingCart, FiFileText } from 'react-icons/fi';
+import { FiBarChart2, FiCalendar, FiDownload, FiShoppingCart, FiFileText, FiPrinter } from 'react-icons/fi';
 import { Invoices as InvoiceStore, PurchaseNotes as PNStore } from '../utils/storage';
 import { formatCurrency, formatNumber, formatDateShort, isToday, isThisMonth } from '../utils/formatter';
 
@@ -151,6 +151,23 @@ export default function Recap() {
 
   // State for expanded rows
   const [expandedInvoices, setExpandedInvoices] = useState(new Set());
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  // Handle print function
+  const handlePrintMarginReport = () => {
+    // Expand all invoices before printing
+    setExpandedInvoices(new Set(invoiceMarginAnalysis.map(inv => inv.id)));
+    setIsPrinting(true);
+
+    // Wait for render then print
+    setTimeout(() => {
+      window.print();
+      // Restore previous state after print dialog closes
+      setTimeout(() => {
+        setIsPrinting(false);
+      }, 500);
+    }, 300);
+  };
 
   if (loading) {
     return (
@@ -365,7 +382,13 @@ export default function Recap() {
           </h3>
           <div className="flex gap-sm">
             <button
-              className="btn btn-sm btn-secondary"
+              className="btn btn-sm btn-primary no-print"
+              onClick={handlePrintMarginReport}
+            >
+              <FiPrinter /> Print
+            </button>
+            <button
+              className="btn btn-sm btn-secondary no-print"
               onClick={() => {
                 if (expandedInvoices.size === invoiceMarginAnalysis.length) {
                   setExpandedInvoices(new Set());
@@ -558,6 +581,65 @@ export default function Recap() {
         }
         .font-medium {
           font-weight: 500;
+        }
+
+        /* Print Styles */
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+
+          body {
+            background: white !important;
+            color: black !important;
+          }
+
+          .card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            page-break-inside: avoid;
+          }
+
+          .table-container {
+            overflow: visible !important;
+          }
+
+          table {
+            page-break-inside: auto;
+          }
+
+          thead {
+            display: table-header-group;
+          }
+
+          tfoot {
+            display: table-footer-group;
+          }
+
+          tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+
+          td, th {
+            page-break-inside: avoid;
+          }
+
+          /* Expand all details when printing */
+          td[colSpan="9"] {
+            page-break-inside: avoid;
+          }
+
+          /* Ensure colors are preserved in print */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* Hide other sections when printing margin report */
+          .card:not(:last-child) {
+            margin-bottom: 20px;
+          }
         }
       `}</style>
     </div>
