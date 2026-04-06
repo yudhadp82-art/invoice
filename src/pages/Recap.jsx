@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiBarChart2, FiCalendar, FiDownload, FiShoppingCart, FiFileText, FiPrinter, FiSearch } from 'react-icons/fi';
 import { Invoices as InvoiceStore, PurchaseNotes as PNStore } from '../utils/storage';
 import { formatCurrency, formatNumber, formatDateShort, isToday, isThisMonth } from '../utils/formatter';
