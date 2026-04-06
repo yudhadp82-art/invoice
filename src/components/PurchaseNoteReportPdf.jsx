@@ -213,7 +213,7 @@ export default function PurchaseNoteReportPdf({
                   <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '7px' }}>{formatDateShort(inv.date)}</td>
                   <td style={{ textAlign: 'center', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '7px' }}>{(inv.items || []).length}</td>
                   <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '7px', fontWeight: '600' }}>
-                    {formatCurrency((inv.items || []).reduce((sum, it) => sum + (Number(it.qty || 0) * Number(it.price || 0)), 0))}
+                    {formatCurrency(inv.grandTotal || 0)}
                   </td>
                 </tr>
               ))}
