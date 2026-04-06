@@ -139,7 +139,7 @@ export default function Customers() {
   }
 
   const filtered = customers.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
     (c.company || '').toLowerCase().includes(search.toLowerCase()) ||
     (c.phone || '').includes(search)
   );
