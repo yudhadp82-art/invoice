@@ -185,9 +185,9 @@ export default function TelegramOrdersPage() {
     let count = 0;
     for (const order of orders) {
       if (order.status !== 'selesai' && order.matchedCustomerId) {
-        const hasInv = allInvoices.some(inv => 
-          inv.customerId === order.matchedCustomerId && 
-          inv.date >= order.createdAt.split('T')[0]
+        const hasInv = allInvoices.some(inv =>
+          inv.customerId === order.matchedCustomerId &&
+          inv.date >= String(order.createdAt || '').split('T')[0]
         );
         if (hasInv) {
           await TelOrderStore.update(order.id, { status: 'selesai' });
