@@ -17,7 +17,7 @@ export default function PurchaseNoteReportPdf({
 
   const containerStyle = {
     width: '210mm',
-    minHeight: '297mm',
+    minHeight: 'auto',
     background: 'white',
     color: 'black',
     padding: '0',
@@ -86,8 +86,8 @@ export default function PurchaseNoteReportPdf({
         @media print {
           /* A4 page size and margins */
           @page {
-            size: A4;
-            margin: 15mm;
+            size: A4 portrait;
+            margin: 0;
           }
 
           /* Ensure body fits A4 */
@@ -95,18 +95,27 @@ export default function PurchaseNoteReportPdf({
             width: 210mm;
             margin: 0;
             padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           /* Prevent breaks inside important elements */
           .print-section {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            position: relative !important;
           }
 
-          /* Force page breaks before major sections if needed */
+          /* Force page breaks before major sections */
           .page-break-before {
             page-break-before: always !important;
             break-before: page !important;
+          }
+
+          /* Force page breaks after major sections */
+          .page-break-after {
+            page-break-after: always !important;
+            break-after: page !important;
           }
 
           /* Prevent breaks after headings */
@@ -115,10 +124,11 @@ export default function PurchaseNoteReportPdf({
             break-after: avoid !important;
           }
 
-          /* Keep tables together */
+          /* Keep tables together - more aggressive */
           table {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            width: 100% !important;
           }
 
           /* Keep table headers with data */
@@ -143,20 +153,30 @@ export default function PurchaseNoteReportPdf({
           .no-break {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-          }
-
-          /* Force page break after major sections */
-          .page-break-after {
-            page-break-after: always !important;
-            break-after: page !important;
+            page-break-before: avoid !important;
+            break-before: avoid !important;
           }
 
           /* Ensure print container fits A4 */
           #purchase-note-report-render {
             width: 210mm !important;
-            min-height: 297mm !important;
             margin: 0 !important;
             padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          /* Force supplier sections to stay together */
+          .supplier-section {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+        }
+
+        /* Screen styles for preview */
+        @media screen {
+          #purchase-note-report-render {
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin: 20px auto;
           }
         }
       `}</style>
@@ -203,6 +223,9 @@ export default function PurchaseNoteReportPdf({
         </table>
       </div>
 
+      {/* Page break before section 2 */}
+      <div className="page-break-before" style={{ pageBreakBefore: 'always', breakBefore: 'page' }}></div>
+
       {/* SECTION 2: REKAP & REALISASI PEMBELIAN PER SUPPLIER */}
       <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #10b981', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>2. Rekap & Realisasi Pembelian per Supplier</h4>
 
@@ -216,7 +239,7 @@ export default function PurchaseNoteReportPdf({
         );
 
         return (
-          <div key={idx} className="print-section" style={{
+          <div key={idx} className="print-section supplier-section" style={{
             border: '1px solid #e2e8f0',
             borderRadius: 6,
             overflow: 'visible',
@@ -224,8 +247,10 @@ export default function PurchaseNoteReportPdf({
             marginTop: 16,
             pageBreakInside: 'avoid',
             breakInside: 'avoid',
-            pageBreakBefore: idx > 0 ? 'auto' : 'auto',
-            breakBefore: idx > 0 ? 'auto' : 'auto',
+            pageBreakBefore: idx > 0 ? 'always' : 'auto',
+            breakBefore: idx > 0 ? 'page' : 'auto',
+            pageBreakAfter: 'auto',
+            breakAfter: 'auto',
             width: '100%',
             minHeight: 'auto'
           }}>
