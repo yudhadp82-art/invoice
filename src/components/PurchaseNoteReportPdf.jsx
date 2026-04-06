@@ -271,6 +271,7 @@ export default function PurchaseNoteReportPdf({
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '7px', fontWeight: 'bold' }}>No Invoice</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '7px', fontWeight: 'bold' }}>Nama Pembeli</th>
                 <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '7px', fontWeight: 'bold' }}>Tanggal</th>
                 <th style={{ textAlign: 'center', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '7px', fontWeight: 'bold' }}>Jumlah Item</th>
                 <th style={{ textAlign: 'right', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '7px', fontWeight: 'bold' }}>Total</th>
@@ -280,6 +281,7 @@ export default function PurchaseNoteReportPdf({
               {invoicesList.map((inv, idx) => (
                 <tr key={idx}>
                   <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '7px', fontWeight: '600' }}>{inv.invoiceNumber || inv.id}</td>
+                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '7px', fontWeight: '600' }}>{inv.customerName || '-'}</td>
                   <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '7px' }}>{formatDateShort(inv.date)}</td>
                   <td style={{ textAlign: 'center', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '7px' }}>{(inv.items || []).length}</td>
                   <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '7px', fontWeight: '600' }}>
@@ -289,7 +291,7 @@ export default function PurchaseNoteReportPdf({
               ))}
               {(!invoicesList || invoicesList.length === 0) && (
                 <tr>
-                  <td colSpan="4" style={{ padding: 8, textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0', fontSize: '7px' }}>Tidak ada invoice terhubung</td>
+                  <td colSpan="5" style={{ padding: 8, textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0', fontSize: '7px' }}>Tidak ada invoice terhubung</td>
                 </tr>
               )}
             </tbody>
