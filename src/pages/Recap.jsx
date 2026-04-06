@@ -393,7 +393,7 @@ export default function Recap() {
                 invoiceMarginAnalysis.map((inv, idx) => {
                   const isExpanded = expandedInvoices.has(inv.id);
                   return (
-                    <React.Fragment key={idx}>
+                    <>
                       <tr
                         style={{ cursor: 'pointer' }}
                         onClick={() => {
@@ -502,7 +502,7 @@ export default function Recap() {
                           </td>
                         </tr>
                       )}
-                    </React.Fragment>
+                    </>
                   );
                 })
               )}
