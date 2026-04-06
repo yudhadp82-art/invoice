@@ -363,8 +363,24 @@ export default function Recap() {
             <FiBarChart2 className="text-success" />
             Margin Laba per Invoice
           </h3>
-          <div className="text-sm text-muted">
-            Total {invoiceMarginAnalysis.length} invoice
+          <div className="flex gap-sm">
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => {
+                if (expandedInvoices.size === invoiceMarginAnalysis.length) {
+                  setExpandedInvoices(new Set());
+                } else {
+                  setExpandedInvoices(new Set(invoiceMarginAnalysis.map(inv => inv.id)));
+                }
+              }}
+            >
+              {expandedInvoices.size === invoiceMarginAnalysis.length ? 'Collapse All' : 'Expand All'}
+            </button>
+            <div className="text-sm text-muted flex-center gap-sm">
+              <span>Total {invoiceMarginAnalysis.length} invoice</span>
+              <span style={{ color: '#94a3b8' }}>|</span>
+              <span>{expandedInvoices.size} expanded</span>
+            </div>
           </div>
         </div>
         <div className="table-container p-0">
