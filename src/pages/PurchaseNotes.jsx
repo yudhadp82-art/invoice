@@ -349,7 +349,7 @@ export default function PurchaseNotes() {
       <div className="page-header page-header-actions">
         <div>
           <h1>Pembelian Bahan</h1>
-          <p>Daftar nota pembelian bahan baku dan split S5/S3</p>
+          <p>Daftar nota pembelian bahan baku dan split S5/S2</p>
         </div>
         <div className="flex gap-sm">
           <button className="btn btn-secondary" onClick={handleSyncInvoices} disabled={isSyncing || loading}>
@@ -598,7 +598,7 @@ export default function PurchaseNotes() {
                 </td>
                 <td className="text-right font-medium">{formatCurrency(note.grandTotal)}</td>
                 <td>
-                  <span className="badge badge-cyan">Split S5 & S3</span>
+                  <span className="badge badge-cyan">Split S5 & S2</span>
                 </td>
                 <td>
                   <div className="table-actions">

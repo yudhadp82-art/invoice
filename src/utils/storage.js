@@ -70,6 +70,10 @@ async function getAllFromStore(collectionName) {
         }, {})
       };
 
+      // Ensure camelCase timestamps are present if snake_case ones exist from Supabase columns
+      if (item.created_at && !mapped.createdAt) mapped.createdAt = item.created_at;
+      if (item.updated_at && !mapped.updatedAt) mapped.updatedAt = item.updated_at;
+
       // Legacy normalization for purchases (old table)
       if (collectionName === COLLECTIONS.PURCHASES && mapped.supplier && !mapped.supplierName) {
         mapped.supplierName = mapped.supplier;
@@ -348,9 +352,9 @@ export const TelegramOrders = {
   update: (id, updates) => updateInStore(COLLECTIONS.TELEGRAM_ORDERS, id, updates),
   delete: (id) => removeInStore(COLLECTIONS.TELEGRAM_ORDERS, id),
   getOffset: async () => {
-    // Keep offset in local storage as it's specifically for this bot instance
     const val = localStorage.getItem('invoicepro_telegram_offset') || '0';
-    return Number(val);
+    const num = Number(val);
+    return isNaN(num) ? 0 : num;
   },
   setOffset: async (val) => {
     localStorage.setItem('invoicepro_telegram_offset', String(val));
@@ -431,8 +435,7 @@ export async function seedDemoData() {
           totalCost: 550000,
           splits: {
             s5: { qty: 30, shrinkage: 0, netQty: 30 },
-            s2: { qty: 20, shrinkage: 0, netQty: 20 },
-            s3: { qty: 0, shrinkage: 0, netQty: 0 }
+            s2: { qty: 20, shrinkage: 0, netQty: 20 }
           }
         }],
         grandTotal: 550000,

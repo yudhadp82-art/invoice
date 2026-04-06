@@ -87,7 +87,7 @@ export default function TelegramOrdersPage() {
     const custs = await CustStore.getAll();
     const prods = await ProductStore.getAll();
 
-    const offset  = TelOrderStore.getOffset();
+    const offset  = await TelOrderStore.getOffset();
     const updates = await fetchUpdates(offset + 1);
 
     let newOffset  = offset;
@@ -145,6 +145,9 @@ export default function TelegramOrdersPage() {
     }
 
     const allOrdersAfter = await TelOrderStore.getAll();
+    if (newOffset > offset) {
+      await TelOrderStore.setOffset(newOffset);
+    }
     const failures = updates
       .filter(u => u.message?.text)
       .filter(u => !allOrdersAfter.find(o => o.telegramMessageId === u.message.message_id))
@@ -453,7 +456,7 @@ export default function TelegramOrdersPage() {
           // Logic: Jika sudah ada invoice di hari yang sama/setelahnya, sembunyikan dari antrean masuk
           const hasInv = allInvoices.some(inv => 
             inv.customerId === o.matchedCustomerId && 
-            inv.date >= o.createdAt.split('T')[0]
+            inv.date >= (o.createdAt || '').split('T')[0]
           );
           return o.status === 'baru' && !hasInv;
         });
@@ -532,7 +535,7 @@ export default function TelegramOrdersPage() {
                     <div style={{ background: 'rgba(0,0,0,0.15)', padding: '8px 10px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
                       <p style={{ fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 4 }}>Pesan Asli:</p>
                       <div style={{ fontFamily: 'inherit', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                        {order.rawMessage.split('\n').map(l => l.trim()).filter(l => l).map((line, idx) => {
+                        {(order.rawMessage || '').split('\n').map(l => l.trim()).filter(l => l).map((line, idx) => {
                           if (idx === 0) return <div key={idx} style={{ fontWeight: 500, marginBottom: 4 }}>{line}</div>;
                           const cleanLine = line.replace(/^[-*•]\s*/, '');
                           return (

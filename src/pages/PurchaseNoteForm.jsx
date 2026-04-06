@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiShoppingBag, FiInfo, FiUsers, FiFileText } from 'react-icons/fi';
-import { PurchaseNotes, SupportingMaterialItems as MasterItems, Invoices, Suppliers, Customers } from '../utils/storage';
-import { formatCurrency } from '../utils/formatter';
+import { PurchaseNotes, Products as MasterItems, Invoices, Suppliers, Customers } from '../utils/storage';
+import { formatCurrency, formatNumberInput, parseNumberInput } from '../utils/formatter';
 import Modal from '../components/Modal';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
 
@@ -16,16 +16,27 @@ const emptyItem = {
   invoiceQty: 0,
   pricePerUnit: 0,
   sellPrice: 0,
-  invoiceBreakdown: { s5: 0, s2: 0, s3: 0 },
+  invoiceBreakdown: { s5: 0, s2: 0 },
   splits: {
     s5: { qty: 0, shrinkage: 0, netQty: 0 },
-    s2: { qty: 0, shrinkage: 0, netQty: 0 },
-    s3: { qty: 0, shrinkage: 0, netQty: 0 }
+    s2: { qty: 0, shrinkage: 0, netQty: 0 }
   },
   totalCost: 0
 };
 
 const MIX_VEG_INGREDIENTS = ['Wortel', 'Buncis', 'Jagung'];
+
+// Format angka: ribuan pakai titik, hilangkan ,00 desimal
+function fmtNum(val) {
+  const n = Number(val) || 0;
+  if (n === 0) return '0';
+  // Jika bilangan bulat, tampilkan tanpa desimal
+  if (Number.isInteger(n)) {
+    return n.toLocaleString('id-ID');
+  }
+  // Jika ada desimal, tampilkan max 2 digit tanpa trailing 0
+  return n.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
 
 export default function PurchaseNoteForm() {
   const { id } = useParams();
@@ -58,6 +69,7 @@ export default function PurchaseNoteForm() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [itemsCount, setItemsCount] = useState(0);
+  const [allCustomers, setAllCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -99,7 +111,7 @@ export default function PurchaseNoteForm() {
             if (mb) newItem.materialId = mb.id;
           }
           if (!newItem.splits) {
-            newItem.splits = { s5: { qty: 0, shrinkage: 0, netQty: 0 }, s2: { qty: 0, shrinkage: 0, netQty: 0 }, s3: { qty: 0, shrinkage: 0, netQty: 0 } };
+            newItem.splits = { s5: { qty: 0, shrinkage: 0, netQty: 0 }, s2: { qty: 0, shrinkage: 0, netQty: 0 } };
           }
           newItem.isManuallyEdited = true;
           return newItem;
@@ -118,6 +130,7 @@ export default function PurchaseNoteForm() {
 
       setInvoices(invs.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)));
       setAllSuppliers(supps);
+      setAllCustomers(allCusts);
       setPurchaseHistory(history);
       
       const supplierSet = new Set();
@@ -174,15 +187,19 @@ export default function PurchaseNoteForm() {
                 unit: it.unit || (mb ? mb.unit : 'kg'),
                 qtyNota: Number(it.qty) || 0,
                 invoiceQty: Number(it.qty) || 0,
-                pricePerUnit: Number(it.unitPrice) || 0,
-                sellPrice: Number(it.unitPrice) || 0,
-                splits: { s5: { qty: Number(it.qty) || 0, shrinkage: 0, netQty: Number(it.qty) || 0 }, s2: { qty: 0, shrinkage: 0, netQty: 0 }, s3: { qty: 0, shrinkage: 0, netQty: 0 } },
-                totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
+                pricePerUnit: 0,
+                sellPrice: 0,
+                splits: { 
+                  s5: { qty: (inv.customerName || '').toLowerCase().includes('5') ? (Number(it.qty) || 0) : 0, shrinkage: 0, netQty: (inv.customerName || '').toLowerCase().includes('5') ? (Number(it.qty) || 0) : 0 }, 
+                  s2: { qty: (inv.customerName || '').toLowerCase().includes('2') ? (Number(it.qty) || 0) : 0, shrinkage: 0, netQty: (inv.customerName || '').toLowerCase().includes('2') ? (Number(it.qty) || 0) : 0 }
+                },
+                totalCost: 0
               };
             });
           const expanded = expandItems(materials, master);
-          if (expanded.length > 0) {
-            setItems(expanded);
+          const aggregated = aggregateItems(expanded);
+          if (aggregated.length > 0) {
+            setItems(aggregated);
             setSupplierName(inv.customerName || '');
             setNotes(n => `${n}${n ? '\n' : ''}Otomatis dari Invoice: ${inv.invoiceNumber}`);
           }
@@ -219,8 +236,7 @@ export default function PurchaseNoteForm() {
             totalCost: Number((q * basePrice).toFixed(2)),
             splits: {
               s5: { qty: Number(q.toFixed(2)), shrinkage: 0, netQty: Number(q.toFixed(2)) },
-              s2: { qty: 0, shrinkage: 0, netQty: 0 },
-              s3: { qty: 0, shrinkage: 0, netQty: 0 }
+              s2: { qty: 0, shrinkage: 0, netQty: 0 }
             }
           });
         });
@@ -231,45 +247,91 @@ export default function PurchaseNoteForm() {
     return result;
   }
 
+  // Gabungkan item dengan produk/bahan yang sama menjadi satu baris
+  function aggregateItems(itemsList) {
+    const map = new Map();
+    itemsList.forEach(it => {
+      // Kunci pengelompokan: materialId jika ada, jika tidak pakai materialName
+      const key = it.materialId || (it.materialName || '').toLowerCase().trim();
+      if (!key) { map.set(`_empty_${map.size}`, { ...it }); return; }
+
+      if (map.has(key)) {
+        const ex = map.get(key);
+        const addQty = Number(it.qtyNota) || 0;
+        const addInvQty = Number(it.invoiceQty) || 0;
+        const addCost = Number(it.totalCost) || 0;
+
+        ex.qtyNota += addQty;
+        ex.invoiceQty += addInvQty;
+        ex.totalCost += addCost;
+        // Harga rata-rata tertimbang
+        ex.pricePerUnit = ex.qtyNota > 0 ? Number((ex.totalCost / ex.qtyNota).toFixed(2)) : 0;
+
+        // Gabungkan splits
+        ['s5', 's2'].forEach(b => {
+          ex.splits[b].qty += Number(it.splits?.[b]?.qty) || 0;
+          ex.splits[b].shrinkage += Number(it.splits?.[b]?.shrinkage) || 0;
+          ex.splits[b].netQty += Number(it.splits?.[b]?.netQty) || 0;
+        });
+      } else {
+        map.set(key, {
+          ...it,
+          qtyNota: Number(it.qtyNota) || 0,
+          invoiceQty: Number(it.invoiceQty) || 0,
+          totalCost: Number(it.totalCost) || 0,
+          pricePerUnit: Number(it.pricePerUnit) || 0,
+          sellPrice: Number(it.sellPrice) || 0,
+          splits: {
+            s5: { qty: Number(it.splits?.s5?.qty) || 0, shrinkage: Number(it.splits?.s5?.shrinkage) || 0, netQty: Number(it.splits?.s5?.netQty) || 0 },
+            s2: { qty: Number(it.splits?.s2?.qty) || 0, shrinkage: Number(it.splits?.s2?.shrinkage) || 0, netQty: Number(it.splits?.s2?.netQty) || 0 },
+          }
+        });
+      }
+    });
+    return Array.from(map.values());
+  }
+
   async function handleImportSelectedInvoices(idsOverride = null) {
     const ids = Array.isArray(idsOverride) ? idsOverride : selectedInvoiceIds;
     if (ids.length === 0) return;
     
     const selectedInvs = invoices.filter(inv => ids.includes(inv.id));
-    const newAggregatedItems = [];
+    const newRawItems = [];
     
     selectedInvs.forEach(inv => {
       (inv.items || []).forEach(it => {
         const pName = (it.productName || '').toLowerCase();
         const mb = masterBahan.find(m => (m.name || '').toLowerCase() === pName);
         
-        newAggregatedItems.push({
+        newRawItems.push({
           ...emptyItem,
           materialId: it.productId || (mb ? mb.id : ''),
           materialName: it.productName,
           unit: it.unit || (mb ? mb.unit : 'kg'),
           qtyNota: Number(it.qty) || 0,
           invoiceQty: Number(it.qty) || 0,
-          pricePerUnit: Number(it.unitPrice) || 0,
-          sellPrice: Number(it.unitPrice) || 0,
+          pricePerUnit: 0,
+          sellPrice: 0,
           splits: { 
-            s5: { qty: Number(it.qty) || 0, shrinkage: 0, netQty: Number(it.qty) || 0 }, 
-            s2: { qty: 0, shrinkage: 0, netQty: 0 }, 
-            s3: { qty: 0, shrinkage: 0, netQty: 0 } 
+            s5: { qty: (inv.customerName || '').toLowerCase().includes('5') ? (Number(it.qty) || 0) : 0, shrinkage: 0, netQty: (inv.customerName || '').toLowerCase().includes('5') ? (Number(it.qty) || 0) : 0 }, 
+            s2: { qty: (inv.customerName || '').toLowerCase().includes('2') ? (Number(it.qty) || 0) : 0, shrinkage: 0, netQty: (inv.customerName || '').toLowerCase().includes('2') ? (Number(it.qty) || 0) : 0 }
           },
-          totalCost: (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)
+          totalCost: 0
         });
       });
     });
 
-    const expanded = expandItems(newAggregatedItems, masterBahan);
+    // Expand (Mix Veg → individual ingredients), lalu gabungkan duplikat
+    const expanded = expandItems(newRawItems, masterBahan);
+    const aggregated = aggregateItems(expanded);
     
-    if (expanded.length > 0) {
+    if (aggregated.length > 0) {
       setItems(prev => {
         if (prev.length === 1 && !prev[0].materialId && !prev[0].materialName) {
-          return expanded;
+          return aggregated;
         }
-        return [...prev, ...expanded];
+        // Gabungkan dengan item yang sudah ada di tabel
+        return aggregateItems([...prev, ...aggregated]);
       });
       
       const invNumbers = selectedInvs.map(i => i.invoiceNumber).join(', ');
@@ -285,7 +347,7 @@ export default function PurchaseNoteForm() {
     
     setSelectedInvoiceIds([]);
     setIsImportModalOpen(false);
-    setStatusMessage(`✅ Berhasil menarik ${expanded.length} item dari ${selectedInvs.length} invoice.`);
+    setStatusMessage(`✅ Berhasil menarik ${aggregated.length} bahan dari ${selectedInvs.length} invoice (otomatis digabungkan).`);
     setTimeout(() => setStatusMessage(''), 3000);
   }
 
@@ -308,10 +370,8 @@ export default function PurchaseNoteForm() {
       const newQty = Number(value) || 0;
       const ratioS5 = (it.invoiceBreakdown.s5 || 0) / totalInv;
       const ratioS2 = (it.invoiceBreakdown.s2 || 0) / totalInv;
-      const ratioS3 = (it.invoiceBreakdown.s3 || 0) / totalInv;
       it.splits.s5 = { ...it.splits.s5, qty: newQty * ratioS5, netQty: newQty * ratioS5 - (it.splits.s5.shrinkage || 0) };
       it.splits.s2 = { ...it.splits.s2, qty: newQty * ratioS2, netQty: newQty * ratioS2 - (it.splits.s2.shrinkage || 0) };
-      it.splits.s3 = { ...it.splits.s3, qty: newQty * ratioS3, netQty: newQty * ratioS3 - (it.splits.s3.shrinkage || 0) };
     }
 
     if (field === 'materialId') {
@@ -372,8 +432,8 @@ export default function PurchaseNoteForm() {
             if (oldIt.materialId) {
               const m = await MasterItems.getById(oldIt.materialId);
               if (m) {
-                const oldNet = (Number(oldIt.splits?.s5?.netQty) || 0) + (Number(oldIt.splits?.s2?.netQty) || 0) + (Number(oldIt.splits?.s3?.netQty) || 0);
-                await MasterItems.update(m.id, { stock: (m.stock || 0) - oldNet });
+                const oldNet = (Number(oldIt.splits?.s5?.netQty) || 0) + (Number(oldIt.splits?.s2?.netQty) || 0);
+                await MasterItems.update(m.id, { stock: (Number(m.stock) || 0) - oldNet });
               }
             }
           }
@@ -387,8 +447,8 @@ export default function PurchaseNoteForm() {
         if (it.materialId) {
           const m = await MasterItems.getById(it.materialId);
           if (m) {
-            const net = (Number(it.splits?.s5?.netQty) || 0) + (Number(it.splits?.s2?.netQty) || 0) + (Number(it.splits?.s3?.netQty) || 0);
-            await MasterItems.update(m.id, { stock: (m.stock || 0) + net });
+            const net = (Number(it.splits?.s5?.netQty) || 0) + (Number(it.splits?.s2?.netQty) || 0);
+            await MasterItems.update(m.id, { stock: (Number(m.stock) || 0) + net });
           }
         }
       }
@@ -407,8 +467,11 @@ export default function PurchaseNoteForm() {
       const mb = masterBahan.find(b => b.name.toLowerCase() === r.name.toLowerCase());
       return {
         ...emptyItem, materialId: mb?.id || '', materialName: r.name, unit: r.unit || mb?.unit || 'kg',
-        qtyNota: r.totalQty, pricePerUnit: mb?.defaultPrice || 0, totalCost: r.totalQty * (mb?.defaultPrice || 0),
-        splits: { s5: { qty: r.totalQty, shrinkage: 0, netQty: r.totalQty }, s2: { qty: 0, shrinkage: 0, netQty: 0 }, s3: { qty: 0, shrinkage: 0, netQty: 0 } }
+        qtyNota: r.totalQty, pricePerUnit: 0, totalCost: 0,
+        splits: { 
+          s5: grp.toLowerCase().includes('5') ? { qty: r.totalQty, shrinkage: 0, netQty: r.totalQty } : { qty: 0, shrinkage: 0, netQty: 0 }, 
+          s2: grp.toLowerCase().includes('2') ? { qty: r.totalQty, shrinkage: 0, netQty: r.totalQty } : { qty: 0, shrinkage: 0, netQty: 0 }
+        }
       };
     });
     setItems(expandItems(newItems, masterBahan));
@@ -474,40 +537,53 @@ export default function PurchaseNoteForm() {
               </div>
             </div>
 
-            <div className="card overflow-x">
+            <div className="card overflow-x p-0">
               <table className="table table-compact" style={{ minWidth: 1000 }}>
                 <thead>
                   <tr>
-                    <th style={{ width: 40 }}>No</th>
-                    <th>Supplier</th>
-                    <th>Bahan Baku</th>
+                    <th style={{ width: 36 }}>No</th>
+                    <th style={{ minWidth: 240 }}>Bahan Baku</th>
+                    <th className="text-center" style={{ width: 90 }}>Qty Inv</th>
                     <th style={{ width: 100 }}>Qty Nota</th>
                     <th style={{ width: 120 }}>Harga</th>
-                    <th style={{ width: 140, background: 'rgba(56,189,248,0.05)' }}>SJ 5</th>
-                    <th style={{ width: 140, background: 'rgba(16,185,129,0.05)' }}>SJ 2</th>
-                    <th style={{ width: 140, background: 'rgba(251,146,60,0.05)' }}>SJ 3</th>
-                    <th style={{ width: 120 }}>Subtotal</th>
-                    <th style={{ width: 40 }}></th>
+                    <th className="text-center" style={{ width: 160, background: 'rgba(56,189,248,0.03)' }}>SJ 5</th>
+                    <th className="text-center" style={{ width: 160, background: 'rgba(16,185,129,0.03)' }}>SJ 2</th>
+                    <th style={{ width: 140 }}>Subtotal</th>
+                    <th style={{ width: 36 }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item, idx) => (
                     <tr key={idx}>
-                      <td className="text-center">{idx + 1}</td>
-                      <td><input className="form-input form-input-sm" list="sups" value={item.supplier} onChange={e => updateItem(idx, 'supplier', e.target.value)} placeholder={supplierName} /></td>
+                      <td className="text-center text-muted font-xs">{idx + 1}</td>
                       <td>
-                        <select className="form-select form-select-sm" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required>
-                          <option value="">-- Pilih Bahan --</option>
-                          {masterBahan.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                        </select>
+                        <div className="flex flex-col gap-xs">
+                          <select className="form-select form-select-sm font-bold" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required>
+                            <option value="">-- Pilih Bahan --</option>
+                            {masterBahan.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                          </select>
+                          <input className="form-input font-xs opacity-80" list="sups" value={item.supplier} onChange={e => updateItem(idx, 'supplier', e.target.value)} placeholder="Supplier (Opsional)" />
+                        </div>
                       </td>
-                      <td><input type="number" step="any" className="form-input form-input-sm" value={item.qtyNota} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} /></td>
-                      <td><input type="number" className="form-input form-input-sm" value={item.pricePerUnit} onChange={e => updateItem(idx, 'pricePerUnit', e.target.value)} /></td>
-                      <td style={{ background: 'rgba(56,189,248,0.02)' }}><div className="flex gap-xs"><input type="number" className="form-input form-input-sm" value={item.splits.s5.qty} onChange={e => updateSplit(idx, 's5', 'qty', e.target.value)} /><input type="number" className="form-input form-input-sm" value={item.splits.s5.shrinkage} onChange={e => updateSplit(idx, 's5', 'shrinkage', e.target.value)} /></div><div className="text-xs font-bold mt-xs">Net: {item.splits.s5.netQty.toFixed(2)}</div></td>
-                      <td style={{ background: 'rgba(16,185,129,0.02)' }}><div className="flex gap-xs"><input type="number" className="form-input form-input-sm" value={item.splits.s2.qty} onChange={e => updateSplit(idx, 's2', 'qty', e.target.value)} /><input type="number" className="form-input form-input-sm" value={item.splits.s2.shrinkage} onChange={e => updateSplit(idx, 's2', 'shrinkage', e.target.value)} /></div><div className="text-xs font-bold mt-xs">Net: {item.splits.s2.netQty.toFixed(2)}</div></td>
-                      <td style={{ background: 'rgba(251,146,60,0.02)' }}><div className="flex gap-xs"><input type="number" className="form-input form-input-sm" value={item.splits.s3.qty} onChange={e => updateSplit(idx, 's3', 'qty', e.target.value)} /><input type="number" className="form-input form-input-sm" value={item.splits.s3.shrinkage} onChange={e => updateSplit(idx, 's3', 'shrinkage', e.target.value)} /></div><div className="text-xs font-bold mt-xs">Net: {item.splits.s3.netQty.toFixed(2)}</div></td>
-                      <td><input type="number" className="form-input form-input-sm font-bold" value={item.totalCost} onChange={e => updateItem(idx, 'totalCost', e.target.value)} /></td>
-                      <td><button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => removeItem(idx)}><FiTrash2 /></button></td>
+                      <td className="text-center font-bold text-info" style={{ fontSize: '0.85rem' }}>{item.invoiceQty > 0 ? fmtNum(item.invoiceQty) : '-'}</td>
+                      <td><input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} /></td>
+                      <td><input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} /></td>
+                      
+                      {/* SJ Columns Stacked */}
+                      {['s5', 's2'].map(key => (
+                        <td key={key} className="text-center" style={{ background: key === 's5' ? 'rgba(56,189,248,0.01)' : 'rgba(16,185,129,0.01)' }}>
+                          <div className="flex flex-col gap-xs align-center">
+                            <div className="flex gap-xs justify-center">
+                              <input type="text" className="form-input form-input-sm p-1 text-center" style={{ width: 60 }} placeholder="Qty" value={formatNumberInput(item.splits[key].qty) || ''} onChange={e => updateSplit(idx, key, 'qty', parseNumberInput(e.target.value))} />
+                              <input type="text" className="form-input form-input-sm p-1 text-center opacity-60" style={{ width: 60 }} placeholder="S" value={formatNumberInput(item.splits[key].shrinkage) || ''} onChange={e => updateSplit(idx, key, 'shrinkage', parseNumberInput(e.target.value))} />
+                            </div>
+                            <div className="text-xxs opacity-70 font-bold">Net: {fmtNum(item.splits[key].netQty)}</div>
+                          </div>
+                        </td>
+                      ))}
+                      
+                      <td><input type="text" className="form-input form-input-sm font-bold text-primary" value={formatNumberInput(item.totalCost)} onChange={e => updateItem(idx, 'totalCost', parseNumberInput(e.target.value))} /></td>
+                      <td className="text-center"><button type="button" className="btn btn-ghost btn-sm text-danger p-1" onClick={() => removeItem(idx)}><FiTrash2 /></button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -515,17 +591,41 @@ export default function PurchaseNoteForm() {
               <div className="p-md border-top"><button type="button" className="btn btn-ghost btn-sm" onClick={addItem}><FiPlus /> Tambah Item</button></div>
             </div>
 
+
             <div className="grid grid-2 gap-lg">
               <div className="card p-md">
                 <h3 className="mb-md">Biaya Tambahan & Diskon</h3>
                 <div className="grid grid-3 gap-sm mb-md">
-                  <div className="form-group"><label className="text-xs">Labor</label><input type="number" className="form-input" value={additionalCosts.labor} onChange={e => setAdditionalCosts({...additionalCosts, labor: Number(e.target.value)})} /></div>
-                  <div className="form-group"><label className="text-xs">Ongkir</label><input type="number" className="form-input" value={additionalCosts.shipping} onChange={e => setAdditionalCosts({...additionalCosts, shipping: Number(e.target.value)})} /></div>
-                  <div className="form-group"><label className="text-xs">Lainnya</label><input type="number" className="form-input" value={additionalCosts.productionMaterial} onChange={e => setAdditionalCosts({...additionalCosts, productionMaterial: Number(e.target.value)})} /></div>
+                  <div className="form-group"><label className="text-xs">Labor</label><input type="text" className="form-input" value={formatNumberInput(additionalCosts.labor)} onChange={e => setAdditionalCosts({...additionalCosts, labor: parseNumberInput(e.target.value)})} /></div>
+                  <div className="form-group"><label className="text-xs">Ongkir</label><input type="text" className="form-input" value={formatNumberInput(additionalCosts.shipping)} onChange={e => setAdditionalCosts({...additionalCosts, shipping: parseNumberInput(e.target.value)})} /></div>
+                  <div className="form-group"><label className="text-xs">Lainnya</label><input type="text" className="form-input" value={formatNumberInput(additionalCosts.productionMaterial)} onChange={e => setAdditionalCosts({...additionalCosts, productionMaterial: parseNumberInput(e.target.value)})} /></div>
                 </div>
-                <div className="form-group"><label className="form-label">Diskon Supplier</label>{Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(s => (<div key={s} className="flex-between mb-xs"><span>{s}</span><input type="number" className="form-input" style={{ width: 140 }} value={supplierDiscounts[s] || 0} onChange={e => setSupplierDiscounts({...supplierDiscounts, [s]: Number(e.target.value)})} /></div>))}</div>
+                <div className="form-group">
+                  <label className="form-label">Diskon Supplier</label>
+                  {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(s => (
+                    <div key={s} className="flex-between mb-xs">
+                      <span>{s}</span>
+                      <input type="text" className="form-input" style={{ width: 140 }} value={formatNumberInput(supplierDiscounts[s] || 0)} onChange={e => setSupplierDiscounts({...supplierDiscounts, [s]: parseNumberInput(e.target.value)})} />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="card p-md bg-dark-elegant flex flex-col justify-center">
+              <div className="card p-md bg-dark-elegant flex flex-col justify-center border-primary-pale shadow-glow-sm">
+                {/* Per-Supplier Totals */}
+                <div className="mb-md">
+                  <span className="text-xs opacity-50 uppercase tracking-wider mb-sm block">Total Per Supplier</span>
+                  {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(s => {
+                    const subtotal = items.filter(it => (it.supplier || supplierName) === s).reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+                    const disc = Number(supplierDiscounts[s]) || 0;
+                    return (
+                      <div key={s} className="flex-between mb-xs text-sm">
+                        <span>{s}</span>
+                        <span className="font-medium">{formatCurrency(subtotal - disc)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <hr className="opacity-10 mb-md" />
                 <div className="flex-between mb-sm"><span>Subtotal Item</span><span>{formatCurrency(totalItemCost)}</span></div>
                 <div className="flex-between mb-sm text-danger"><span>Potongan Diskon</span><span>-{formatCurrency(totalDiscount)}</span></div>
                 <div className="flex-between mb-md text-info"><span>Biaya Tambahan</span><span>+{formatCurrency(totalAdditionalCosts)}</span></div>

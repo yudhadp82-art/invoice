@@ -66,8 +66,8 @@ export default function SalaryCostsPage() {
 
   function getHoursDelta(inTime, outTime) {
     if (!inTime || !outTime) return 0;
-    const [h1, m1] = inTime.split(':').map(Number);
-    const [h2, m2] = outTime.split(':').map(Number);
+    const [h1, m1] = (inTime || '').split(':').map(Number);
+    const [h2, m2] = (outTime || '').split(':').map(Number);
     const total1 = h1 + m1 / 60;
     const total2 = h2 + m2 / 60;
     let diff = total2 - total1;
