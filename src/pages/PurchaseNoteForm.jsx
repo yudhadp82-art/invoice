@@ -710,12 +710,20 @@ export default function PurchaseNoteForm() {
                           {item.invoiceQty > 0 ? fmtNum(item.invoiceQty) : '-'}
                         </td>
                         <td>
-                          {!isSubItem && (
+                          {isMixVegParent ? (
+                            <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} />
+                          ) : isSubItem ? (
+                            <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} />
+                          ) : (
                             <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} />
                           )}
                         </td>
                         <td>
-                          {!isSubItem && (
+                          {isMixVegParent ? (
+                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" />
+                          ) : isSubItem ? (
+                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" />
+                          ) : (
                             <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" />
                           )}
                         </td>
@@ -723,7 +731,11 @@ export default function PurchaseNoteForm() {
                           {formatCurrency(totalBeli)}
                         </td>
                         <td>
-                          {!isSubItem && (
+                          {isMixVegParent ? (
+                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
+                          ) : isSubItem ? (
+                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
+                          ) : (
                             <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
                           )}
                         </td>
@@ -742,9 +754,7 @@ export default function PurchaseNoteForm() {
                           </span>
                         </td>
                         <td className="text-center">
-                          {!isSubItem && (
-                            <button type="button" className="btn btn-ghost btn-sm text-danger p-1" onClick={() => removeItem(idx)}><FiTrash2 /></button>
-                          )}
+                          <button type="button" className="btn btn-ghost btn-sm text-danger p-1" onClick={() => removeItem(idx)}><FiTrash2 /></button>
                         </td>
                       </tr>
                     );
