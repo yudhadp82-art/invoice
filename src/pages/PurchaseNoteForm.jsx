@@ -464,7 +464,7 @@ export default function PurchaseNoteForm() {
   function updateItem(index, field, value) {
     const newItems = [...items];
     const it = { ...newItems[index] };
-    if (field === 'materialId' || field === 'qtyNota' || field === 'pricePerUnit' || field === 'sellPrice') it.isManuallyEdited = true;
+    if (field === 'materialId' || field === 'qtyNota' || field === 'pricePerUnit' || field === 'sellPrice' || field === 'totalCost') it.isManuallyEdited = true;
 
     if (field === 'materialId') {
       const m = masterBahan.find(b => b.id === value);
@@ -474,16 +474,10 @@ export default function PurchaseNoteForm() {
         it.unit = m.unit;
         it.sellPrice = m.sellPrice || 0;
       }
-    } else if (field === 'totalCost') {
-      it.totalCost = Number(value) || 0;
-      if (it.qtyNota > 0) it.pricePerUnit = (it.totalCost / it.qtyNota).toFixed(2);
-    } else {
+    } else if (field === 'qtyNota') {
       it[field] = value;
-    }
-
-    // Recalculate costs and margins when qty, price, or sell price changes
-    if (field === 'qtyNota' || field === 'pricePerUnit' || field === 'sellPrice') {
-      const qty = Number(it.qtyNota) || 0;
+      // Recalculate costs and margins
+      const qty = Number(value) || 0;
       const pricePerUnit = Number(it.pricePerUnit) || 0;
       const sellPrice = Number(it.sellPrice) || 0;
 
@@ -492,6 +486,42 @@ export default function PurchaseNoteForm() {
       it.salesRevenue = qty * sellPrice;
       it.profit = it.salesRevenue - it.purchaseCost;
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
+    } else if (field === 'totalCost') {
+      // If totalCost is input, calculate pricePerUnit
+      it.totalCost = Number(value) || 0;
+      const qty = Number(it.qtyNota) || 0;
+      if (qty > 0) {
+        it.pricePerUnit = Number((it.totalCost / qty).toFixed(2));
+      }
+      // Recalculate margin
+      const sellPrice = Number(it.sellPrice) || 0;
+      it.purchaseCost = it.totalCost;
+      it.salesRevenue = qty * sellPrice;
+      it.profit = it.salesRevenue - it.purchaseCost;
+      it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
+    } else if (field === 'pricePerUnit') {
+      // If pricePerUnit is input, calculate totalCost
+      it[field] = value;
+      const qty = Number(it.qtyNota) || 0;
+      it.totalCost = qty * Number(value);
+      it.purchaseCost = it.totalCost;
+
+      // Recalculate margin
+      const sellPrice = Number(it.sellPrice) || 0;
+      it.salesRevenue = qty * sellPrice;
+      it.profit = it.salesRevenue - it.purchaseCost;
+      it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
+    } else if (field === 'sellPrice') {
+      it[field] = value;
+      // Recalculate margin
+      const qty = Number(it.qtyNota) || 0;
+      const sellPrice = Number(value) || 0;
+      it.salesRevenue = qty * sellPrice;
+      it.purchaseCost = Number(it.totalCost) || 0;
+      it.profit = it.salesRevenue - it.purchaseCost;
+      it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
+    } else {
+      it[field] = value;
     }
 
     newItems[index] = it;
@@ -710,34 +740,16 @@ export default function PurchaseNoteForm() {
                           {item.invoiceQty > 0 ? fmtNum(item.invoiceQty) : '-'}
                         </td>
                         <td>
-                          {isMixVegParent ? (
-                            <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} />
-                          ) : isSubItem ? (
-                            <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} />
-                          ) : (
-                            <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} />
-                          )}
+                          <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} />
                         </td>
                         <td>
-                          {isMixVegParent ? (
-                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" />
-                          ) : isSubItem ? (
-                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" />
-                          ) : (
-                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" />
-                          )}
-                        </td>
-                        <td className="text-right font-bold" style={{ color: '#f97316', fontSize: '13px' }}>
-                          {formatCurrency(totalBeli)}
+                          <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" />
                         </td>
                         <td>
-                          {isMixVegParent ? (
-                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
-                          ) : isSubItem ? (
-                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
-                          ) : (
-                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
-                          )}
+                          <input type="text" className="form-input form-input-sm text-right font-bold" style={{ color: '#f97316', fontSize: '13px' }} value={formatNumberInput(item.totalCost)} onChange={e => updateItem(idx, 'totalCost', parseNumberInput(e.target.value))} placeholder="Total Beli" />
+                        </td>
+                        <td>
+                          <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
                         </td>
                         <td className="text-right font-bold" style={{ color: '#3b82f6', fontSize: '13px' }}>
                           {formatCurrency(totalJual)}
