@@ -13,6 +13,8 @@ const emptyItem = {
   unit: '',
   supplier: '',
   isManuallyEdited: false,
+  isSubItem: false,
+  parentName: '',
   qtyNota: 0,
   invoiceQty: 0,
   pricePerUnit: 0,
@@ -216,11 +218,36 @@ export default function PurchaseNoteForm() {
     sourceItems.forEach(it => {
       const name = (it.materialName || '').toLowerCase();
       if (name.includes('mix vegetable') || name.includes('mix veg')) {
-        // Mix Vegetable: Expand ke jagung, wortel, buncis
+        // Mix Vegetable: Buat parent item dengan sub-items (jagung, wortel, buncis)
         const baseQty = Number(it.qtyNota) || 0;
         const basePrice = Number(it.pricePerUnit) || 0;
         const baseSellPrice = Number(it.sellPrice) || 0;
 
+        // Tambahkan parent item "Mix Vegetable"
+        const parentPurchaseCost = baseQty * basePrice;
+        const parentSalesRevenue = baseQty * baseSellPrice;
+        const parentProfit = parentSalesRevenue - parentPurchaseCost;
+        const parentMarginPercent = parentSalesRevenue > 0 ? (parentProfit / parentSalesRevenue) * 100 : 0;
+
+        result.push({
+          ...emptyItem,
+          materialId: 'mix-vegetable-parent',
+          materialName: 'Mix Vegetable',
+          isSubItem: false,
+          isParentItem: true,
+          unit: 'kg',
+          qtyNota: baseQty,
+          invoiceQty: Number(it.invoiceQty) || 0,
+          pricePerUnit: basePrice,
+          sellPrice: baseSellPrice,
+          purchaseCost: parentPurchaseCost,
+          salesRevenue: parentSalesRevenue,
+          profit: parentProfit,
+          marginPercent: parentMarginPercent,
+          totalCost: parentPurchaseCost
+        });
+
+        // Tambahkan sub-items untuk jagung, wortel, buncis
         MIX_VEG_INGREDIENTS.forEach(ingName => {
           const mb = master.find(b => b.name.toLowerCase() === ingName.toLowerCase());
           const q = (baseQty / 3);
@@ -235,7 +262,7 @@ export default function PurchaseNoteForm() {
             materialId: mb ? mb.id : '',
             materialName: ingName,
             isSubItem: true,
-            parentName: it.materialName || 'Mix Vegetable',
+            parentName: 'Mix Vegetable',
             unit: mb ? mb.unit : 'kg',
             qtyNota: Number(q.toFixed(2)),
             invoiceQty: Number((it.invoiceQty || 0) / 3).toFixed(2),
@@ -258,7 +285,34 @@ export default function PurchaseNoteForm() {
   // Gabungkan item dengan produk/bahan yang sama menjadi satu baris
   function aggregateItems(itemsList) {
     const map = new Map();
+    const parentMap = new Map(); // Track parent items for Mix Vegetable
+
     itemsList.forEach(it => {
+      // Skip sub-items (they will be aggregated under their parent)
+      if (it.isSubItem) {
+        const parentKey = it.parentName || 'Mix Vegetable';
+        if (!parentMap.has(parentKey)) {
+          parentMap.set(parentKey, {
+            qtyNota: 0,
+            invoiceQty: 0,
+            totalCost: 0,
+            purchaseCost: 0,
+            salesRevenue: 0,
+            profit: 0,
+            subItems: []
+          });
+        }
+        const parent = parentMap.get(parentKey);
+        parent.qtyNota += Number(it.qtyNota) || 0;
+        parent.invoiceQty += Number(it.invoiceQty) || 0;
+        parent.totalCost += Number(it.totalCost) || 0;
+        parent.purchaseCost += Number(it.purchaseCost) || 0;
+        parent.salesRevenue += Number(it.salesRevenue) || 0;
+        parent.profit += Number(it.profit) || 0;
+        parent.subItems.push(it);
+        return;
+      }
+
       // Kunci pengelompokan: materialId jika ada, jika tidak pakai materialName
       const key = it.materialId || (it.materialName || '').toLowerCase().trim();
       if (!key) { map.set(`_empty_${map.size}`, { ...it }); return; }
@@ -304,6 +358,37 @@ export default function PurchaseNoteForm() {
         });
       }
     });
+
+    // Add Mix Vegetable parent with aggregated sub-items
+    parentMap.forEach((parent, parentName) => {
+      const marginPercent = parent.salesRevenue > 0 ? (parent.profit / parent.salesRevenue) * 100 : 0;
+
+      const parentItem = {
+        ...emptyItem,
+        materialId: 'mix-vegetable-parent',
+        materialName: parentName,
+        isParentItem: true,
+        unit: 'kg',
+        qtyNota: parent.qtyNota,
+        invoiceQty: parent.invoiceQty,
+        pricePerUnit: parent.qtyNota > 0 ? Number((parent.totalCost / parent.qtyNota).toFixed(2)) : 0,
+        sellPrice: parent.qtyNota > 0 ? Number((parent.salesRevenue / parent.qtyNota).toFixed(2)) : 0,
+        purchaseCost: parent.purchaseCost,
+        salesRevenue: parent.salesRevenue,
+        profit: parent.profit,
+        marginPercent: marginPercent,
+        totalCost: parent.totalCost
+      };
+
+      map.set(`mix-vegetable-parent`, parentItem);
+
+      // Add sub-items
+      parent.subItems.forEach((subItem, idx) => {
+        const subKey = `mix-veg-sub-${idx}`;
+        map.set(subKey, subItem);
+      });
+    });
+
     return Array.from(map.values());
   }
 
@@ -417,13 +502,16 @@ export default function PurchaseNoteForm() {
     if (e) e.preventDefault();
     setSaving(true);
     try {
-      const grandTotal = items.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+      // Filter out sub-items when saving (only save parent and regular items)
+      const itemsToSave = items.filter(it => !it.isSubItem);
+
+      const grandTotal = itemsToSave.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
       const totalDiscount = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);
       const totalAdditionalCosts = Object.values(additionalCosts).reduce((s, c) => s + (Number(c) || 0), 0);
       const finalTotal = Math.max(0, grandTotal - totalDiscount) + totalAdditionalCosts;
-      
+
       const payload = {
-        date, supplierName, items, notes, grandTotal,
+        date, supplierName, items: itemsToSave, notes, grandTotal,
         invoiceId, invoiceNumber, groupName: currentGroupName,
         sourceInvoiceIds, supplierDiscounts, additionalCosts, finalTotal
       };
@@ -446,8 +534,17 @@ export default function PurchaseNoteForm() {
         await PurchaseNotes.create(payload);
       }
 
+      // Update stock for all items (including Mix Vegetable ingredients)
       for (const it of items) {
-        if (it.materialId) {
+        if (it.isSubItem && it.materialId) {
+          // Update stock for individual ingredients (jagung, wortel, buncis)
+          const m = await MasterItems.getById(it.materialId);
+          if (m) {
+            const net = Number(it.qtyNota) || 0;
+            await MasterItems.update(m.id, { stock: (Number(m.stock) || 0) + net });
+          }
+        } else if (!it.isParentItem && it.materialId) {
+          // Update stock for regular items (not Mix Vegetable parent)
           const m = await MasterItems.getById(it.materialId);
           if (m) {
             const net = Number(it.qtyNota) || 0;
@@ -556,9 +653,9 @@ export default function PurchaseNoteForm() {
                 </thead>
                 <tbody>
                   {items.map((item, idx) => {
-                    const isMixVeg = item.materialName && MIX_VEG_INGREDIENTS.some(veg =>
-                      item.materialName.toLowerCase().includes(veg.toLowerCase())
-                    );
+                    const isMixVegParent = item.materialName === 'Mix Vegetable' && item.isParentItem;
+                    const isSubItem = item.isSubItem;
+                    const isMixVegChild = isSubItem && item.parentName === 'Mix Vegetable';
 
                     // Calculate margin
                     const totalBeli = Number(item.pricePerUnit || 0) * Number(item.qtyNota || 0);
@@ -566,51 +663,89 @@ export default function PurchaseNoteForm() {
                     const laba = totalJual - totalBeli;
                     const marginPercent = totalJual > 0 ? (laba / totalJual) * 100 : 0;
 
-                    // Auto-update item values
-                    const updatedItem = {
-                      ...item,
-                      purchaseCost: totalBeli,
-                      salesRevenue: totalJual,
-                      profit: laba,
-                      marginPercent: marginPercent
-                    };
-
                     return (
-                      <tr key={idx}>
-                        <td className="text-center text-muted font-xs">{idx + 1}</td>
-                        <td>
+                      <tr key={idx} style={{
+                        background: isMixVegParent ? 'rgba(139, 92, 246, 0.08)' : isMixVegChild ? 'rgba(139, 92, 246, 0.04)' : 'transparent',
+                        fontWeight: isMixVegParent ? 700 : isSubItem ? 400 : 'normal'
+                      }}>
+                        <td className="text-center text-muted font-xs">
+                          {isSubItem ? (
+                            <span style={{ color: '#8b5cf6', marginLeft: 16 }}>↳</span>
+                          ) : (
+                            idx + 1
+                          )}
+                        </td>
+                        <td style={{
+                          paddingLeft: isSubItem ? '32px' : '8px'
+                        }}>
                           <div className="flex flex-col gap-xs">
-                            <SearchableSelect
-                              options={masterBahan.map(m => ({ id: m.id, name: m.name }))}
-                              value={item.materialId}
-                              onChange={val => updateItem(idx, 'materialId', val)}
-                              placeholder="Pilih/Cari Bahan..."
-                              required
-                            />
-                            <input className="form-input font-xs opacity-80" list="sups" value={item.supplier} onChange={e => updateItem(idx, 'supplier', e.target.value)} placeholder="Supplier (Opsional)" />
-                            {isMixVeg && (
+                            {!isSubItem ? (
+                              <>
+                                <SearchableSelect
+                                  options={masterBahan.map(m => ({ id: m.id, name: m.name }))}
+                                  value={item.materialId}
+                                  onChange={val => updateItem(idx, 'materialId', val)}
+                                  placeholder="Pilih/Cari Bahan..."
+                                  required
+                                />
+                                <input className="form-input font-xs opacity-80" list="sups" value={item.supplier} onChange={e => updateItem(idx, 'supplier', e.target.value)} placeholder="Supplier (Opsional)" />
+                              </>
+                            ) : (
+                              <div style={{
+                                color: '#8b5cf6',
+                                fontWeight: 600,
+                                fontSize: '13px'
+                              }}>
+                                {item.materialName}
+                              </div>
+                            )}
+                            {isMixVegParent && (
                               <div className="text-xs" style={{ color: '#8b5cf6', fontWeight: 600 }}>
-                                🥗 Mix Vegetable
+                                🥗 Mix Vegetable (Jagung + Wortel + Buncis)
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="text-center font-bold text-info" style={{ fontSize: '0.85rem' }}>{item.invoiceQty > 0 ? fmtNum(item.invoiceQty) : '-'}</td>
-                        <td><input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} /></td>
-                        <td><input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" /></td>
-                        <td className="text-right font-bold" style={{ color: '#f97316', fontSize: '13px' }}>{formatCurrency(totalBeli)}</td>
-                        <td><input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" /></td>
-                        <td className="text-right font-bold" style={{ color: '#3b82f6', fontSize: '13px' }}>{formatCurrency(totalJual)}</td>
+                        <td className="text-center font-bold text-info" style={{ fontSize: '0.85rem' }}>
+                          {item.invoiceQty > 0 ? fmtNum(item.invoiceQty) : '-'}
+                        </td>
+                        <td>
+                          {!isSubItem && (
+                            <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} />
+                          )}
+                        </td>
+                        <td>
+                          {!isSubItem && (
+                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" />
+                          )}
+                        </td>
+                        <td className="text-right font-bold" style={{ color: '#f97316', fontSize: '13px' }}>
+                          {formatCurrency(totalBeli)}
+                        </td>
+                        <td>
+                          {!isSubItem && (
+                            <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
+                          )}
+                        </td>
+                        <td className="text-right font-bold" style={{ color: '#3b82f6', fontSize: '13px' }}>
+                          {formatCurrency(totalJual)}
+                        </td>
                         <td className="text-right font-bold" style={{
                           color: laba >= 0 ? '#10b981' : '#ef4444',
                           fontSize: '13px'
-                        }}>{formatCurrency(laba)}</td>
+                        }}>
+                          {formatCurrency(laba)}
+                        </td>
                         <td className="text-center">
                           <span className={`badge ${marginPercent >= 20 ? 'badge-success' : marginPercent >= 10 ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '11px' }}>
                             {marginPercent.toFixed(1)}%
                           </span>
                         </td>
-                        <td className="text-center"><button type="button" className="btn btn-ghost btn-sm text-danger p-1" onClick={() => removeItem(idx)}><FiTrash2 /></button></td>
+                        <td className="text-center">
+                          {!isSubItem && (
+                            <button type="button" className="btn btn-ghost btn-sm text-danger p-1" onClick={() => removeItem(idx)}><FiTrash2 /></button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
