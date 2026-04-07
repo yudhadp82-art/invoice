@@ -194,9 +194,9 @@ export default function PurchaseNoteReportPdf({
           <img src="/logo-kdmp.png" alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
         </div>
         <div style={{ flex: '1 1 220px', textAlign: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 'bold', color: '#1e293b', textTransform: 'uppercase' }}>KOPERASI DESA MERAH PUTIH SINDANGJAYA</h2>
-          <h3 style={{ margin: '3px 0 0 0', fontSize: 12, color: '#475569' }}>LAPORAN REKAP PEMBELIAN BAHAN BAKU</h3>
-          <p style={{ margin: '4px 0 0 0', fontSize: 11, fontWeight: '600' }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 'bold', color: '#1e293b', textTransform: 'uppercase' }}>KOPERASI DESA MERAH PUTIH SINDANGJAYA</h2>
+          <h3 style={{ margin: '3px 0 0 0', fontSize: 13, color: '#475569' }}>LAPORAN REKAP PEMBELIAN BAHAN BAKU</h3>
+          <p style={{ margin: '4px 0 0 0', fontSize: 12, fontWeight: '600' }}>
             GRUP: <span style={{ color: '#ef4444' }}>{groupName.toUpperCase()}</span> | TANGGAL: {formatDateShort(date)}
           </p>
         </div>
@@ -204,25 +204,25 @@ export default function PurchaseNoteReportPdf({
 
       {/* SECTION 1: REKAP KEBUTUHAN GRUP (AGGREGATE) */}
       <div className="print-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-        <h4 style={{ margin: '0 0 8px 0', fontSize: 13, borderLeft: '4px solid #3b82f6', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>1. Rekap Kebutuhan Gabungan (Agregat)</h4>
-        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, fontSize: '11px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+        <h4 style={{ margin: '0 0 10px 0', fontSize: 15, borderLeft: '4px solid #3b82f6', paddingLeft: 10, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>1. Rekap Kebutuhan Gabungan (Agregat)</h4>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, fontSize: '12px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Nama Bahan Baku</th>
-              <th style={{ textAlign: 'center', width: '20%', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Total Kebutuhan</th>
-              <th style={{ textAlign: 'center', width: '15%', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Satuan</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Nama Bahan Baku</th>
+              <th style={{ textAlign: 'center', width: '20%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Total Kebutuhan</th>
+              <th style={{ textAlign: 'center', width: '15%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Satuan</th>
             </tr>
           </thead>
           <tbody>
             {(groupRecap || []).map((it, idx) => (
               <tr key={idx}>
-                <td style={{ fontWeight: '600', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '8px' }}>{it.name}</td>
-                <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '8px' }}>{formatNumber(it.totalQty)}</td>
-                <td style={{ textAlign: 'center', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '8px' }}>{it.unit || 'kg'}</td>
+                <td style={{ fontWeight: '600', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{it.name}</td>
+                <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{formatNumber(it.totalQty)}</td>
+                <td style={{ textAlign: 'center', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{it.unit || 'kg'}</td>
               </tr>
             ))}
             {(!groupRecap || groupRecap.length === 0) && (
-              <tr><td colSpan="3" style={{ padding: 8, textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0', fontSize: '8px' }}>Tidak ada data rekap grup</td></tr>
+              <tr><td colSpan="3" style={{ padding: 10, textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0', fontSize: '10px' }}>Tidak ada data rekap grup</td></tr>
             )}
           </tbody>
         </table>
@@ -232,7 +232,7 @@ export default function PurchaseNoteReportPdf({
       <div className="page-break-before" style={{ pageBreakBefore: 'always', breakBefore: 'page' }}></div>
 
       {/* SECTION 2: REKAP & REALISASI PEMBELIAN PER SUPPLIER */}
-      <h4 style={{ margin: '16px 0 12px 0', fontSize: 10, borderLeft: '4px solid #10b981', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>2. Rekap & Realisasi Pembelian per Supplier</h4>
+      <h4 style={{ margin: '16px 0 12px 0', fontSize: 13, borderLeft: '4px solid #10b981', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>2. Rekap & Realisasi Pembelian per Supplier</h4>
 
       {supplierGroups.map(([s, items], idx) => {
         const discount = Number(supplierDiscounts[s]) || 0;
@@ -262,16 +262,16 @@ export default function PurchaseNoteReportPdf({
             {/* Supplier Header Box */}
             <div style={{ background: '#f8fafc', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', gap: 10 }}>
                <div>
-                  <span style={{ fontSize: '9px', textTransform: 'uppercase', color: '#64748b', fontWeight: '600' }}>Penyedia Barang:</span>
-                  <h5 style={{ margin: '1px 0 0 0', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>{s.toUpperCase()}</h5>
+                  <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#64748b', fontWeight: '600' }}>Penyedia Barang:</span>
+                  <h5 style={{ margin: '1px 0 0 0', fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>{s.toUpperCase()}</h5>
                </div>
-               <div style={{ textAlign: 'right', fontSize: '9px' }}>
+               <div style={{ textAlign: 'right', fontSize: '10px' }}>
                   <div style={{ textTransform: 'uppercase', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>Info Pembayaran (Bank):</div>
-                  <div style={{ fontSize: '9px', fontWeight: '600', color: '#1e293b' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#1e293b' }}>
                     {suppInfo && suppInfo.bankName ? `${suppInfo.bankName} / ${suppInfo.accountName}` : 'Informasi rekening belum diatur'}
                   </div>
                   {suppInfo && suppInfo.accountNumber && (
-                    <div style={{ fontSize: '9px', fontWeight: '600', color: '#1e293b' }}>No: {suppInfo.accountNumber}</div>
+                    <div style={{ fontSize: '10px', fontWeight: '600', color: '#1e293b' }}>No: {suppInfo.accountNumber}</div>
                   )}
                </div>
             </div>
@@ -280,93 +280,181 @@ export default function PurchaseNoteReportPdf({
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
               <thead style={{ pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>
                 <tr>
-                  <th style={{ textAlign: 'left', color: '#475569', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Bahan Baku</th>
-                  <th style={{ textAlign: 'center', color: '#475569', width: '10%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Qty</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Harga Beli</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Total Beli</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Harga Jual</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Total Jual</th>
-                  <th style={{ textAlign: 'center', color: '#475569', width: '11%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Margin %</th>
+                  <th style={{ textAlign: 'left', color: '#475569', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Bahan Baku</th>
+                  <th style={{ textAlign: 'center', color: '#475569', width: '10%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Qty</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Harga Beli</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Total Beli</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Harga Jual</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Total Jual</th>
+                  <th style={{ textAlign: 'center', color: '#475569', width: '11%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Margin %</th>
                 </tr>
               </thead>
               <tbody style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                {items.map((it, iIdx) => {
-                  // Get sell price from connected invoice items
-                  let sellPrice = 0;
-
-                  // Try to find matching invoice item by product name
-                  if (invoicesList && invoicesList.length > 0) {
-                    invoicesList.forEach(inv => {
-                      if (inv.items && inv.items.length > 0) {
-                        const matchingInvoiceItem = inv.items.find(invItem =>
-                          (invItem.productName || '').toLowerCase() === (it.materialName || '').toLowerCase()
-                        );
-                        if (matchingInvoiceItem && matchingInvoiceItem.unitPrice) {
-                          sellPrice = Number(matchingInvoiceItem.unitPrice) || 0;
-                        }
-                      }
-                    });
-                  }
-
-                  // Fallback to stored values if not found in invoice
-                  if (sellPrice === 0) {
-                    sellPrice = Number(it.invoicePrice) || Number(it.sellPrice) || 0;
-                  }
-
-                  // Calculate totals
-                  const totalBeli = Number(it.totalCost) || 0;
-                  const qty = Number(it.invoiceQty) || Number(it.qtyNota) || 0;
-                  const totalJual = qty * sellPrice;
-
-                  // Calculate margin
-                  const margin = totalJual > 0 ? ((totalJual - totalBeli) / totalJual * 100) : 0;
-                  const marginColor = margin >= 20 ? '#15803d' : margin >= 10 ? '#f59e0b' : '#dc2626';
-
-                  console.log('PDF Item Debug:', {
-                    name: it.materialName,
-                    invoicePrice: it.invoicePrice,
-                    sellPrice: it.sellPrice,
-                    foundInvoicePrice: sellPrice !== (Number(it.invoicePrice) || Number(it.sellPrice) || 0),
-                    calculatedSellPrice: sellPrice,
-                    qtyNota: it.qtyNota,
-                    invoiceQty: it.invoiceQty,
-                    totalBeli,
-                    totalJual,
-                    margin
-                  });
-
-                  return (
-                    <tr key={iIdx}>
-                      <td style={{ color: '#1e293b', wordBreak: 'break-word', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{it.isSubItem ? '↳ ' : ''}{it.materialName}</td>
-                      <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatNumber(it.qtyNota)} {it.unit}</td>
-                      <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatCurrency(it.pricePerUnit)}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatCurrency(totalBeli)}</td>
-                      <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px', fontWeight: '600', color: '#3b82f6' }}>{formatCurrency(sellPrice)}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px', color: '#3b82f6' }}>{formatCurrency(totalJual)}</td>
-                      <td style={{ textAlign: 'center', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '700', color: marginColor }}>
-                        {totalJual > 0 ? margin.toFixed(1) + '%' : '-'}
-                      </td>
-                    </tr>
+                {(() => {
+                  // Aggregate Mix Vegetable items
+                  const mixVegetableItems = items.filter(it =>
+                    it.isSubItem &&
+                    (it.materialName || '').toLowerCase().match(/jagung|wortel|buncis/)
                   );
-                })}
+
+                  const hasMixVegetable = mixVegetableItems.length > 0;
+                  const mixVegetableParent = items.find(it =>
+                    !it.isSubItem &&
+                    (it.materialName || '').toLowerCase().includes('mix vegetable')
+                  );
+
+                  // Get items to display (exclude Mix Vegetable sub-items)
+                  let itemsToDisplay = items.filter(it =>
+                    !it.isSubItem ||
+                    !(it.materialName || '').toLowerCase().match(/jagung|wortel|buncis/)
+                  );
+
+                  // If we have Mix Vegetable sub-items, create aggregated item
+                  if (hasMixVegetable && mixVegetableParent) {
+                    const totalBeli = mixVegetableItems.reduce((sum, it) =>
+                      sum + (Number(it.totalCost) || 0), 0
+                    );
+                    const totalQty = mixVegetableItems.reduce((sum, it) =>
+                      sum + (Number(it.qtyNota) || 0), 0
+                    );
+                    const invoiceQty = Number(mixVegetableParent.invoiceQty) ||
+                                      Number(mixVegetableParent.qtyNota) || 0;
+
+                    // Calculate price per kg based on total cost divided by invoice qty
+                    const pricePerKg = invoiceQty > 0 ? totalBeli / invoiceQty : totalBeli / totalQty;
+
+                    // Get sell price from connected invoice items
+                    let sellPrice = 0;
+                    if (invoicesList && invoicesList.length > 0) {
+                      invoicesList.forEach(inv => {
+                        if (inv.items && inv.items.length > 0) {
+                          const matchingInvoiceItem = inv.items.find(invItem =>
+                            (invItem.productName || '').toLowerCase().includes('mix vegetable')
+                          );
+                          if (matchingInvoiceItem && matchingInvoiceItem.unitPrice) {
+                            sellPrice = Number(matchingInvoiceItem.unitPrice) || 0;
+                          }
+                        }
+                      });
+                    }
+
+                    // Fallback to stored values
+                    if (sellPrice === 0) {
+                      sellPrice = Number(mixVegetableParent.invoicePrice) ||
+                                 Number(mixVegetableParent.sellPrice) || 0;
+                    }
+
+                    const totalJual = invoiceQty * sellPrice;
+                    const margin = totalJual > 0 ? ((totalJual - totalBeli) / totalJual * 100) : 0;
+                    const marginColor = margin >= 20 ? '#15803d' : margin >= 10 ? '#f59e0b' : '#dc2626';
+
+                    const aggregatedItem = {
+                      materialName: 'Mix Vegetable',
+                      qtyNota: invoiceQty,
+                      unit: 'kg',
+                      pricePerUnit: pricePerKg,
+                      totalCost: totalBeli,
+                      invoiceQty: invoiceQty,
+                      invoicePrice: sellPrice,
+                      sellPrice: sellPrice,
+                      salesRevenue: totalJual,
+                      profit: totalJual - totalBeli,
+                      marginPercent: margin,
+                      marginColor: marginColor,
+                      isMixVegetable: true
+                    };
+
+                    // Replace parent with aggregated item
+                    itemsToDisplay = itemsToDisplay.map(it =>
+                      (it.materialName || '').toLowerCase().includes('mix vegetable') && !it.isSubItem
+                        ? aggregatedItem
+                        : it
+                    );
+                  }
+
+                  return itemsToDisplay.map((it, iIdx) => {
+                    // Get sell price from connected invoice items
+                    let sellPrice = 0;
+
+                    // For Mix Vegetable, use the stored sell price
+                    if (it.isMixVegetable) {
+                      sellPrice = it.sellPrice;
+                    } else {
+                      // Try to find matching invoice item by product name
+                      if (invoicesList && invoicesList.length > 0) {
+                        invoicesList.forEach(inv => {
+                          if (inv.items && inv.items.length > 0) {
+                            const matchingInvoiceItem = inv.items.find(invItem =>
+                              (invItem.productName || '').toLowerCase() === (it.materialName || '').toLowerCase()
+                            );
+                            if (matchingInvoiceItem && matchingInvoiceItem.unitPrice) {
+                              sellPrice = Number(matchingInvoiceItem.unitPrice) || 0;
+                            }
+                          }
+                        });
+                      }
+
+                      // Fallback to stored values if not found in invoice
+                      if (sellPrice === 0) {
+                        sellPrice = Number(it.invoicePrice) || Number(it.sellPrice) || 0;
+                      }
+                    }
+
+                    // Calculate totals
+                    const totalBeli = Number(it.totalCost) || 0;
+                    const qty = Number(it.invoiceQty) || Number(it.qtyNota) || 0;
+                    const totalJual = qty * sellPrice;
+
+                    // Calculate margin
+                    const margin = totalJual > 0 ? ((totalJual - totalBeli) / totalJual * 100) : 0;
+                    const marginColor = it.isMixVegetable ? it.marginColor :
+                                      (margin >= 20 ? '#15803d' : margin >= 10 ? '#f59e0b' : '#dc2626');
+
+                    return (
+                      <tr key={iIdx}>
+                        <td style={{ color: '#1e293b', wordBreak: 'break-word', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: it.isMixVegetable ? '700' : 'normal' }}>
+                          {it.isMixVegetable ? '' : (it.isSubItem ? '↳ ' : '')}{it.materialName}
+                        </td>
+                        <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>
+                          {formatNumber(it.qtyNota)} {it.unit}
+                        </td>
+                        <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>
+                          {formatCurrency(it.pricePerUnit)}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>
+                          {formatCurrency(totalBeli)}
+                        </td>
+                        <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600', color: '#3b82f6' }}>
+                          {formatCurrency(sellPrice)}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px', color: '#3b82f6' }}>
+                          {formatCurrency(totalJual)}
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '700', color: marginColor }}>
+                          {totalJual > 0 ? margin.toFixed(1) + '%' : '-'}
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
                 {/* Summary Rows for this Supplier */}
                 <tr className="summary-row" style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                  <td colSpan="3" style={{ textAlign: 'right', color: '#64748b', fontSize: '9px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Subtotal Beli:</td>
-                  <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{formatCurrency(subtotal)}</td>
+                  <td colSpan="3" style={{ textAlign: 'right', color: '#64748b', fontSize: '10px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Subtotal Beli:</td>
+                  <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px' }}>{formatCurrency(subtotal)}</td>
                   <td colSpan="2"></td>
                   <td></td>
                 </tr>
                 {discount > 0 && (
                   <tr className="summary-row" style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                    <td colSpan="3" style={{ textAlign: 'right', color: '#ef4444', fontSize: '9px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Potongan Diskon:</td>
-                    <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#ef4444', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>-{formatCurrency(discount)}</td>
+                    <td colSpan="3" style={{ textAlign: 'right', color: '#ef4444', fontSize: '10px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Potongan Diskon:</td>
+                    <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#ef4444', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px' }}>-{formatCurrency(discount)}</td>
                     <td colSpan="2"></td>
                     <td></td>
                   </tr>
                 )}
                 <tr className="summary-row" style={{ background: '#f0fdf4', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                  <td colSpan="3" style={{ textAlign: 'right', fontSize: '10px', fontWeight: '700', color: '#166534', padding: '5px 6px', border: '1px solid #e2e8f0' }}>TOTAL BAYAR KE {s.toUpperCase()}:</td>
-                  <td style={{ textAlign: 'right', fontSize: '11px', fontWeight: '800', color: '#15803d', padding: '5px 6px', border: '1px solid #e2e8f0' }}>{formatCurrency(netToPay)}</td>
+                  <td colSpan="3" style={{ textAlign: 'right', fontSize: '11px', fontWeight: '700', color: '#166534', padding: '5px 6px', border: '1px solid #e2e8f0' }}>TOTAL BAYAR KE {s.toUpperCase()}:</td>
+                  <td style={{ textAlign: 'right', fontSize: '12px', fontWeight: '800', color: '#15803d', padding: '5px 6px', border: '1px solid #e2e8f0' }}>{formatCurrency(netToPay)}</td>
                   <td colSpan="2"></td>
                   <td></td>
                 </tr>
@@ -383,11 +471,11 @@ export default function PurchaseNoteReportPdf({
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', borderSpacing: 0, fontSize: '10px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>No Invoice</th>
-                <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Nama Pembeli</th>
-                <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Tanggal</th>
-                <th style={{ textAlign: 'center', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Jumlah Item</th>
-                <th style={{ textAlign: 'right', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Total</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>No Invoice</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Nama Pembeli</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Tanggal</th>
+                <th style={{ textAlign: 'center', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Jumlah Item</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -459,11 +547,11 @@ export default function PurchaseNoteReportPdf({
         {/* Global Grand Total Area */}
         <div className="no-break" style={{ marginTop: 24, background: '#0f172a', color: 'white', padding: '12px 16px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <div>
-            <h4 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 13, opacity: 0.8, fontWeight: '600' }}>Grand Total Keseluruhan</h4>
-            <div style={{ fontSize: 10, marginTop: 2, opacity: 0.6 }}>(Total setelah potongan + biaya tambahan)</div>
+            <h4 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 14, opacity: 0.8, fontWeight: '600' }}>Grand Total Keseluruhan</h4>
+            <div style={{ fontSize: 11, marginTop: 2, opacity: 0.6 }}>(Total setelah potongan + biaya tambahan)</div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: 20, fontWeight: '900', color: '#10b981' }}>{formatCurrency(grandTotalNet)}</span>
+            <span style={{ fontSize: 22, fontWeight: '900', color: '#10b981' }}>{formatCurrency(grandTotalNet)}</span>
           </div>
         </div>
 
@@ -542,25 +630,25 @@ export default function PurchaseNoteReportPdf({
             <tbody>
               {Number(additionalCosts?.labor) > 0 && (
                 <tr>
-                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600', width: '60%' }}>Biaya Tenaga Kerja</td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{formatCurrency(additionalCosts.labor)}</td>
+                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', width: '60%' }}>Biaya Tenaga Kerja</td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600' }}>{formatCurrency(additionalCosts.labor)}</td>
                 </tr>
               )}
               {Number(additionalCosts?.shipping) > 0 && (
                 <tr>
-                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>Biaya Pengiriman</td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{formatCurrency(additionalCosts.shipping)}</td>
+                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600' }}>Biaya Pengiriman</td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600' }}>{formatCurrency(additionalCosts.shipping)}</td>
                 </tr>
               )}
               {Number(additionalCosts?.productionMaterial) > 0 && (
                 <tr>
-                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>Biaya Bahan Produksi</td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{formatCurrency(additionalCosts.productionMaterial)}</td>
+                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600' }}>Biaya Bahan Produksi</td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600' }}>{formatCurrency(additionalCosts.productionMaterial)}</td>
                 </tr>
               )}
               <tr style={{ background: '#f3f4f6', fontWeight: '700' }}>
-                <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontSize: '10px' }}>Total Biaya Tambahan</td>
-                <td style={{ textAlign: 'right', padding: '6px 8px', border: '1px solid #cbd5e1', fontSize: '10px', color: '#8b5cf6' }}>{formatCurrency(totalAdditionalCosts)}</td>
+                <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontSize: '11px' }}>Total Biaya Tambahan</td>
+                <td style={{ textAlign: 'right', padding: '6px 8px', border: '1px solid #cbd5e1', fontSize: '11px', color: '#8b5cf6' }}>{formatCurrency(totalAdditionalCosts)}</td>
               </tr>
             </tbody>
           </table>
@@ -568,16 +656,16 @@ export default function PurchaseNoteReportPdf({
       )}
 
       {/* Signatures */}
-      <div className="no-break" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, fontSize: 11, padding: '0 20px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+      <div className="no-break" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, fontSize: 12, padding: '0 20px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         <div style={{ textAlign: 'center', width: 160 }}>
-          <p style={{ marginBottom: 45, margin: 0, fontSize: 11 }}>Diperiksa Oleh,</p>
+          <p style={{ marginBottom: 45, margin: 0, fontSize: 12 }}>Diperiksa Oleh,</p>
           <div style={{ borderBottom: '1px solid #1e293b', width: '100%', marginBottom: 3 }}></div>
-          <p style={{ fontWeight: 'bold', margin: 0, fontSize: 11 }}>Bagian Operasional</p>
+          <p style={{ fontWeight: 'bold', margin: 0, fontSize: 12 }}>Bagian Operasional</p>
         </div>
         <div style={{ textAlign: 'center', width: 160 }}>
-          <p style={{ marginBottom: 45, margin: 0, fontSize: 11 }}>Dibuat Oleh,</p>
+          <p style={{ marginBottom: 45, margin: 0, fontSize: 12 }}>Dibuat Oleh,</p>
           <div style={{ borderBottom: '1px solid #1e293b', width: '100%', marginBottom: 3 }}></div>
-          <p style={{ fontWeight: 'bold', margin: 0, fontSize: 11 }}>Admin Pembelian</p>
+          <p style={{ fontWeight: 'bold', margin: 0, fontSize: 12 }}>Admin Pembelian</p>
         </div>
       </div>
       </div>
