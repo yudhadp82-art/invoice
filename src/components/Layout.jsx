@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   FiHome, FiPackage, FiUsers, FiFileText,
-  FiTruck, FiShoppingCart, FiBarChart2, FiTag, FiBriefcase, FiMessageCircle, FiPieChart, FiTool, FiDollarSign,
+  FiTruck, FiShoppingCart, FiBarChart2, FiTag, FiBriefcase, FiMessageCircle, FiPieChart, FiTool, FiDollarSign, FiTrendingUp,
   FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import { addMutationListener, removeMutationListener, executeUndo } from '../utils/storage';
@@ -28,6 +28,7 @@ const navItems = [
   { path: '/production/employees', label: 'Daftar Pekerja', icon: FiUsers },
   { section: 'Analisa' },
   { path: '/recap', label: 'Rekap', icon: FiBarChart2 },
+  { path: '/profit-margin', label: 'Margin Laba', icon: FiTrendingUp },
   { path: '/reports', label: 'Laporan', icon: FiBarChart2 },
 ];
 

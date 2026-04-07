@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FiBarChart2, FiCalendar, FiDownload, FiShoppingCart, FiFileText, FiPrinter, FiSearch } from 'react-icons/fi';
 import { Invoices as InvoiceStore, PurchaseNotes as PNStore } from '../utils/storage';
 import { formatCurrency, formatNumber, formatDateShort, isToday, isThisMonth } from '../utils/formatter';
+import * as XLSX from 'xlsx';
 
 export default function Recap() {
   const [invoices, setInvoices] = useState([]);
@@ -238,34 +239,124 @@ export default function Recap() {
   }).filter(supplier => supplier.netPurchase > 0 || supplier.relatedRevenue > 0)
     .sort((a, b) => b.profit - a.profit);
 
-  // Handle print function
-  const handlePrintMarginReport = () => {
-    // Expand all invoices before printing
+  // Handle download margin report as Excel
+  const handleDownloadMarginReport = () => {
+    // Expand all invoices before downloading
     setExpandedInvoices(new Set(invoiceMarginAnalysis.map(inv => inv.id)));
-    setIsPrinting(true);
 
-    // Wait for render then print
+    // Wait for render then download
     setTimeout(() => {
-      window.print();
-      // Restore previous state after print dialog closes
-      setTimeout(() => {
-        setIsPrinting(false);
-      }, 500);
+      // Prepare data for Excel export
+      const exportData = [];
+
+      invoiceMarginAnalysis.forEach(inv => {
+        // Main row
+        exportData.push({
+          'No. Invoice': inv.invoiceNumber,
+          'Customer': inv.customerName,
+          'Tanggal': formatDateShort(inv.date),
+          'Penjualan (Revenue)': inv.revenue,
+          'Pembelian (Cost)': inv.cost,
+          'Laba (Profit)': inv.profit,
+          'Margin %': inv.marginPercent.toFixed(1) + '%',
+          'Jumlah Item': inv.itemCount
+        });
+
+        // Item breakdown rows
+        if (inv.itemBreakdown && inv.itemBreakdown.length > 0) {
+          inv.itemBreakdown.forEach((item, idx) => {
+            exportData.push({
+              'No. Invoice': idx === 0 ? inv.invoiceNumber : '',
+              'Customer': idx === 0 ? inv.customerName : '',
+              'Tanggal': idx === 0 ? formatDateShort(inv.date) : '',
+              'Nama Barang': item.productName,
+              'Qty Jual': item.salesQty,
+              'Harga Jual': item.salesUnitPrice,
+              'Total Jual': item.salesRevenue,
+              'Harga Beli': item.purchasePricePerUnit,
+              'Total Beli': item.purchaseCost,
+              'Laba': item.profit,
+              'Margin %': item.marginPercent.toFixed(1) + '%'
+            });
+          });
+        }
+      });
+
+      // Create worksheet and download
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Margin Laba per Invoice');
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `Margin_Laba_per_Invoice_${timestamp}.xlsx`);
     }, 300);
   };
 
-  // Handle print individual invoice
-  const handlePrintIndividualInvoice = (invoiceId) => {
+  // Handle download individual invoice
+  const handleDownloadIndividualInvoice = (invoiceId) => {
     // Only expand this specific invoice
     setExpandedInvoices(new Set([invoiceId]));
-    setIsPrinting(true);
 
     setTimeout(() => {
-      window.print();
-      setTimeout(() => {
-        setIsPrinting(false);
-      }, 500);
+      const inv = invoiceMarginAnalysis.find(i => i.id === invoiceId);
+      if (!inv) return;
+
+      // Prepare data for this invoice
+      const exportData = [
+        {
+          'No. Invoice': inv.invoiceNumber,
+          'Customer': inv.customerName,
+          'Tanggal': formatDateShort(inv.date),
+          'Penjualan (Revenue)': inv.revenue,
+          'Pembelian (Cost)': inv.cost,
+          'Laba (Profit)': inv.profit,
+          'Margin %': inv.marginPercent.toFixed(1) + '%',
+          'Jumlah Item': inv.itemCount
+        }
+      ];
+
+      // Add item breakdown
+      if (inv.itemBreakdown && inv.itemBreakdown.length > 0) {
+        exportData.push({}); // Empty row separator
+        inv.itemBreakdown.forEach(item => {
+          exportData.push({
+            'Nama Barang': item.productName,
+            'Qty Jual': item.salesQty,
+            'Harga Jual': item.salesUnitPrice,
+            'Total Jual': item.salesRevenue,
+            'Harga Beli': item.purchasePricePerUnit,
+            'Total Beli': item.purchaseCost,
+            'Laba': item.profit,
+            'Margin %': item.marginPercent.toFixed(1) + '%'
+          });
+        });
+      }
+
+      // Create worksheet and download
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, inv.invoiceNumber);
+
+      const timestamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `Margin_${inv.invoiceNumber}_${timestamp}.xlsx`);
     }, 300);
+  };
+
+  const handlePrintMarginReport = () => {
+    setExpandedInvoices(new Set(filteredMarginData.map(inv => inv.id)));
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
+
+  const handlePrintIndividualInvoice = (invoiceId) => {
+    const newExpanded = new Set(expandedInvoices);
+    newExpanded.add(invoiceId);
+    setExpandedInvoices(newExpanded);
+    setTimeout(() => {
+      window.print();
+    }, 500);
   };
 
   if (loading) {

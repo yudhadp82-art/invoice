@@ -5,6 +5,7 @@ import { PurchaseNotes, Products as MasterItems, Invoices, Suppliers, Customers 
 import { formatCurrency, formatNumberInput, parseNumberInput } from '../utils/formatter';
 import Modal from '../components/Modal';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
+import SearchableSelect from '../components/SearchableSelect';
 
 const emptyItem = {
   materialId: '',
@@ -16,11 +17,10 @@ const emptyItem = {
   invoiceQty: 0,
   pricePerUnit: 0,
   sellPrice: 0,
-  invoiceBreakdown: { s5: 0, s2: 0 },
-  splits: {
-    s5: { qty: 0, shrinkage: 0, netQty: 0 },
-    s2: { qty: 0, shrinkage: 0, netQty: 0 }
-  },
+  purchaseCost: 0,
+  salesRevenue: 0,
+  profit: 0,
+  marginPercent: 0,
   totalCost: 0
 };
 
@@ -110,9 +110,6 @@ export default function PurchaseNoteForm() {
             const mb = master.find(m => (m.name || '').toLowerCase() === mName);
             if (mb) newItem.materialId = mb.id;
           }
-          if (!newItem.splits) {
-            newItem.splits = { s5: { qty: 0, shrinkage: 0, netQty: 0 }, s2: { qty: 0, shrinkage: 0, netQty: 0 } };
-          }
           newItem.isManuallyEdited = true;
           return newItem;
         });
@@ -189,10 +186,10 @@ export default function PurchaseNoteForm() {
                 invoiceQty: Number(it.qty) || 0,
                 pricePerUnit: 0,
                 sellPrice: 0,
-                splits: { 
-                  s5: { qty: (inv.customerName || '').toLowerCase().includes('5') ? (Number(it.qty) || 0) : 0, shrinkage: 0, netQty: (inv.customerName || '').toLowerCase().includes('5') ? (Number(it.qty) || 0) : 0 }, 
-                  s2: { qty: (inv.customerName || '').toLowerCase().includes('2') ? (Number(it.qty) || 0) : 0, shrinkage: 0, netQty: (inv.customerName || '').toLowerCase().includes('2') ? (Number(it.qty) || 0) : 0 }
-                },
+                purchaseCost: 0,
+                salesRevenue: 0,
+                profit: 0,
+                marginPercent: 0,
                 totalCost: 0
               };
             });
@@ -219,11 +216,20 @@ export default function PurchaseNoteForm() {
     sourceItems.forEach(it => {
       const name = (it.materialName || '').toLowerCase();
       if (name.includes('mix vegetable') || name.includes('mix veg')) {
+        // Mix Vegetable: Expand ke jagung, wortel, buncis
         const baseQty = Number(it.qtyNota) || 0;
         const basePrice = Number(it.pricePerUnit) || 0;
+        const baseSellPrice = Number(it.sellPrice) || 0;
+
         MIX_VEG_INGREDIENTS.forEach(ingName => {
           const mb = master.find(b => b.name.toLowerCase() === ingName.toLowerCase());
           const q = (baseQty / 3);
+
+          const purchaseCost = q * basePrice;
+          const salesRevenue = q * baseSellPrice;
+          const profit = salesRevenue - purchaseCost;
+          const marginPercent = salesRevenue > 0 ? (profit / salesRevenue) * 100 : 0;
+
           result.push({
             ...emptyItem,
             materialId: mb ? mb.id : '',
@@ -232,12 +238,14 @@ export default function PurchaseNoteForm() {
             parentName: it.materialName || 'Mix Vegetable',
             unit: mb ? mb.unit : 'kg',
             qtyNota: Number(q.toFixed(2)),
+            invoiceQty: Number((it.invoiceQty || 0) / 3).toFixed(2),
             pricePerUnit: basePrice,
-            totalCost: Number((q * basePrice).toFixed(2)),
-            splits: {
-              s5: { qty: Number(q.toFixed(2)), shrinkage: 0, netQty: Number(q.toFixed(2)) },
-              s2: { qty: 0, shrinkage: 0, netQty: 0 }
-            }
+            sellPrice: baseSellPrice,
+            purchaseCost: purchaseCost,
+            salesRevenue: salesRevenue,
+            profit: profit,
+            marginPercent: marginPercent,
+            totalCost: purchaseCost
           });
         });
       } else {
@@ -260,20 +268,28 @@ export default function PurchaseNoteForm() {
         const addQty = Number(it.qtyNota) || 0;
         const addInvQty = Number(it.invoiceQty) || 0;
         const addCost = Number(it.totalCost) || 0;
+        const addPurchaseCost = Number(it.purchaseCost) || 0;
+        const addSalesRevenue = Number(it.salesRevenue) || 0;
 
         ex.qtyNota += addQty;
         ex.invoiceQty += addInvQty;
         ex.totalCost += addCost;
+        ex.purchaseCost += addPurchaseCost;
+        ex.salesRevenue += addSalesRevenue;
+
         // Harga rata-rata tertimbang
         ex.pricePerUnit = ex.qtyNota > 0 ? Number((ex.totalCost / ex.qtyNota).toFixed(2)) : 0;
 
-        // Gabungkan splits
-        ['s5', 's2'].forEach(b => {
-          ex.splits[b].qty += Number(it.splits?.[b]?.qty) || 0;
-          ex.splits[b].shrinkage += Number(it.splits?.[b]?.shrinkage) || 0;
-          ex.splits[b].netQty += Number(it.splits?.[b]?.netQty) || 0;
-        });
+        // Recalculate profit and margin
+        ex.profit = ex.salesRevenue - ex.purchaseCost;
+        ex.marginPercent = ex.salesRevenue > 0 ? (ex.profit / ex.salesRevenue) * 100 : 0;
       } else {
+        // Calculate margin for new item
+        const purchaseCost = Number(it.purchaseCost) || (Number(it.pricePerUnit || 0) * Number(it.qtyNota || 0));
+        const salesRevenue = Number(it.salesRevenue) || (Number(it.sellPrice || 0) * Number(it.qtyNota || 0));
+        const profit = salesRevenue - purchaseCost;
+        const marginPercent = salesRevenue > 0 ? (profit / salesRevenue) * 100 : 0;
+
         map.set(key, {
           ...it,
           qtyNota: Number(it.qtyNota) || 0,
@@ -281,10 +297,10 @@ export default function PurchaseNoteForm() {
           totalCost: Number(it.totalCost) || 0,
           pricePerUnit: Number(it.pricePerUnit) || 0,
           sellPrice: Number(it.sellPrice) || 0,
-          splits: {
-            s5: { qty: Number(it.splits?.s5?.qty) || 0, shrinkage: Number(it.splits?.s5?.shrinkage) || 0, netQty: Number(it.splits?.s5?.netQty) || 0 },
-            s2: { qty: Number(it.splits?.s2?.qty) || 0, shrinkage: Number(it.splits?.s2?.shrinkage) || 0, netQty: Number(it.splits?.s2?.netQty) || 0 },
-          }
+          purchaseCost: purchaseCost,
+          salesRevenue: salesRevenue,
+          profit: profit,
+          marginPercent: marginPercent
         });
       }
     });
@@ -312,10 +328,10 @@ export default function PurchaseNoteForm() {
           invoiceQty: Number(it.qty) || 0,
           pricePerUnit: 0,
           sellPrice: 0,
-          splits: { 
-            s5: { qty: (inv.customerName || '').toLowerCase().includes('5') ? (Number(it.qty) || 0) : 0, shrinkage: 0, netQty: (inv.customerName || '').toLowerCase().includes('5') ? (Number(it.qty) || 0) : 0 }, 
-            s2: { qty: (inv.customerName || '').toLowerCase().includes('2') ? (Number(it.qty) || 0) : 0, shrinkage: 0, netQty: (inv.customerName || '').toLowerCase().includes('2') ? (Number(it.qty) || 0) : 0 }
-          },
+          purchaseCost: 0,
+          salesRevenue: 0,
+          profit: 0,
+          marginPercent: 0,
           totalCost: 0
         });
       });
@@ -363,16 +379,7 @@ export default function PurchaseNoteForm() {
   function updateItem(index, field, value) {
     const newItems = [...items];
     const it = { ...newItems[index] };
-    if (field === 'materialId' || field === 'qtyNota') it.isManuallyEdited = true;
-
-    if (field === 'qtyNota' && it.invoiceBreakdown && it.invoiceQty > 0) {
-      const totalInv = it.invoiceQty;
-      const newQty = Number(value) || 0;
-      const ratioS5 = (it.invoiceBreakdown.s5 || 0) / totalInv;
-      const ratioS2 = (it.invoiceBreakdown.s2 || 0) / totalInv;
-      it.splits.s5 = { ...it.splits.s5, qty: newQty * ratioS5, netQty: newQty * ratioS5 - (it.splits.s5.shrinkage || 0) };
-      it.splits.s2 = { ...it.splits.s2, qty: newQty * ratioS2, netQty: newQty * ratioS2 - (it.splits.s2.shrinkage || 0) };
-    }
+    if (field === 'materialId' || field === 'qtyNota' || field === 'pricePerUnit' || field === 'sellPrice') it.isManuallyEdited = true;
 
     if (field === 'materialId') {
       const m = masterBahan.find(b => b.id === value);
@@ -380,7 +387,7 @@ export default function PurchaseNoteForm() {
         it.materialId = value;
         it.materialName = m.name;
         it.unit = m.unit;
-        it.sellPrice = m.defaultPrice || 0;
+        it.sellPrice = m.sellPrice || 0;
       }
     } else if (field === 'totalCost') {
       it.totalCost = Number(value) || 0;
@@ -389,24 +396,20 @@ export default function PurchaseNoteForm() {
       it[field] = value;
     }
 
-    if (field === 'qtyNota' || field === 'pricePerUnit' || field === 'totalCost') {
-      if (field !== 'totalCost') it.totalCost = (Number(it.qtyNota) || 0) * (Number(it.pricePerUnit) || 0);
-      if (field === 'qtyNota' && !it.invoiceBreakdown) {
-        it.splits.s5.qty = Number(value) || 0;
-        it.splits.s5.netQty = it.splits.s5.qty - (it.splits.s5.shrinkage || 0);
-      }
-    }
-    newItems[index] = it;
-    setItems(newItems);
-  }
+    // Recalculate costs and margins when qty, price, or sell price changes
+    if (field === 'qtyNota' || field === 'pricePerUnit' || field === 'sellPrice') {
+      const qty = Number(it.qtyNota) || 0;
+      const pricePerUnit = Number(it.pricePerUnit) || 0;
+      const sellPrice = Number(it.sellPrice) || 0;
 
-  function updateSplit(itemIndex, branch, field, value) {
-    const newItems = [...items];
-    const it = { ...newItems[itemIndex] };
-    const val = Number(value) || 0;
-    it.splits[branch] = { ...it.splits[branch], [field]: val };
-    it.splits[branch].netQty = it.splits[branch].qty - it.splits[branch].shrinkage;
-    newItems[itemIndex] = it;
+      it.totalCost = qty * pricePerUnit;
+      it.purchaseCost = it.totalCost;
+      it.salesRevenue = qty * sellPrice;
+      it.profit = it.salesRevenue - it.purchaseCost;
+      it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
+    }
+
+    newItems[index] = it;
     setItems(newItems);
   }
 
@@ -432,7 +435,7 @@ export default function PurchaseNoteForm() {
             if (oldIt.materialId) {
               const m = await MasterItems.getById(oldIt.materialId);
               if (m) {
-                const oldNet = (Number(oldIt.splits?.s5?.netQty) || 0) + (Number(oldIt.splits?.s2?.netQty) || 0);
+                const oldNet = Number(oldIt.qtyNota) || 0;
                 await MasterItems.update(m.id, { stock: (Number(m.stock) || 0) - oldNet });
               }
             }
@@ -447,7 +450,7 @@ export default function PurchaseNoteForm() {
         if (it.materialId) {
           const m = await MasterItems.getById(it.materialId);
           if (m) {
-            const net = (Number(it.splits?.s5?.netQty) || 0) + (Number(it.splits?.s2?.netQty) || 0);
+            const net = Number(it.qtyNota) || 0;
             await MasterItems.update(m.id, { stock: (Number(m.stock) || 0) + net });
           }
         }
@@ -467,11 +470,8 @@ export default function PurchaseNoteForm() {
       const mb = masterBahan.find(b => b.name.toLowerCase() === r.name.toLowerCase());
       return {
         ...emptyItem, materialId: mb?.id || '', materialName: r.name, unit: r.unit || mb?.unit || 'kg',
-        qtyNota: r.totalQty, pricePerUnit: 0, totalCost: 0,
-        splits: { 
-          s5: grp.toLowerCase().includes('5') ? { qty: r.totalQty, shrinkage: 0, netQty: r.totalQty } : { qty: 0, shrinkage: 0, netQty: 0 }, 
-          s2: grp.toLowerCase().includes('2') ? { qty: r.totalQty, shrinkage: 0, netQty: r.totalQty } : { qty: 0, shrinkage: 0, netQty: 0 }
-        }
+        qtyNota: r.totalQty, pricePerUnit: 0, sellPrice: 0,
+        purchaseCost: 0, salesRevenue: 0, profit: 0, marginPercent: 0, totalCost: 0
       };
     });
     setItems(expandItems(newItems, masterBahan));
@@ -538,99 +538,177 @@ export default function PurchaseNoteForm() {
             </div>
 
             <div className="card overflow-x p-0">
-              <table className="table table-compact" style={{ minWidth: 1000 }}>
+              <table className="table table-compact" style={{ minWidth: 1200 }}>
                 <thead>
                   <tr>
                     <th style={{ width: 36 }}>No</th>
-                    <th style={{ minWidth: 240 }}>Bahan Baku</th>
+                    <th style={{ minWidth: 200 }}>Bahan Baku</th>
                     <th className="text-center" style={{ width: 90 }}>Qty Inv</th>
                     <th style={{ width: 100 }}>Qty Nota</th>
-                    <th style={{ width: 120 }}>Harga</th>
-                    <th className="text-center" style={{ width: 160, background: 'rgba(56,189,248,0.03)' }}>SJ 5</th>
-                    <th className="text-center" style={{ width: 160, background: 'rgba(16,185,129,0.03)' }}>SJ 2</th>
-                    <th style={{ width: 140 }}>Subtotal</th>
+                    <th style={{ width: 120 }}>Harga Beli</th>
+                    <th style={{ width: 120 }}>Total Beli</th>
+                    <th style={{ width: 120 }}>Harga Jual</th>
+                    <th style={{ width: 120 }}>Total Jual</th>
+                    <th style={{ width: 120 }}>Laba</th>
+                    <th style={{ width: 100 }}>Margin %</th>
                     <th style={{ width: 36 }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="text-center text-muted font-xs">{idx + 1}</td>
-                      <td>
-                        <div className="flex flex-col gap-xs">
-                          <select className="form-select form-select-sm font-bold" value={item.materialId} onChange={e => updateItem(idx, 'materialId', e.target.value)} required>
-                            <option value="">-- Pilih Bahan --</option>
-                            {masterBahan.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                          </select>
-                          <input className="form-input font-xs opacity-80" list="sups" value={item.supplier} onChange={e => updateItem(idx, 'supplier', e.target.value)} placeholder="Supplier (Opsional)" />
-                        </div>
-                      </td>
-                      <td className="text-center font-bold text-info" style={{ fontSize: '0.85rem' }}>{item.invoiceQty > 0 ? fmtNum(item.invoiceQty) : '-'}</td>
-                      <td><input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} /></td>
-                      <td><input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} /></td>
-                      
-                      {/* SJ Columns Stacked */}
-                      {['s5', 's2'].map(key => (
-                        <td key={key} className="text-center" style={{ background: key === 's5' ? 'rgba(56,189,248,0.01)' : 'rgba(16,185,129,0.01)' }}>
-                          <div className="flex flex-col gap-xs align-center">
-                            <div className="flex gap-xs justify-center">
-                              <input type="text" className="form-input form-input-sm p-1 text-center" style={{ width: 60 }} placeholder="Qty" value={formatNumberInput(item.splits[key].qty) || ''} onChange={e => updateSplit(idx, key, 'qty', parseNumberInput(e.target.value))} />
-                              <input type="text" className="form-input form-input-sm p-1 text-center opacity-60" style={{ width: 60 }} placeholder="S" value={formatNumberInput(item.splits[key].shrinkage) || ''} onChange={e => updateSplit(idx, key, 'shrinkage', parseNumberInput(e.target.value))} />
-                            </div>
-                            <div className="text-xxs opacity-70 font-bold">Net: {fmtNum(item.splits[key].netQty)}</div>
+                  {items.map((item, idx) => {
+                    const isMixVeg = item.materialName && MIX_VEG_INGREDIENTS.some(veg =>
+                      item.materialName.toLowerCase().includes(veg.toLowerCase())
+                    );
+
+                    // Calculate margin
+                    const totalBeli = Number(item.pricePerUnit || 0) * Number(item.qtyNota || 0);
+                    const totalJual = Number(item.sellPrice || 0) * Number(item.qtyNota || 0);
+                    const laba = totalJual - totalBeli;
+                    const marginPercent = totalJual > 0 ? (laba / totalJual) * 100 : 0;
+
+                    // Auto-update item values
+                    const updatedItem = {
+                      ...item,
+                      purchaseCost: totalBeli,
+                      salesRevenue: totalJual,
+                      profit: laba,
+                      marginPercent: marginPercent
+                    };
+
+                    return (
+                      <tr key={idx}>
+                        <td className="text-center text-muted font-xs">{idx + 1}</td>
+                        <td>
+                          <div className="flex flex-col gap-xs">
+                            <SearchableSelect
+                              options={masterBahan.map(m => ({ id: m.id, name: m.name }))}
+                              value={item.materialId}
+                              onChange={val => updateItem(idx, 'materialId', val)}
+                              placeholder="Pilih/Cari Bahan..."
+                              required
+                            />
+                            <input className="form-input font-xs opacity-80" list="sups" value={item.supplier} onChange={e => updateItem(idx, 'supplier', e.target.value)} placeholder="Supplier (Opsional)" />
+                            {isMixVeg && (
+                              <div className="text-xs" style={{ color: '#8b5cf6', fontWeight: 600 }}>
+                                🥗 Mix Vegetable
+                              </div>
+                            )}
                           </div>
                         </td>
-                      ))}
-                      
-                      <td><input type="text" className="form-input form-input-sm font-bold text-primary" value={formatNumberInput(item.totalCost)} onChange={e => updateItem(idx, 'totalCost', parseNumberInput(e.target.value))} /></td>
-                      <td className="text-center"><button type="button" className="btn btn-ghost btn-sm text-danger p-1" onClick={() => removeItem(idx)}><FiTrash2 /></button></td>
-                    </tr>
-                  ))}
+                        <td className="text-center font-bold text-info" style={{ fontSize: '0.85rem' }}>{item.invoiceQty > 0 ? fmtNum(item.invoiceQty) : '-'}</td>
+                        <td><input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} /></td>
+                        <td><input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" /></td>
+                        <td className="text-right font-bold" style={{ color: '#f97316', fontSize: '13px' }}>{formatCurrency(totalBeli)}</td>
+                        <td><input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" /></td>
+                        <td className="text-right font-bold" style={{ color: '#3b82f6', fontSize: '13px' }}>{formatCurrency(totalJual)}</td>
+                        <td className="text-right font-bold" style={{
+                          color: laba >= 0 ? '#10b981' : '#ef4444',
+                          fontSize: '13px'
+                        }}>{formatCurrency(laba)}</td>
+                        <td className="text-center">
+                          <span className={`badge ${marginPercent >= 20 ? 'badge-success' : marginPercent >= 10 ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '11px' }}>
+                            {marginPercent.toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="text-center"><button type="button" className="btn btn-ghost btn-sm text-danger p-1" onClick={() => removeItem(idx)}><FiTrash2 /></button></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               <div className="p-md border-top"><button type="button" className="btn btn-ghost btn-sm" onClick={addItem}><FiPlus /> Tambah Item</button></div>
             </div>
 
 
-            <div className="grid grid-2 gap-lg">
-              <div className="card p-md">
-                <h3 className="mb-md">Biaya Tambahan & Diskon</h3>
-                <div className="grid grid-3 gap-sm mb-md">
-                  <div className="form-group"><label className="text-xs">Labor</label><input type="text" className="form-input" value={formatNumberInput(additionalCosts.labor)} onChange={e => setAdditionalCosts({...additionalCosts, labor: parseNumberInput(e.target.value)})} /></div>
-                  <div className="form-group"><label className="text-xs">Ongkir</label><input type="text" className="form-input" value={formatNumberInput(additionalCosts.shipping)} onChange={e => setAdditionalCosts({...additionalCosts, shipping: parseNumberInput(e.target.value)})} /></div>
-                  <div className="form-group"><label className="text-xs">Lainnya</label><input type="text" className="form-input" value={formatNumberInput(additionalCosts.productionMaterial)} onChange={e => setAdditionalCosts({...additionalCosts, productionMaterial: parseNumberInput(e.target.value)})} /></div>
+            {/* Panel Ringkasan Modern */}
+            <div className="card p-0 overflow-hidden border-primary-pale shadow-glow-sm animate-in" style={{ background: 'var(--bg-card)' }}>
+              <div className="grid grid-3 gap-0" style={{ minHeight: 140 }}>
+                {/* Kolom 1: Per-Supplier Totals */}
+                <div className="p-xl border-right" style={{ borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
+                  <div className="text-xxs opacity-50 uppercase tracking-widest mb-lg">Rincian Per Supplier</div>
+                  <div className="flex flex-col gap-md">
+                    {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(s => {
+                      const displaySup = s === 'H. Falah' ? 'Falahudin' : s;
+                      const subtotal = items.filter(it => (it.supplier || supplierName) === s).reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+                      const disc = Number(supplierDiscounts[s]) || 0;
+                      return (
+                        <div key={s} className="flex-between text-sm" style={{ gap: 24, marginBottom: 4 }}>
+                          <span className="opacity-80 truncate" title={displaySup}>{displaySup}</span>
+                          <span className="font-bold whitespace-nowrap">{formatCurrency(subtotal - disc)}</span>
+                        </div>
+                      );
+                    })}
+                    {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).length === 0 && (
+                      <em className="text-xs opacity-30 text-center block py-md">Belum ada item ditambahkan</em>
+                    )}
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Diskon Supplier</label>
-                  {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(s => (
-                    <div key={s} className="flex-between mb-xs">
-                      <span>{s}</span>
-                      <input type="text" className="form-input" style={{ width: 140 }} value={formatNumberInput(supplierDiscounts[s] || 0)} onChange={e => setSupplierDiscounts({...supplierDiscounts, [s]: parseNumberInput(e.target.value)})} />
-                    </div>
-                  ))}
+
+                {/* Kolom 2: Breakdown Biaya */}
+                <div className="p-xl flex flex-col justify-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                  <div className="text-xxs opacity-50 uppercase tracking-widest mb-lg">Breakdown Biaya</div>
+                  <div className="flex flex-col gap-sm">
+                    <div className="flex-between text-xs"><span>Subtotal Produk</span><span className="font-medium text-sm">{formatCurrency(totalItemCost)}</span></div>
+                    <div className="flex-between text-xs text-danger"><span>Total Diskon</span><span className="font-medium text-sm">-{formatCurrency(totalDiscount)}</span></div>
+                    <div className="flex-between text-xs text-info"><span>Biaya Tambahan</span><span className="font-medium text-sm">+{formatCurrency(totalAdditionalCosts)}</span></div>
+                  </div>
+                  <hr className="opacity-5 my-md" />
+                  <div className="grid grid-3 gap-md">
+                    {['labor', 'shipping', 'productionMaterial'].map(f => (
+                      <div key={f} className="flex flex-col">
+                        <label className="text-xxs opacity-40 capitalize mb-xs">{f === 'labor' ? 'Tenaga' : f === 'shipping' ? 'Ongkir' : 'Lain'}</label>
+                        <input 
+                          type="text" 
+                          className="form-input form-input-sm text-center font-sm" 
+                          style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 4px', height: 40 }}
+                          value={formatNumberInput(additionalCosts[f])} 
+                          onChange={e => setAdditionalCosts({...additionalCosts, [f]: parseNumberInput(e.target.value)})} 
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Kolom 3: Grand Total */}
+                <div className="p-xl flex flex-col justify-center items-center text-center" style={{ 
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(6,182,212,0.12) 100%)',
+                  borderLeft: '1px solid rgba(255,255,255,0.05)'
+                }}>
+                  <div className="text-xxs opacity-60 uppercase tracking-widest mb-sm">Total Tagihan Keseluruhan</div>
+                  <div className="text-3xl font-black text-primary" style={{ fontSize: '2.4rem', letterSpacing: '-0.02em' }}>
+                    {formatCurrency(grandTotalValue)}
+                  </div>
+                  <div className="mt-md">
+                     <button type="button" onClick={handleSave} className="btn btn-primary w-full shadow-glow" disabled={saving || loading}>
+                       <FiSave /> {saving ? 'Menyimpan...' : 'Simpan & Selesaikan'}
+                     </button>
+                  </div>
                 </div>
               </div>
-              <div className="card p-md bg-dark-elegant flex flex-col justify-center border-primary-pale shadow-glow-sm">
-                {/* Per-Supplier Totals */}
-                <div className="mb-md">
-                  <span className="text-xs opacity-50 uppercase tracking-wider mb-sm block">Total Per Supplier</span>
-                  {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(s => {
-                    const subtotal = items.filter(it => (it.supplier || supplierName) === s).reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
-                    const disc = Number(supplierDiscounts[s]) || 0;
-                    return (
-                      <div key={s} className="flex-between mb-xs text-sm">
-                        <span>{s}</span>
-                        <span className="font-medium">{formatCurrency(subtotal - disc)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <hr className="opacity-10 mb-md" />
-                <div className="flex-between mb-sm"><span>Subtotal Item</span><span>{formatCurrency(totalItemCost)}</span></div>
-                <div className="flex-between mb-sm text-danger"><span>Potongan Diskon</span><span>-{formatCurrency(totalDiscount)}</span></div>
-                <div className="flex-between mb-md text-info"><span>Biaya Tambahan</span><span>+{formatCurrency(totalAdditionalCosts)}</span></div>
-                <hr className="opacity-10 mb-md" />
-                <div className="flex-between"><h2 className="m-0">Grand Total</h2><h2 className="text-primary m-0">{formatCurrency(grandTotalValue)}</h2></div>
+            </div>
+
+            {/* Input Diskon Tersembunyi (Akses Per Supplier) */}
+            <div className="card p-md border-dashed opacity-80 hover-opacity-100 transition-normal">
+              <div className="text-xs font-bold uppercase tracking-wider mb-sm flex items-center gap-sm">
+                <FiInfo className="text-warning" /> Input Diskon per Supplier
+              </div>
+              <div className="grid grid-3 gap-md">
+                {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(s => {
+                  const displaySup = s === 'H. Falah' ? 'Falahudin' : s;
+                  return (
+                    <div key={s} className="flex items-center gap-md p-md bg-glass rounded-lg border border-white-05">
+                      <span className="text-xs font-semibold flex-1 truncate" title={displaySup}>{displaySup}</span>
+                      <input 
+                        type="text" 
+                        className="form-input form-input-sm text-center" 
+                        style={{ width: 120, fontSize: 13, height: 36 }} 
+                        placeholder="Rp 0"
+                        value={formatNumberInput(supplierDiscounts[s] || 0)} 
+                        onChange={e => setSupplierDiscounts({...supplierDiscounts, [s]: parseNumberInput(e.target.value)})} 
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

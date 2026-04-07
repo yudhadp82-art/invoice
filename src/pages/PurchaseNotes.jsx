@@ -561,7 +561,7 @@ export default function PurchaseNotes() {
             <tr>
               <th>Tanggal</th>
               <th>Supplier</th>
-              <th>Items</th>
+              <th>Customer</th>
               <th className="text-right">Total Biaya</th>
               <th>Status Split</th>
               <th></th>
@@ -578,28 +578,26 @@ export default function PurchaseNotes() {
                   </div>
                 </td>
               </tr>
-            ) : filtered.map(note => (
-              <tr key={note.id}>
-                <td className="text-muted"><FiCalendar style={{marginRight: 4}} /> {formatDateShort(note.date)}</td>
-                <td><strong>{note.supplierName || 'General Supplier'}</strong></td>
-                <td>
-                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {(note.items || []).slice(0, 3).map((it, i) => (
-                      <span key={i} className="badge badge-secondary" style={{ fontSize: '10px', opacity: 0.8 }}>
-                        {it.materialName}
-                      </span>
-                    ))}
-                    {(note.items || []).length > 3 && (
-                      <span className="text-xs text-muted" style={{ padding: '2px 4px' }}>
-                        +{note.items.length - 3} lainnya
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="text-right font-medium">{formatCurrency(note.grandTotal)}</td>
-                <td>
-                  <span className="badge badge-cyan">Split S5 & S2</span>
-                </td>
+            ) : filtered.map(note => {
+              // Resolve customer names from linked invoices
+              const ids = note.sourceInvoiceIds || (note.invoiceId ? [note.invoiceId] : []);
+              const matchedInvs = fullInvoices.filter(inv => ids.includes(inv.id));
+              const customerNames = Array.from(new Set(matchedInvs.map(inv => inv.customerName).filter(Boolean)));
+              const displayCustomer = customerNames.length > 0 ? customerNames.join(', ') : (note.customerName || '-');
+
+              return (
+                <tr key={note.id}>
+                  <td className="text-muted"><FiCalendar style={{marginRight: 4}} /> {formatDateShort(note.date)}</td>
+                  <td><strong>{note.supplierName || 'General Supplier'}</strong></td>
+                  <td>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-primary-hover)' }}>
+                      {displayCustomer}
+                    </div>
+                  </td>
+                  <td className="text-right font-medium">{formatCurrency(note.grandTotal)}</td>
+                  <td>
+                    <span className="badge badge-cyan">Split S5 & S2</span>
+                  </td>
                 <td>
                   <div className="table-actions">
                     <button className="btn btn-ghost btn-sm text-info" onClick={() => handlePrintPdf(note)} disabled={isGeneratingPdf && printData?.groupName === note.groupName}>
@@ -617,9 +615,10 @@ export default function PurchaseNotes() {
                   </div>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            );
+          })}
+        </tbody>
+      </table>
       </div>
 
       <ConfirmModal 

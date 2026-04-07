@@ -21,6 +21,7 @@ import Employees from './pages/Employees';
 import MaterialItems from './pages/MaterialItems';
 import Stock from './pages/Stock';
 import Recap from './pages/Recap';
+import ProfitMargin from './pages/ProfitMargin';
 import { seedDemoData } from './utils/storage';
 
 function App() {
@@ -55,6 +56,7 @@ function App() {
           <Route path="/production/employees" element={<Employees />} />
           <Route path="/production/material-items" element={<MaterialItems />} />
           <Route path="/recap" element={<Recap />} />
+          <Route path="/profit-margin" element={<ProfitMargin />} />
           <Route path="/reports" element={<Reports />} />
         </Route>
       </Routes>
