@@ -272,7 +272,12 @@ export default function PurchaseNoteForm() {
 
         // Tambahkan sub-items untuk jagung, wortel, buncis
         MIX_VEG_INGREDIENTS.forEach(ingName => {
-          const mb = master.find(b => b.name.toLowerCase() === ingName.toLowerCase());
+          // Cari dengan flexible matching - prioritaskan exact match, lalu partial match
+          let mb = master.find(b => b.name.toLowerCase() === ingName.toLowerCase());
+          if (!mb) {
+            // Coba partial match untuk varian seperti "jagung manis", "jagung pipil", dll
+            mb = master.find(b => b.name.toLowerCase().includes(ingName.toLowerCase()));
+          }
           const q = (baseQty / 3);
           const invQ = (baseInvoiceQty / 3);
 
