@@ -687,9 +687,9 @@ export default function PurchaseNoteForm() {
                     const isSubItem = item.isSubItem;
                     const isMixVegChild = isSubItem && item.parentName === 'Mix Vegetable';
 
-                    // Calculate margin
-                    const totalBeli = Number(item.pricePerUnit || 0) * Number(item.qtyNota || 0);
-                    const totalJual = Number(item.sellPrice || 0) * Number(item.qtyNota || 0);
+                    // Use stored values, don't recalculate
+                    const totalBeli = Number(item.totalCost) || 0;
+                    const totalJual = Number(item.salesRevenue) || (Number(item.sellPrice || 0) * Number(item.qtyNota || 0));
                     const laba = totalJual - totalBeli;
                     const marginPercent = totalJual > 0 ? (laba / totalJual) * 100 : 0;
 
@@ -746,7 +746,19 @@ export default function PurchaseNoteForm() {
                           <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" />
                         </td>
                         <td>
-                          <input type="text" className="form-input form-input-sm text-right font-bold" style={{ color: '#f97316', fontSize: '13px' }} value={formatNumberInput(item.totalCost)} onChange={e => updateItem(idx, 'totalCost', parseNumberInput(e.target.value))} placeholder="Total Beli" />
+                          <input
+                            type="text"
+                            className="form-input form-input-sm text-right"
+                            style={{
+                              color: '#f97316',
+                              fontSize: '13px',
+                              fontWeight: 'bold',
+                              minWidth: '100px'
+                            }}
+                            value={formatNumberInput(item.totalCost)}
+                            onChange={e => updateItem(idx, 'totalCost', parseNumberInput(e.target.value))}
+                            placeholder="0"
+                          />
                         </td>
                         <td>
                           <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
