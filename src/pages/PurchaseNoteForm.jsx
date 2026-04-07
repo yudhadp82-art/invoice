@@ -120,7 +120,21 @@ export default function PurchaseNoteForm() {
           const mName = (newItem.materialName || '').toLowerCase();
           if (!newItem.materialId && mName && master.length > 0) {
             const mb = master.find(m => (m.name || '').toLowerCase() === mName);
-            if (mb) newItem.materialId = mb.id;
+            if (mb) {
+              newItem.materialId = mb.id;
+              // Auto-fill sellPrice from master if not set
+              if (!newItem.sellPrice && mb.sellPrice) {
+                newItem.sellPrice = Number(mb.sellPrice) || 0;
+              }
+            }
+          }
+          // Calculate invoicePrice if missing (for old records)
+          if (!newItem.invoicePrice && newItem.invoiceQty && newItem.salesRevenue) {
+            newItem.invoicePrice = Number(newItem.salesRevenue) / Number(newItem.invoiceQty);
+          }
+          // Recalculate salesRevenue if we have invoiceQty and invoicePrice
+          if (newItem.invoiceQty && newItem.invoicePrice && !newItem.salesRevenue) {
+            newItem.salesRevenue = Number(newItem.invoiceQty) * Number(newItem.invoicePrice);
           }
           newItem.isManuallyEdited = true;
           return newItem;
