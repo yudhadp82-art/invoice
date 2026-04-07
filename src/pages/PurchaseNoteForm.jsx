@@ -78,7 +78,16 @@ export default function PurchaseNoteForm() {
 
   useEffect(() => {
     loadData();
+    window.addEventListener('app-data-mutation', handleDataMutation);
+    return () => window.removeEventListener('app-data-mutation', handleDataMutation);
   }, [id]);
+
+  function handleDataMutation() {
+    // Refresh master bahan data when products change
+    MasterItems.getAll().then(master => {
+      setMasterBahan(master);
+    });
+  }
 
   async function loadData() {
     setLoading(true);
