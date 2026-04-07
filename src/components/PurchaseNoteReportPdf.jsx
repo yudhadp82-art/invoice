@@ -286,11 +286,29 @@ export default function PurchaseNoteReportPdf({
               </thead>
               <tbody style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                 {items.map((it, iIdx) => {
-                  // Calculate margin
+                  // Get sell price - prioritize invoicePrice, fallback to sellPrice
+                  const sellPrice = Number(it.invoicePrice) || Number(it.sellPrice) || 0;
+
+                  // Calculate totals
                   const totalBeli = Number(it.totalCost) || 0;
-                  const totalJual = Number(it.salesRevenue) || 0;
+                  const qty = Number(it.invoiceQty) || Number(it.qtyNota) || 0;
+                  const totalJual = qty * sellPrice;
+
+                  // Calculate margin
                   const margin = totalJual > 0 ? ((totalJual - totalBeli) / totalJual * 100) : 0;
                   const marginColor = margin >= 20 ? '#15803d' : margin >= 10 ? '#f59e0b' : '#dc2626';
+
+                  console.log('PDF Item Debug:', {
+                    name: it.materialName,
+                    invoicePrice: it.invoicePrice,
+                    sellPrice: it.sellPrice,
+                    calculatedSellPrice: sellPrice,
+                    qtyNota: it.qtyNota,
+                    invoiceQty: it.invoiceQty,
+                    totalBeli,
+                    totalJual,
+                    margin
+                  });
 
                   return (
                     <tr key={iIdx}>
@@ -298,7 +316,7 @@ export default function PurchaseNoteReportPdf({
                       <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatNumber(it.qtyNota)} {it.unit}</td>
                       <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatCurrency(it.pricePerUnit)}</td>
                       <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatCurrency(totalBeli)}</td>
-                      <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatCurrency(it.invoicePrice || it.sellPrice || 0)}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px', fontWeight: '600', color: '#3b82f6' }}>{formatCurrency(sellPrice)}</td>
                       <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px', color: '#3b82f6' }}>{formatCurrency(totalJual)}</td>
                       <td style={{ textAlign: 'center', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '700', color: marginColor }}>
                         {totalJual > 0 ? margin.toFixed(1) + '%' : '-'}

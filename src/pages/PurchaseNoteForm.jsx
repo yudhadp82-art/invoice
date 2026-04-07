@@ -118,24 +118,44 @@ export default function PurchaseNoteForm() {
         const hydrated = actualItems.map(it => {
           let newItem = { ...it };
           const mName = (newItem.materialName || '').toLowerCase();
-          if (!newItem.materialId && mName && master.length > 0) {
-            const mb = master.find(m => (m.name || '').toLowerCase() === mName);
-            if (mb) {
+
+          // Find master product
+          let mb = null;
+          if (newItem.materialId) {
+            mb = master.find(m => m.id === newItem.materialId);
+          }
+          if (!mb && mName && master.length > 0) {
+            mb = master.find(m => (m.name || '').toLowerCase() === mName);
+          }
+
+          if (mb) {
+            // Set materialId if missing
+            if (!newItem.materialId) {
               newItem.materialId = mb.id;
-              // Auto-fill sellPrice from master if not set
-              if (!newItem.sellPrice && mb.sellPrice) {
-                newItem.sellPrice = Number(mb.sellPrice) || 0;
-              }
+            }
+            // Auto-fill sellPrice from master if not set or is 0
+            if ((!newItem.sellPrice || newItem.sellPrice === 0) && mb.sellPrice && mb.sellPrice > 0) {
+              newItem.sellPrice = Number(mb.sellPrice);
             }
           }
+
           // Calculate invoicePrice if missing (for old records)
-          if (!newItem.invoicePrice && newItem.invoiceQty && newItem.salesRevenue) {
+          if ((!newItem.invoicePrice || newItem.invoicePrice === 0) && newItem.invoiceQty && newItem.salesRevenue) {
             newItem.invoicePrice = Number(newItem.salesRevenue) / Number(newItem.invoiceQty);
           }
-          // Recalculate salesRevenue if we have invoiceQty and invoicePrice
-          if (newItem.invoiceQty && newItem.invoicePrice && !newItem.salesRevenue) {
-            newItem.salesRevenue = Number(newItem.invoiceQty) * Number(newItem.invoicePrice);
+
+          // If invoicePrice is 0 but sellPrice is available, use sellPrice as invoicePrice
+          if ((!newItem.invoicePrice || newItem.invoicePrice === 0) && newItem.sellPrice && newItem.sellPrice > 0) {
+            newItem.invoicePrice = Number(newItem.sellPrice);
           }
+
+          // Recalculate salesRevenue if we have invoiceQty and invoicePrice
+          const qty = Number(newItem.invoiceQty) || Number(newItem.qtyNota) || 0;
+          const invPrice = Number(newItem.invoicePrice) || 0;
+          if (qty > 0 && invPrice > 0) {
+            newItem.salesRevenue = qty * invPrice;
+          }
+
           newItem.isManuallyEdited = true;
           return newItem;
         });
