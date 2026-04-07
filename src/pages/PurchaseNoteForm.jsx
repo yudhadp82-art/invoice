@@ -907,6 +907,68 @@ export default function PurchaseNoteForm() {
               <div className="p-md border-top"><button type="button" className="btn btn-ghost btn-sm" onClick={addItem}><FiPlus /> Tambah Item</button></div>
             </div>
 
+            {/* Rekap Per Supplier */}
+            <div className="card p-md">
+              <div className="flex-between items-center mb-md">
+                <h3 className="m-0 text-sm font-bold uppercase tracking-wider opacity-70">📋 Rekap Pembelian Per Supplier</h3>
+              </div>
+
+              {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).length === 0 ? (
+                <div className="text-center text-muted py-lg">
+                  <em>Belum ada item ditambahkan</em>
+                </div>
+              ) : (
+                <div className="grid grid-2 gap-lg">
+                  {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(supplier => {
+                    const displaySup = supplier === 'H. Falah' ? 'Falahudin' : supplier;
+                    const supplierItems = items.filter(it => (it.supplier || supplierName) === supplier && !it.isSubItem);
+                    const supplierTotal = supplierItems.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+                    const disc = Number(supplierDiscounts[supplier]) || 0;
+                    const finalTotal = supplierTotal - disc;
+
+                    return (
+                      <div key={supplier} className="border rounded-lg p-md" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                        <div className="flex-between items-center mb-sm" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+                          <strong style={{ color: 'var(--accent-primary)', fontSize: '14px' }}>{displaySup}</strong>
+                          <span className="font-bold" style={{ color: 'var(--accent-success)', fontSize: '15px' }}>{formatCurrency(finalTotal)}</span>
+                        </div>
+
+                        <div className="flex flex-col gap-xs">
+                          {supplierItems.length === 0 ? (
+                            <em className="text-xs opacity-30">Tidak ada item</em>
+                          ) : (
+                            supplierItems.map((it, idx) => (
+                              <div key={idx} className="flex-between text-xs" style={{ gap: 12 }}>
+                                <span className="flex-1" style={{ opacity: 0.8 }}>
+                                  {it.materialName || 'Tanpa Nama'}
+                                  {it.isParentItem && (
+                                    <span className="ml-xs text-info" style={{ fontSize: '10px' }}>🥗 Mix</span>
+                                  )}
+                                </span>
+                                <span style={{ opacity: 0.6, minWidth: '50px', textAlign: 'right' }}>
+                                  {fmtNum(it.qtyNota)} {it.unit}
+                                </span>
+                                <span className="font-medium whitespace-nowrap" style={{ minWidth: '80px', textAlign: 'right', color: 'var(--accent-warning)' }}>
+                                  {formatCurrency(it.totalCost)}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {disc > 0 && (
+                          <div className="flex-between text-xs text-danger mt-sm pt-sm" style={{ borderTop: '1px dashed rgba(239,68,68,0.3)' }}>
+                            <span>Diskon</span>
+                            <span>-{formatCurrency(disc)}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
 
             {/* Panel Ringkasan Modern */}
             <div className="card p-0 overflow-hidden border-primary-pale shadow-glow-sm animate-in" style={{ background: 'var(--bg-card)' }}>
