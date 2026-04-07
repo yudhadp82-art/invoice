@@ -182,8 +182,21 @@ export default function PurchaseNoteForm() {
               const mb = master.find(m => (m.name || '').toLowerCase() === pName);
 
               const qty = Number(it.qty) || 0;
-              const invPrice = Number(it.unitPrice) || 0;
+              // Prioritize unitPrice, fallback to subtotal/qty if unitPrice is 0
+              let invPrice = Number(it.unitPrice) || 0;
+              if (invPrice === 0 && it.subtotal && qty > 0) {
+                invPrice = Number(it.subtotal) / qty;
+              }
               const sellPrice = mb ? (Number(mb.sellPrice) || 0) : 0;
+
+              console.log('LoadData import item:', {
+                product: it.productName,
+                unitPrice: it.unitPrice,
+                subtotal: it.subtotal,
+                qty: qty,
+                calculatedInvPrice: invPrice,
+                sellPrice: sellPrice
+              });
 
               return {
                 ...emptyItem,
@@ -427,8 +440,21 @@ export default function PurchaseNoteForm() {
         const mb = masterBahan.find(m => (m.name || '').toLowerCase() === pName);
 
         const qty = Number(it.qty) || 0;
-        const invPrice = Number(it.unitPrice) || 0;
+        // Prioritize unitPrice, fallback to subtotal/qty if unitPrice is 0
+        let invPrice = Number(it.unitPrice) || 0;
+        if (invPrice === 0 && it.subtotal && qty > 0) {
+          invPrice = Number(it.subtotal) / qty;
+        }
         const sellPrice = mb ? (Number(mb.sellPrice) || 0) : 0;
+
+        console.log('Import item:', {
+          product: it.productName,
+          unitPrice: it.unitPrice,
+          subtotal: it.subtotal,
+          qty: qty,
+          calculatedInvPrice: invPrice,
+          sellPrice: sellPrice
+        });
 
         newRawItems.push({
           ...emptyItem,
