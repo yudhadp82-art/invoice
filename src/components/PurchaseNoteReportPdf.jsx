@@ -435,6 +435,73 @@ export default function PurchaseNoteReportPdf({
           </div>
         </div>
 
+        {/* Profit/Loss Calculation */}
+        {(invoicesList || []).length > 0 && (
+          <div className="no-break print-section" style={{ marginTop: 20, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+            <h4 style={{ margin: '0 0 12px 0', fontSize: 13, borderLeft: '4px solid #f59e0b', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>6. Analisis Profit & Loss</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, fontSize: '11px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#f0fdf4', width: '60%' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#166534', marginBottom: 2 }}>Total Penjualan (Invoice)</div>
+                    <div style={{ fontSize: '9px', opacity: 0.7 }}>Jumlah dari semua invoice terhubung</div>
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#f0fdf4', color: '#15803d' }}>
+                    {formatCurrency((invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0))}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Total Biaya Pembelian</div>
+                    <div style={{ fontSize: '9px', opacity: 0.7 }}>Biaya bahan + biaya tambahan</div>
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
+                    -{formatCurrency(grandTotalNet)}
+                  </td>
+                </tr>
+                <tr style={{ background: (() => {
+                  const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+                  const profit = totalRevenue - grandTotalNet;
+                  return profit >= 0 ? '#f0fdf4' : '#fef2f2';
+                })() }}>
+                  <td style={{ padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: '800', width: '60%', color: (() => {
+                    const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+                    const profit = totalRevenue - grandTotalNet;
+                    return profit >= 0 ? '#166534' : '#991b1b';
+                  })() }}>
+                    {(() => {
+                      const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+                      const profit = totalRevenue - grandTotalNet;
+                      return profit >= 0 ? 'PROFIT / LABA BERSIH' : 'LOSS / RUGI';
+                    })()}
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '16px', fontWeight: '900', color: (() => {
+                    const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+                    const profit = totalRevenue - grandTotalNet;
+                    return profit >= 0 ? '#15803d' : '#dc2626';
+                  })() }}>
+                    {(() => {
+                      const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+                      const profit = totalRevenue - grandTotalNet;
+                      return formatCurrency(Math.abs(profit));
+                    })()}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan="2" style={{ padding: '6px 12px', border: '1px solid #e2e8f0', fontSize: '9px', textAlign: 'center', background: '#f8fafc', opacity: 0.8 }}>
+                    {(() => {
+                      const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+                      const profit = totalRevenue - grandTotalNet;
+                      const margin = totalRevenue > 0 ? ((profit / totalRevenue) * 100).toFixed(1) : 0;
+                      return `Margin: ${margin}% (${profit >= 0 ? 'Profit' : 'Loss'} dari total penjualan)`;
+                    })()}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+
       {/* Signatures */}
       <div className="no-break" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, fontSize: 11, padding: '0 20px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         <div style={{ textAlign: 'center', width: 160 }}>
