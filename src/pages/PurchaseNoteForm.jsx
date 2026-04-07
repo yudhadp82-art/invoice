@@ -464,7 +464,7 @@ export default function PurchaseNoteForm() {
   function updateItem(index, field, value) {
     const newItems = [...items];
     const it = { ...newItems[index] };
-    if (field === 'materialId' || field === 'qtyNota' || field === 'pricePerUnit' || field === 'sellPrice' || field === 'totalCost') it.isManuallyEdited = true;
+    if (field === 'materialId' || field === 'qtyNota' || field === 'pricePerUnit' || field === 'totalCost') it.isManuallyEdited = true;
 
     if (field === 'materialId') {
       const m = masterBahan.find(b => b.id === value);
@@ -472,7 +472,14 @@ export default function PurchaseNoteForm() {
         it.materialId = value;
         it.materialName = m.name;
         it.unit = m.unit;
+        // Auto-fill sellPrice from product data
         it.sellPrice = m.sellPrice || 0;
+        // Recalculate with new sell price
+        const qty = Number(it.qtyNota) || 0;
+        it.salesRevenue = qty * Number(it.sellPrice);
+        it.purchaseCost = Number(it.totalCost) || 0;
+        it.profit = it.salesRevenue - it.purchaseCost;
+        it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
       }
     } else if (field === 'qtyNota') {
       it[field] = value;
