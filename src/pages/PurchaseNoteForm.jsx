@@ -17,6 +17,7 @@ const emptyItem = {
   parentName: '',
   qtyNota: 0,
   invoiceQty: 0,
+  invoicePrice: 0,
   pricePerUnit: 0,
   sellPrice: 0,
   purchaseCost: 0,
@@ -179,17 +180,23 @@ export default function PurchaseNoteForm() {
             .map(it => {
               const pName = (it.productName || '').toLowerCase();
               const mb = master.find(m => (m.name || '').toLowerCase() === pName);
+
+              const qty = Number(it.qty) || 0;
+              const invPrice = Number(it.unitPrice) || 0;
+              const sellPrice = mb ? (Number(mb.sellPrice) || 0) : 0;
+
               return {
                 ...emptyItem,
                 materialId: it.productId || (mb ? mb.id : ''),
                 materialName: it.productName,
                 unit: it.unit || (mb ? mb.unit : 'kg'),
-                qtyNota: Number(it.qty) || 0,
-                invoiceQty: Number(it.qty) || 0,
+                qtyNota: qty,
+                invoiceQty: qty,
+                invoicePrice: invPrice,
                 pricePerUnit: 0,
-                sellPrice: 0,
+                sellPrice: sellPrice,
                 purchaseCost: 0,
-                salesRevenue: 0,
+                salesRevenue: qty * invPrice,
                 profit: 0,
                 marginPercent: 0,
                 totalCost: 0
@@ -222,10 +229,12 @@ export default function PurchaseNoteForm() {
         const baseQty = Number(it.qtyNota) || 0;
         const basePrice = Number(it.pricePerUnit) || 0;
         const baseSellPrice = Number(it.sellPrice) || 0;
+        const baseInvoiceQty = Number(it.invoiceQty) || 0;
+        const baseInvoicePrice = Number(it.invoicePrice) || 0;
 
         // Tambahkan parent item "Mix Vegetable"
         const parentPurchaseCost = baseQty * basePrice;
-        const parentSalesRevenue = baseQty * baseSellPrice;
+        const parentSalesRevenue = baseInvoiceQty * baseInvoicePrice;
         const parentProfit = parentSalesRevenue - parentPurchaseCost;
         const parentMarginPercent = parentSalesRevenue > 0 ? (parentProfit / parentSalesRevenue) * 100 : 0;
 
@@ -237,7 +246,8 @@ export default function PurchaseNoteForm() {
           isParentItem: true,
           unit: 'kg',
           qtyNota: baseQty,
-          invoiceQty: Number(it.invoiceQty) || 0,
+          invoiceQty: baseInvoiceQty,
+          invoicePrice: baseInvoicePrice,
           pricePerUnit: basePrice,
           sellPrice: baseSellPrice,
           purchaseCost: parentPurchaseCost,
@@ -251,9 +261,10 @@ export default function PurchaseNoteForm() {
         MIX_VEG_INGREDIENTS.forEach(ingName => {
           const mb = master.find(b => b.name.toLowerCase() === ingName.toLowerCase());
           const q = (baseQty / 3);
+          const invQ = (baseInvoiceQty / 3);
 
           const purchaseCost = q * basePrice;
-          const salesRevenue = q * baseSellPrice;
+          const salesRevenue = invQ * baseInvoicePrice;
           const profit = salesRevenue - purchaseCost;
           const marginPercent = salesRevenue > 0 ? (profit / salesRevenue) * 100 : 0;
 
@@ -265,7 +276,8 @@ export default function PurchaseNoteForm() {
             parentName: 'Mix Vegetable',
             unit: mb ? mb.unit : 'kg',
             qtyNota: Number(q.toFixed(2)),
-            invoiceQty: Number((it.invoiceQty || 0) / 3).toFixed(2),
+            invoiceQty: Number(invQ.toFixed(2)),
+            invoicePrice: baseInvoicePrice,
             pricePerUnit: basePrice,
             sellPrice: baseSellPrice,
             purchaseCost: purchaseCost,
@@ -299,6 +311,7 @@ export default function PurchaseNoteForm() {
             purchaseCost: 0,
             salesRevenue: 0,
             profit: 0,
+            invoicePrice: 0,
             subItems: []
           });
         }
@@ -309,6 +322,7 @@ export default function PurchaseNoteForm() {
         parent.purchaseCost += Number(it.purchaseCost) || 0;
         parent.salesRevenue += Number(it.salesRevenue) || 0;
         parent.profit += Number(it.profit) || 0;
+        parent.invoicePrice = Number(it.invoicePrice) || 0;
         parent.subItems.push(it);
         return;
       }
@@ -324,12 +338,18 @@ export default function PurchaseNoteForm() {
         const addCost = Number(it.totalCost) || 0;
         const addPurchaseCost = Number(it.purchaseCost) || 0;
         const addSalesRevenue = Number(it.salesRevenue) || 0;
+        const addInvoicePrice = Number(it.invoicePrice) || 0;
 
         ex.qtyNota += addQty;
         ex.invoiceQty += addInvQty;
         ex.totalCost += addCost;
         ex.purchaseCost += addPurchaseCost;
         ex.salesRevenue += addSalesRevenue;
+
+        // Keep the invoice price from the most recent item or average
+        if (addInvoicePrice > 0) {
+          ex.invoicePrice = addInvoicePrice;
+        }
 
         // Harga rata-rata tertimbang
         ex.pricePerUnit = ex.qtyNota > 0 ? Number((ex.totalCost / ex.qtyNota).toFixed(2)) : 0;
@@ -348,6 +368,7 @@ export default function PurchaseNoteForm() {
           ...it,
           qtyNota: Number(it.qtyNota) || 0,
           invoiceQty: Number(it.invoiceQty) || 0,
+          invoicePrice: Number(it.invoicePrice) || 0,
           totalCost: Number(it.totalCost) || 0,
           pricePerUnit: Number(it.pricePerUnit) || 0,
           sellPrice: Number(it.sellPrice) || 0,
@@ -371,6 +392,7 @@ export default function PurchaseNoteForm() {
         unit: 'kg',
         qtyNota: parent.qtyNota,
         invoiceQty: parent.invoiceQty,
+        invoicePrice: parent.invoicePrice,
         pricePerUnit: parent.qtyNota > 0 ? Number((parent.totalCost / parent.qtyNota).toFixed(2)) : 0,
         sellPrice: parent.qtyNota > 0 ? Number((parent.salesRevenue / parent.qtyNota).toFixed(2)) : 0,
         purchaseCost: parent.purchaseCost,
@@ -403,18 +425,23 @@ export default function PurchaseNoteForm() {
       (inv.items || []).forEach(it => {
         const pName = (it.productName || '').toLowerCase();
         const mb = masterBahan.find(m => (m.name || '').toLowerCase() === pName);
-        
+
+        const qty = Number(it.qty) || 0;
+        const invPrice = Number(it.unitPrice) || 0;
+        const sellPrice = mb ? (Number(mb.sellPrice) || 0) : 0;
+
         newRawItems.push({
           ...emptyItem,
           materialId: it.productId || (mb ? mb.id : ''),
           materialName: it.productName,
           unit: it.unit || (mb ? mb.unit : 'kg'),
-          qtyNota: Number(it.qty) || 0,
-          invoiceQty: Number(it.qty) || 0,
+          qtyNota: qty,
+          invoiceQty: qty,
+          invoicePrice: invPrice,
           pricePerUnit: 0,
-          sellPrice: 0,
+          sellPrice: sellPrice,
           purchaseCost: 0,
-          salesRevenue: 0,
+          salesRevenue: qty * invPrice,
           profit: 0,
           marginPercent: 0,
           totalCost: 0
@@ -527,6 +554,24 @@ export default function PurchaseNoteForm() {
       it.purchaseCost = Number(it.totalCost) || 0;
       it.profit = it.salesRevenue - it.purchaseCost;
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
+    } else if (field === 'invoiceQty') {
+      // Total Jual = Qty Invoice × Harga Invoice per item
+      it[field] = value;
+      const invoiceQty = Number(value) || 0;
+      const invoicePrice = Number(it.invoicePrice) || 0;
+      it.salesRevenue = invoiceQty * invoicePrice;
+      it.purchaseCost = Number(it.totalCost) || 0;
+      it.profit = it.salesRevenue - it.purchaseCost;
+      it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
+    } else if (field === 'invoicePrice') {
+      // Total Jual = Qty Invoice × Harga Invoice per item
+      it[field] = value;
+      const invoiceQty = Number(it.invoiceQty) || 0;
+      const invoicePrice = Number(value) || 0;
+      it.salesRevenue = invoiceQty * invoicePrice;
+      it.purchaseCost = Number(it.totalCost) || 0;
+      it.profit = it.salesRevenue - it.purchaseCost;
+      it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
     } else {
       it[field] = value;
     }
@@ -602,10 +647,22 @@ export default function PurchaseNoteForm() {
     const recap = groupRecapData[grp] || [];
     const newItems = recap.map(r => {
       const mb = masterBahan.find(b => b.name.toLowerCase() === r.name.toLowerCase());
+      const sellPrice = mb ? (Number(mb.sellPrice) || 0) : 0;
       return {
-        ...emptyItem, materialId: mb?.id || '', materialName: r.name, unit: r.unit || mb?.unit || 'kg',
-        qtyNota: r.totalQty, pricePerUnit: 0, sellPrice: 0,
-        purchaseCost: 0, salesRevenue: 0, profit: 0, marginPercent: 0, totalCost: 0
+        ...emptyItem,
+        materialId: mb?.id || '',
+        materialName: r.name,
+        unit: r.unit || mb?.unit || 'kg',
+        qtyNota: r.totalQty,
+        invoiceQty: r.totalQty,
+        invoicePrice: 0,
+        pricePerUnit: 0,
+        sellPrice: sellPrice,
+        purchaseCost: 0,
+        salesRevenue: 0,
+        profit: 0,
+        marginPercent: 0,
+        totalCost: 0
       };
     });
     setItems(expandItems(newItems, masterBahan));
@@ -682,6 +739,7 @@ export default function PurchaseNoteForm() {
                     <th style={{ width: 120 }}>Harga Beli</th>
                     <th style={{ width: 120 }}>Total Beli</th>
                     <th style={{ width: 120 }}>Harga Jual</th>
+                    <th style={{ width: 120 }}>Harga Inv</th>
                     <th style={{ width: 120 }}>Total Jual</th>
                     <th style={{ width: 120 }}>Laba</th>
                     <th style={{ width: 100 }}>Margin %</th>
@@ -694,9 +752,10 @@ export default function PurchaseNoteForm() {
                     const isSubItem = item.isSubItem;
                     const isMixVegChild = isSubItem && item.parentName === 'Mix Vegetable';
 
-                    // Use stored values, don't recalculate
+                    // Calculate values
                     const totalBeli = Number(item.totalCost) || 0;
-                    const totalJual = Number(item.salesRevenue) || (Number(item.sellPrice || 0) * Number(item.qtyNota || 0));
+                    // Total Jual = Qty Invoice × Harga Invoice per item
+                    const totalJual = Number(item.salesRevenue) || 0;
                     const laba = totalJual - totalBeli;
                     const marginPercent = totalJual > 0 ? (laba / totalJual) * 100 : 0;
 
@@ -743,8 +802,15 @@ export default function PurchaseNoteForm() {
                             )}
                           </div>
                         </td>
-                        <td className="text-center font-bold text-info" style={{ fontSize: '0.85rem' }}>
-                          {item.invoiceQty > 0 ? fmtNum(item.invoiceQty) : '-'}
+                        <td>
+                          <input
+                            type="text"
+                            className="form-input form-input-sm text-center font-bold text-info"
+                            style={{ fontSize: '0.85rem' }}
+                            value={formatNumberInput(item.invoiceQty)}
+                            onChange={e => updateItem(idx, 'invoiceQty', parseNumberInput(e.target.value))}
+                            placeholder="0"
+                          />
                         </td>
                         <td>
                           <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} />
@@ -769,6 +835,17 @@ export default function PurchaseNoteForm() {
                         </td>
                         <td>
                           <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="form-input form-input-sm text-center font-bold"
+                            style={{ color: '#3b82f6', fontSize: '13px' }}
+                            value={formatNumberInput(item.invoicePrice)}
+                            onChange={e => updateItem(idx, 'invoicePrice', parseNumberInput(e.target.value))}
+                            placeholder="Harga Invoice"
+                            title="Harga satuan dari invoice"
+                          />
                         </td>
                         <td className="text-right font-bold" style={{ color: '#3b82f6', fontSize: '13px' }}>
                           {formatCurrency(totalJual)}
