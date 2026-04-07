@@ -387,43 +387,10 @@ export default function PurchaseNoteReportPdf({
         </div>
       )}
 
-      {/* SECTION 4: ADDITIONAL COSTS */}
-      {totalAdditionalCosts > 0 && (
-        <div className="print-section page-break-before" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-          <h4 style={{ margin: '16px 0 12px 0', fontSize: 13, borderLeft: '4px solid #8b5cf6', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>4. Biaya Tambahan</h4>
-          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', borderSpacing: 0, fontSize: '10px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-            <tbody>
-              {Number(additionalCosts?.labor) > 0 && (
-                <tr>
-                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600', width: '60%' }}>Biaya Tenaga Kerja</td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{formatCurrency(additionalCosts.labor)}</td>
-                </tr>
-              )}
-              {Number(additionalCosts?.shipping) > 0 && (
-                <tr>
-                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>Biaya Pengiriman</td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{formatCurrency(additionalCosts.shipping)}</td>
-                </tr>
-              )}
-              {Number(additionalCosts?.productionMaterial) > 0 && (
-                <tr>
-                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>Biaya Bahan Produksi</td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{formatCurrency(additionalCosts.productionMaterial)}</td>
-                </tr>
-              )}
-              <tr style={{ background: '#f3f4f6', fontWeight: '700' }}>
-                <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontSize: '10px' }}>Total Biaya Tambahan</td>
-                <td style={{ textAlign: 'right', padding: '6px 8px', border: '1px solid #cbd5e1', fontSize: '10px', color: '#8b5cf6' }}>{formatCurrency(totalAdditionalCosts)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-
-        {/* SECTION 5: RINGKASAN PEMBAYARAN PER SUPPLIER */}
+        {/* SECTION 4: RINGKASAN PEMBAYARAN PER SUPPLIER */}
         {supplierGroups.length > 0 && (
           <div className="print-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: 20 }}>
-            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #06b6d4', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>5. Ringkasan Pembayaran per Supplier</h4>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #06b6d4', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>4. Ringkasan Pembayaran per Supplier</h4>
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
               <thead>
                 <tr>
@@ -478,7 +445,7 @@ export default function PurchaseNoteReportPdf({
         {/* Profit/Loss Calculation */}
         {(invoicesList || []).length > 0 && (
           <div className="no-break print-section" style={{ marginTop: 20, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: 13, borderLeft: '4px solid #f59e0b', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>6. Analisis Profit & Loss</h4>
+            <h4 style={{ margin: '0 0 12px 0', fontSize: 13, borderLeft: '4px solid #f59e0b', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>5. Analisis Profit & Loss</h4>
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, fontSize: '11px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
               <tbody>
                 <tr>
@@ -541,6 +508,39 @@ export default function PurchaseNoteReportPdf({
             </table>
           </div>
         )}
+
+      {/* SECTION 6: ADDITIONAL COSTS */}
+      {totalAdditionalCosts > 0 && (
+        <div className="print-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: 20 }}>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: 13, borderLeft: '4px solid #8b5cf6', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>6. Biaya Tambahan</h4>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', borderSpacing: 0, fontSize: '10px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+            <tbody>
+              {Number(additionalCosts?.labor) > 0 && (
+                <tr>
+                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600', width: '60%' }}>Biaya Tenaga Kerja</td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{formatCurrency(additionalCosts.labor)}</td>
+                </tr>
+              )}
+              {Number(additionalCosts?.shipping) > 0 && (
+                <tr>
+                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>Biaya Pengiriman</td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{formatCurrency(additionalCosts.shipping)}</td>
+                </tr>
+              )}
+              {Number(additionalCosts?.productionMaterial) > 0 && (
+                <tr>
+                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>Biaya Bahan Produksi</td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{formatCurrency(additionalCosts.productionMaterial)}</td>
+                </tr>
+              )}
+              <tr style={{ background: '#f3f4f6', fontWeight: '700' }}>
+                <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontSize: '10px' }}>Total Biaya Tambahan</td>
+                <td style={{ textAlign: 'right', padding: '6px 8px', border: '1px solid #cbd5e1', fontSize: '10px', color: '#8b5cf6' }}>{formatCurrency(totalAdditionalCosts)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Signatures */}
       <div className="no-break" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, fontSize: 11, padding: '0 20px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
