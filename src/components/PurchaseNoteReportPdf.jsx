@@ -70,13 +70,18 @@ export default function PurchaseNoteReportPdf({
     totalFromSuppliers += netToPay;
   });
 
-  const grandTotalNet = totalFromSuppliers + totalAdditionalCosts;
+  // NEW FORMULA: Grand Total = Total Pembelian + Biaya Tenaga Kerja - Total Invoice Terkait
+  const totalInvoiceRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+  const laborCost = Number(additionalCosts?.labor) || 0;
+  const grandTotalNet = totalFromSuppliers + laborCost - totalInvoiceRevenue;
 
   console.log('Calculated totals:', {
     totalItemsCost,
     totalDiscounts,
     totalAdditionalCosts,
     totalFromSuppliers,
+    laborCost,
+    totalInvoiceRevenue,
     grandTotalNet
   });
 
@@ -286,8 +291,27 @@ export default function PurchaseNoteReportPdf({
               </thead>
               <tbody style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                 {items.map((it, iIdx) => {
-                  // Get sell price - prioritize invoicePrice, fallback to sellPrice
-                  const sellPrice = Number(it.invoicePrice) || Number(it.sellPrice) || 0;
+                  // Get sell price from connected invoice items
+                  let sellPrice = 0;
+
+                  // Try to find matching invoice item by product name
+                  if (invoicesList && invoicesList.length > 0) {
+                    invoicesList.forEach(inv => {
+                      if (inv.items && inv.items.length > 0) {
+                        const matchingInvoiceItem = inv.items.find(invItem =>
+                          (invItem.productName || '').toLowerCase() === (it.materialName || '').toLowerCase()
+                        );
+                        if (matchingInvoiceItem && matchingInvoiceItem.unitPrice) {
+                          sellPrice = Number(matchingInvoiceItem.unitPrice) || 0;
+                        }
+                      }
+                    });
+                  }
+
+                  // Fallback to stored values if not found in invoice
+                  if (sellPrice === 0) {
+                    sellPrice = Number(it.invoicePrice) || Number(it.sellPrice) || 0;
+                  }
 
                   // Calculate totals
                   const totalBeli = Number(it.totalCost) || 0;
@@ -302,6 +326,7 @@ export default function PurchaseNoteReportPdf({
                     name: it.materialName,
                     invoicePrice: it.invoicePrice,
                     sellPrice: it.sellPrice,
+                    foundInvoicePrice: sellPrice !== (Number(it.invoicePrice) || Number(it.sellPrice) || 0),
                     calculatedSellPrice: sellPrice,
                     qtyNota: it.qtyNota,
                     invoiceQty: it.invoiceQty,
