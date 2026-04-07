@@ -275,35 +275,57 @@ export default function PurchaseNoteReportPdf({
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
               <thead style={{ pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>
                 <tr>
-                  <th style={{ textAlign: 'left', color: '#475569', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Bahan Baku / Material</th>
-                  <th style={{ textAlign: 'center', color: '#475569', width: '15%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Qty</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '18%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Harga Satuan</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '18%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Total Biaya</th>
+                  <th style={{ textAlign: 'left', color: '#475569', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Bahan Baku</th>
+                  <th style={{ textAlign: 'center', color: '#475569', width: '10%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Qty</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Harga Beli</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Total Beli</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Harga Jual</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Total Jual</th>
+                  <th style={{ textAlign: 'center', color: '#475569', width: '11%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 'bold' }}>Margin %</th>
                 </tr>
               </thead>
               <tbody style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                {items.map((it, iIdx) => (
-                  <tr key={iIdx}>
-                    <td style={{ color: '#1e293b', wordBreak: 'break-word', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{it.isSubItem ? '↳ ' : ''}{it.materialName}</td>
-                    <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{formatNumber(it.qtyNota)} {it.unit}</td>
-                    <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{formatCurrency(it.pricePerUnit)}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{formatCurrency(it.totalCost)}</td>
-                  </tr>
-                ))}
+                {items.map((it, iIdx) => {
+                  // Calculate margin
+                  const totalBeli = Number(it.totalCost) || 0;
+                  const totalJual = Number(it.salesRevenue) || 0;
+                  const margin = totalJual > 0 ? ((totalJual - totalBeli) / totalJual * 100) : 0;
+                  const marginColor = margin >= 20 ? '#15803d' : margin >= 10 ? '#f59e0b' : '#dc2626';
+
+                  return (
+                    <tr key={iIdx}>
+                      <td style={{ color: '#1e293b', wordBreak: 'break-word', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{it.isSubItem ? '↳ ' : ''}{it.materialName}</td>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatNumber(it.qtyNota)} {it.unit}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatCurrency(it.pricePerUnit)}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatCurrency(totalBeli)}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px' }}>{formatCurrency(it.invoicePrice || it.sellPrice || 0)}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '9px', color: '#3b82f6' }}>{formatCurrency(totalJual)}</td>
+                      <td style={{ textAlign: 'center', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '700', color: marginColor }}>
+                        {totalJual > 0 ? margin.toFixed(1) + '%' : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {/* Summary Rows for this Supplier */}
                 <tr className="summary-row" style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                  <td colSpan="3" style={{ textAlign: 'right', color: '#64748b', fontSize: '10px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Subtotal:</td>
+                  <td colSpan="3" style={{ textAlign: 'right', color: '#64748b', fontSize: '9px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Subtotal Beli:</td>
                   <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{formatCurrency(subtotal)}</td>
+                  <td colSpan="2"></td>
+                  <td></td>
                 </tr>
                 {discount > 0 && (
                   <tr className="summary-row" style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                    <td colSpan="3" style={{ textAlign: 'right', color: '#ef4444', fontSize: '10px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Potongan Diskon:</td>
+                    <td colSpan="3" style={{ textAlign: 'right', color: '#ef4444', fontSize: '9px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Potongan Diskon:</td>
                     <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#ef4444', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>-{formatCurrency(discount)}</td>
+                    <td colSpan="2"></td>
+                    <td></td>
                   </tr>
                 )}
                 <tr className="summary-row" style={{ background: '#f0fdf4', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                  <td colSpan="3" style={{ textAlign: 'right', fontSize: '11px', fontWeight: '700', color: '#166534', padding: '5px 6px', border: '1px solid #e2e8f0' }}>TOTAL BAYAR KE {s.toUpperCase()}:</td>
-                  <td style={{ textAlign: 'right', fontSize: '12px', fontWeight: '800', color: '#15803d', padding: '5px 6px', border: '1px solid #e2e8f0' }}>{formatCurrency(netToPay)}</td>
+                  <td colSpan="3" style={{ textAlign: 'right', fontSize: '10px', fontWeight: '700', color: '#166534', padding: '5px 6px', border: '1px solid #e2e8f0' }}>TOTAL BAYAR KE {s.toUpperCase()}:</td>
+                  <td style={{ textAlign: 'right', fontSize: '11px', fontWeight: '800', color: '#15803d', padding: '5px 6px', border: '1px solid #e2e8f0' }}>{formatCurrency(netToPay)}</td>
+                  <td colSpan="2"></td>
+                  <td></td>
                 </tr>
               </tbody>
             </table>
