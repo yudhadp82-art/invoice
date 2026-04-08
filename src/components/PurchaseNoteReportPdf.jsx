@@ -83,6 +83,23 @@ export default function PurchaseNoteReportPdf({
     totalInvoiceRevenue,
     grandTotalNet
   });
+  // Pre-calculate price map for Section 1 aggregates
+  const materialPriceMap = {};
+  (purchaseItems || []).forEach(it => {
+    const key = (it.materialName || '').toLowerCase().trim();
+    if (!key) return;
+    if (!materialPriceMap[key]) {
+      materialPriceMap[key] = { total: 0, count: 0 };
+    }
+    materialPriceMap[key].total += (Number(it.pricePerUnit) || 0);
+    materialPriceMap[key].count += 1;
+  });
+
+  const getAvgPrice = (name) => {
+    const key = (name || '').toLowerCase().trim();
+    const data = materialPriceMap[key];
+    return data && data.count > 0 ? data.total / data.count : 0;
+  };
 
   return (
     <>
@@ -208,18 +225,26 @@ export default function PurchaseNoteReportPdf({
           <thead>
             <tr>
               <th style={{ textAlign: 'left', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Nama Bahan Baku</th>
-              <th style={{ textAlign: 'center', width: '20%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Total Kebutuhan</th>
-              <th style={{ textAlign: 'center', width: '15%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Satuan</th>
+              <th style={{ textAlign: 'center', width: '15%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Total Qty</th>
+              <th style={{ textAlign: 'center', width: '10%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Satuan</th>
+              <th style={{ textAlign: 'right', width: '20%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Harga Satuan</th>
+              <th style={{ textAlign: 'right', width: '20%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Total</th>
             </tr>
           </thead>
           <tbody>
-            {(groupRecap || []).map((it, idx) => (
-              <tr key={idx}>
-                <td style={{ fontWeight: '600', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{it.name}</td>
-                <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{formatNumber(it.totalQty)}</td>
-                <td style={{ textAlign: 'center', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{it.unit || 'kg'}</td>
-              </tr>
-            ))}
+            {(groupRecap || []).map((it, idx) => {
+              const avgPrice = getAvgPrice(it.name);
+              const rowTotal = avgPrice * (Number(it.totalQty) || 0);
+              return (
+                <tr key={idx}>
+                  <td style={{ fontWeight: '600', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{it.name}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{formatNumber(it.totalQty)}</td>
+                  <td style={{ textAlign: 'center', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{it.unit || 'kg'}</td>
+                  <td style={{ textAlign: 'right', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{avgPrice > 0 ? formatCurrency(avgPrice) : '-'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{rowTotal > 0 ? formatCurrency(rowTotal) : '-'}</td>
+                </tr>
+              );
+            })}
             {(!groupRecap || groupRecap.length === 0) && (
               <tr><td colSpan="3" style={{ padding: 10, textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0', fontSize: '10px' }}>Tidak ada data rekap grup</td></tr>
             )}
