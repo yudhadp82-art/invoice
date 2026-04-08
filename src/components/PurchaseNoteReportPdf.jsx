@@ -70,17 +70,16 @@ export default function PurchaseNoteReportPdf({
     totalFromSuppliers += netToPay;
   });
 
-  // NEW FORMULA: Grand Total = Total Pembelian + Biaya Tenaga Kerja - Total Invoice Terkait
   const totalInvoiceRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-  const laborCost = Number(additionalCosts?.labor) || 0;
-  const grandTotalNet = totalFromSuppliers + laborCost - totalInvoiceRevenue;
+  const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
+  const grandTotalNet = totalExpenses;
 
   console.log('Calculated totals:', {
     totalItemsCost,
     totalDiscounts,
     totalAdditionalCosts,
     totalFromSuppliers,
-    laborCost,
+    totalExpenses,
     totalInvoiceRevenue,
     grandTotalNet
   });

@@ -28,6 +28,18 @@ const emptyItem = {
 };
 
 const MIX_VEG_INGREDIENTS = ['Wortel', 'Buncis', 'Jagung'];
+const MIX_VEG_PARENT_ID = 'mix-vegetable-parent';
+const MIX_VEG_NAME = '🥗 Mix Vegetable (Paket)';
+
+function ensureMixVegetableInMaster(master = []) {
+  const exists = master.some(
+    (item) =>
+      item.id === MIX_VEG_PARENT_ID ||
+      String(item.name || '').trim().toLowerCase().includes('mix vegetable')
+  );
+  if (exists) return master;
+  return [{ id: MIX_VEG_PARENT_ID, name: MIX_VEG_NAME, unit: 'kg', sellPrice: 0 }, ...master];
+}
 
 // Format angka: ribuan pakai titik, hilangkan ,00 desimal
 function fmtNum(val) {
@@ -85,7 +97,7 @@ export default function PurchaseNoteForm() {
   function handleDataMutation() {
     // Refresh master bahan data when products change
     MasterItems.getAll().then(master => {
-      setMasterBahan(master);
+      setMasterBahan(ensureMixVegetableInMaster(master));
     });
   }
 
@@ -94,7 +106,7 @@ export default function PurchaseNoteForm() {
     setError(null);
     try {
       const master = await MasterItems.getAll();
-      setMasterBahan(master);
+      setMasterBahan(ensureMixVegetableInMaster(master));
 
       let actualItems = [...items]; 
       if (isEditing) {
@@ -296,8 +308,8 @@ export default function PurchaseNoteForm() {
 
         result.push({
           ...emptyItem,
-          materialId: 'mix-vegetable-parent',
-          materialName: 'Mix Vegetable',
+          materialId: it.materialId || MIX_VEG_PARENT_ID,
+          materialName: it.materialName || MIX_VEG_NAME,
           isSubItem: false,
           isParentItem: true,
           unit: 'kg',
@@ -313,16 +325,10 @@ export default function PurchaseNoteForm() {
           totalCost: parentPurchaseCost
         });
 
-        // Tambahkan sub-items untuk jagung, wortel, buncis
+        // Sub-items: masing-masing punya harga beli sendiri, tapi Harga INV = 0
         MIX_VEG_INGREDIENTS.forEach(ingName => {
           const mb = master.find(b => b.name.toLowerCase() === ingName.toLowerCase());
-          const q = (baseQty / 3);
-          const invQ = (baseInvoiceQty / 3);
-
-          const purchaseCost = q * basePrice;
-          const salesRevenue = invQ * baseInvoicePrice;
-          const profit = salesRevenue - purchaseCost;
-          const marginPercent = salesRevenue > 0 ? (profit / salesRevenue) * 100 : 0;
+          const q = Number((baseQty / 3).toFixed(2));
 
           result.push({
             ...emptyItem,
@@ -331,18 +337,26 @@ export default function PurchaseNoteForm() {
             isSubItem: true,
             parentName: 'Mix Vegetable',
             unit: mb ? mb.unit : 'kg',
-            qtyNota: Number(q.toFixed(2)),
-            invoiceQty: Number(invQ.toFixed(2)),
-            invoicePrice: baseInvoicePrice,
-            pricePerUnit: basePrice,
-            sellPrice: baseSellPrice,
-            purchaseCost: purchaseCost,
-            salesRevenue: salesRevenue,
-            profit: profit,
-            marginPercent: marginPercent,
-            totalCost: purchaseCost
+            qtyNota: q,
+            invoiceQty: 0,      // Harga INV sub-item = 0
+            invoicePrice: 0,    // Harga INV sub-item = 0
+            pricePerUnit: 0,
+            sellPrice: 0,
+            purchaseCost: 0,
+            salesRevenue: 0,    // Revenue ada di parent, bukan sub-item
+            profit: 0,
+            marginPercent: 0,
+            totalCost: 0
           });
         });
+
+        // Update parent totalCost = sum of sub-items (initially 0)
+        const parentIdx = result.findIndex(r => r.materialId === 'mix-vegetable-parent');
+        if (parentIdx !== -1) {
+          result[parentIdx].totalCost = 0;
+          result[parentIdx].purchaseCost = 0;
+        }
+
       } else {
         result.push(it);
       }
@@ -563,20 +577,42 @@ export default function PurchaseNoteForm() {
     if (field === 'materialId' || field === 'qtyNota' || field === 'pricePerUnit' || field === 'totalCost') it.isManuallyEdited = true;
 
     if (field === 'materialId') {
-      const m = masterBahan.find(b => b.id === value);
-      if (m) {
-        it.materialId = value;
-        it.materialName = m.name;
-        it.unit = m.unit;
-        // Auto-fill sellPrice from product data
-        it.sellPrice = m.sellPrice || 0;
-        // Recalculate with new sell price
-        const qty = Number(it.qtyNota) || 0;
-        it.salesRevenue = qty * Number(it.sellPrice);
-        it.purchaseCost = Number(it.totalCost) || 0;
-        it.profit = it.salesRevenue - it.purchaseCost;
-        it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
+      // Check if this is the virtual Mix Vegetable parent ID
+      const isMixVegById = value === 'mix-vegetable-parent';
+      
+      if (isMixVegById) {
+        // Set up the Mix Vegetable parent item directly
+        it.materialId = 'mix-vegetable-parent';
+        it.materialName = 'Mix Vegetable';
+        it.unit = 'kg';
+      } else {
+        const m = masterBahan.find(b => b.id === value);
+        if (m) {
+          it.materialId = value;
+          it.materialName = m.name;
+          it.unit = m.unit;
+          it.sellPrice = m.sellPrice || 0;
+          const qty = Number(it.qtyNota) || 0;
+          it.salesRevenue = qty * Number(it.sellPrice);
+          it.purchaseCost = Number(it.totalCost) || 0;
+          it.profit = it.salesRevenue - it.purchaseCost;
+          it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
+        }
       }
+
+      newItems[index] = it;
+
+      // If Mix Vegetable selected (by ID or name), auto-expand to sub-items
+      const isMixVeg = isMixVegById ||
+                       (it.materialName || '').toLowerCase().includes('mix vegetable') ||
+                       (it.materialName || '').toLowerCase().includes('mix veg');
+      if (isMixVeg) {
+        setItems(expandItems(newItems, masterBahan));
+        return;
+      }
+
+      setItems(newItems);
+      return;
     } else if (field === 'qtyNota') {
       it[field] = value;
       // Recalculate costs and margins
@@ -646,6 +682,69 @@ export default function PurchaseNoteForm() {
     }
 
     newItems[index] = it;
+
+    // Sub-items of Mix Vegetable: laba, margin, revenue, and invoice price always = 0
+    // (revenue and profit belong to the parent Mix Vegetable row)
+    if (it.isSubItem && it.parentName === 'Mix Vegetable') {
+      newItems[index] = {
+        ...it,
+        invoicePrice: 0,
+        invoiceQty: 0,
+        salesRevenue: 0,
+        profit: 0,
+        marginPercent: 0
+      };
+    }
+
+    // If the changed item is a sub-item of Mix Vegetable,
+    // update the parent's totalCost = sum of all sub-items totalCost
+    if (it.isSubItem && it.parentName && it.parentName.toLowerCase().includes('mix vegetable')) {
+      // Find the nearest parent above this sub-item
+      let parentIdx = -1;
+      for (let i = index - 1; i >= 0; i--) {
+        if (newItems[i].isParentItem && (newItems[i].materialName || '').toLowerCase().includes('mix vegetable')) {
+          parentIdx = i;
+          break;
+        }
+      }
+
+      if (parentIdx !== -1) {
+        const parent = newItems[parentIdx];
+        const subItems = newItems.filter(i => i.isSubItem && i.parentName === parent.materialName);
+        
+        const subTotal = subItems.reduce((sum, i) => sum + (Number(i.totalCost) || 0), 0);
+        const subQtyNota = subItems.reduce((sum, i) => sum + (Number(i.qtyNota) || 0), 0);
+        
+        const invQty = Number(parent.invoiceQty) || 0;
+        const newPricePerUnit = invQty > 0 ? subTotal / invQty : 0;
+
+        newItems[parentIdx] = {
+          ...parent,
+          qtyNota: Number(subQtyNota.toFixed(2)),
+          totalCost: subTotal,
+          purchaseCost: subTotal,
+          pricePerUnit: Number(newPricePerUnit.toFixed(2)),
+          profit: (Number(parent.salesRevenue) || 0) - subTotal,
+          marginPercent: (Number(parent.salesRevenue) || 0) > 0
+            ? (((Number(parent.salesRevenue) || 0) - subTotal) / (Number(parent.salesRevenue) || 0)) * 100
+            : 0
+        };
+      }
+    }
+
+    // Additional rule: if parent invoiceQty changes, update pricePerUnit
+    if (it.isParentItem && (it.materialName || '').toLowerCase().includes('mix vegetable') && field === 'invoiceQty') {
+      const subItems = newItems.filter(i => i.isSubItem && i.parentName === it.materialName);
+      const subTotal = subItems.reduce((sum, i) => sum + (Number(i.totalCost) || 0), 0);
+      const subQtyNota = subItems.reduce((sum, i) => sum + (Number(i.qtyNota) || 0), 0);
+      const invQty = Number(value) || 0;
+      
+      it.qtyNota = Number(subQtyNota.toFixed(2));
+      it.pricePerUnit = invQty > 0 ? Number((subTotal / invQty).toFixed(2)) : 0;
+      it.totalCost = subTotal;
+      newItems[index] = it;
+    }
+
     setItems(newItems);
   }
 
@@ -653,10 +752,11 @@ export default function PurchaseNoteForm() {
     if (e) e.preventDefault();
     setSaving(true);
     try {
-      // Filter out sub-items when saving (only save parent and regular items)
-      const itemsToSave = items.filter(it => !it.isSubItem);
+      // Save all items including sub-items (jagung, wortel, buncis) to preserve their supplier data
+      const itemsToSave = items;
 
-      const grandTotal = itemsToSave.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+      // Grand total based on parent and regular items only (sub-items would double-count)
+      const grandTotal = items.filter(it => !it.isSubItem).reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
       const totalDiscount = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);
       const totalAdditionalCosts = Object.values(additionalCosts).reduce((s, c) => s + (Number(c) || 0), 0);
       const finalTotal = Math.max(0, grandTotal - totalDiscount) + totalAdditionalCosts;
@@ -817,9 +917,9 @@ export default function PurchaseNoteForm() {
                 </thead>
                 <tbody>
                   {items.map((item, idx) => {
-                    const isMixVegParent = item.materialName === 'Mix Vegetable' && item.isParentItem;
+                    const isMixVegParent = (item.materialName || '').toLowerCase().includes('mix vegetable') && item.isParentItem;
                     const isSubItem = item.isSubItem;
-                    const isMixVegChild = isSubItem && item.parentName === 'Mix Vegetable';
+                    const isMixVegChild = isSubItem && (item.parentName || '').toLowerCase().includes('mix vegetable');
 
                     // Calculate values
                     const totalBeli = Number(item.totalCost) || 0;
@@ -856,17 +956,27 @@ export default function PurchaseNoteForm() {
                                 <input className="form-input font-xs opacity-80" list="sups" value={item.supplier} onChange={e => updateItem(idx, 'supplier', e.target.value)} placeholder="Supplier (Opsional)" />
                               </>
                             ) : (
-                              <div style={{
-                                color: '#8b5cf6',
-                                fontWeight: 600,
-                                fontSize: '13px'
-                              }}>
-                                {item.materialName}
+                              <div className="flex flex-col gap-xs">
+                                <div style={{
+                                  color: '#8b5cf6',
+                                  fontWeight: 600,
+                                  fontSize: '13px'
+                                }}>
+                                  {item.materialName}
+                                </div>
+                                <input
+                                  className="form-input font-xs opacity-80"
+                                  list="sups"
+                                  value={item.supplier || ''}
+                                  onChange={e => updateItem(idx, 'supplier', e.target.value)}
+                                  placeholder="Supplier sub-item..."
+                                  style={{ fontSize: '11px', padding: '3px 8px', height: 'auto' }}
+                                />
                               </div>
                             )}
                             {isMixVegParent && (
                               <div className="text-xs" style={{ color: '#8b5cf6', fontWeight: 600 }}>
-                                🥗 Mix Vegetable (Jagung + Wortel + Buncis)
+                                {item.materialName || MIX_VEG_NAME} (Jagung + Wortel + Buncis)
                               </div>
                             )}
                           </div>
@@ -953,9 +1063,13 @@ export default function PurchaseNoteForm() {
                 </div>
               ) : (
                 <div className="grid grid-2 gap-lg">
-                  {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(supplier => {
+                  {Array.from(new Set(items.map(it => it.supplier || (it.isSubItem ? null : supplierName)).filter(Boolean))).map(supplier => {
                     const displaySup = supplier === 'H. Falah' ? 'Falahudin' : supplier;
-                    const supplierItems = items.filter(it => (it.supplier || supplierName) === supplier && !it.isSubItem);
+                    // Include both parent/regular items AND sub-items that have this supplier
+                    const supplierItems = items.filter(it => {
+                      const itSupplier = it.supplier || (it.isSubItem ? null : supplierName);
+                      return itSupplier === supplier && !it.isParentItem;
+                    });
                     const supplierTotal = supplierItems.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
                     const disc = Number(supplierDiscounts[supplier]) || 0;
                     const finalTotal = supplierTotal - disc;
@@ -972,12 +1086,10 @@ export default function PurchaseNoteForm() {
                             <em className="text-xs opacity-30">Tidak ada item</em>
                           ) : (
                             supplierItems.map((it, idx) => (
-                              <div key={idx} className="flex-between text-xs" style={{ gap: 12 }}>
+                              <div key={idx} className="flex-between text-xs" style={{ gap: 12, paddingLeft: it.isSubItem ? 12 : 0, borderLeft: it.isSubItem ? '2px solid rgba(139,92,246,0.3)' : 'none' }}>
                                 <span className="flex-1" style={{ opacity: 0.8 }}>
+                                  {it.isSubItem && <span style={{ color: '#8b5cf6', marginRight: 4 }}>↳</span>}
                                   {it.materialName || 'Tanpa Nama'}
-                                  {it.isParentItem && (
-                                    <span className="ml-xs text-info" style={{ fontSize: '10px' }}>🥗 Mix</span>
-                                  )}
                                 </span>
                                 <span style={{ opacity: 0.6, minWidth: '50px', textAlign: 'right' }}>
                                   {fmtNum(it.qtyNota)} {it.unit}
@@ -1011,9 +1123,14 @@ export default function PurchaseNoteForm() {
                 <div className="p-xl border-right" style={{ borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
                   <div className="text-xxs opacity-50 uppercase tracking-widest mb-lg">Rincian Per Supplier</div>
                   <div className="flex flex-col gap-md">
-                    {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(s => {
+                    {Array.from(new Set(items.map(it => it.supplier || (it.isSubItem ? null : supplierName)).filter(Boolean))).map(s => {
                       const displaySup = s === 'H. Falah' ? 'Falahudin' : s;
-                      const subtotal = items.filter(it => (it.supplier || supplierName) === s).reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+                      const subtotal = items
+                        .filter(it => {
+                          const itSup = it.supplier || (it.isSubItem ? null : supplierName);
+                          return itSup === s && !it.isParentItem;
+                        })
+                        .reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
                       const disc = Number(supplierDiscounts[s]) || 0;
                       return (
                         <div key={s} className="flex-between text-sm" style={{ gap: 24, marginBottom: 4 }}>
@@ -1077,7 +1194,7 @@ export default function PurchaseNoteForm() {
                 <FiInfo className="text-warning" /> Input Diskon per Supplier
               </div>
               <div className="grid grid-3 gap-md">
-                {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).map(s => {
+                {Array.from(new Set(items.map(it => it.supplier || (it.isSubItem ? null : supplierName)).filter(Boolean))).map(s => {
                   const displaySup = s === 'H. Falah' ? 'Falahudin' : s;
                   return (
                     <div key={s} className="flex items-center gap-md p-md bg-glass rounded-lg border border-white-05">

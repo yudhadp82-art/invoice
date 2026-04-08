@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { Readable } from 'stream';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -82,5 +83,3 @@ export default async function handler(req, res) {
   }
 }
 
-// Minimal Readable stream helper for Node.js
-import { Readable } from 'stream';
