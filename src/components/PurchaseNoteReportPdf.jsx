@@ -578,15 +578,36 @@ export default function PurchaseNoteReportPdf({
                     -{formatCurrency(totalFromSuppliers)}
                   </td>
                 </tr>
-                <tr>
-                  <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Total Biaya Tambahan</div>
-                    <div style={{ fontSize: '9px', opacity: 0.7 }}>Tenaga kerja, pengiriman, dan bahan produksi</div>
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
-                    -{formatCurrency(totalAdditionalCosts)}
-                  </td>
-                </tr>
+                {Number(additionalCosts?.labor) > 0 && (
+                  <tr>
+                    <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Biaya Tenaga Kerja</div>
+                    </td>
+                    <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
+                      -{formatCurrency(additionalCosts.labor)}
+                    </td>
+                  </tr>
+                )}
+                {Number(additionalCosts?.shipping) > 0 && (
+                  <tr>
+                    <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Biaya Pengiriman</div>
+                    </td>
+                    <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
+                      -{formatCurrency(additionalCosts.shipping)}
+                    </td>
+                  </tr>
+                )}
+                {Number(additionalCosts?.productionMaterial) > 0 && (
+                  <tr>
+                    <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Biaya Bahan Produksi</div>
+                    </td>
+                    <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
+                      -{formatCurrency(additionalCosts.productionMaterial)}
+                    </td>
+                  </tr>
+                )}
                 <tr style={{ background: (() => {
                   const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
                   const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
