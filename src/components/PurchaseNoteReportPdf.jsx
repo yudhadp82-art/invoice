@@ -306,13 +306,14 @@ export default function PurchaseNoteReportPdf({
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
               <thead style={{ pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>
                 <tr>
-                  <th style={{ textAlign: 'left', color: '#475569', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Bahan Baku</th>
-                  <th style={{ textAlign: 'center', color: '#475569', width: '10%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Qty</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Harga Beli</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Total Beli</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Harga Jual</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '14%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Total Jual</th>
-                  <th style={{ textAlign: 'center', color: '#475569', width: '11%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Margin %</th>
+                  <th style={{ textAlign: 'left', color: '#475569', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Bahan Baku</th>
+                  <th style={{ textAlign: 'center', color: '#475569', width: '8%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Qty</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '12%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>H. Beli</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '13%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Tot. Beli</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '12%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>H. Jual</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '13%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Tot. Jual</th>
+                  <th style={{ textAlign: 'right', color: '#475569', width: '15%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>Laba</th>
+                  <th style={{ textAlign: 'center', color: '#475569', width: '10%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: 'bold' }}>%</th>
                 </tr>
               </thead>
               <tbody style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
@@ -435,6 +436,7 @@ export default function PurchaseNoteReportPdf({
                     const margin = totalJual > 0 ? ((totalJual - totalBeli) / totalJual * 100) : 0;
                     const marginColor = it.isMixVegetable ? it.marginColor :
                                       (margin >= 20 ? '#15803d' : margin >= 10 ? '#f59e0b' : '#dc2626');
+                    const rowLaba = totalJual - totalBeli;
 
                     return (
                       <tr key={iIdx}>
@@ -456,7 +458,10 @@ export default function PurchaseNoteReportPdf({
                         <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px', color: '#3b82f6' }}>
                           {formatCurrency(totalJual)}
                         </td>
-                        <td style={{ textAlign: 'center', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '700', color: marginColor }}>
+                        <td style={{ textAlign: 'right', fontWeight: '800', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px', color: rowLaba >= 0 ? '#166534' : '#991b1b' }}>
+                          {formatCurrency(rowLaba)}
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '700', color: marginColor }}>
                           {totalJual > 0 ? margin.toFixed(1) + '%' : '-'}
                         </td>
                       </tr>
