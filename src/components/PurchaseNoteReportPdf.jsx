@@ -83,21 +83,23 @@ export default function PurchaseNoteReportPdf({
     totalInvoiceRevenue,
     grandTotalNet
   });
-  // Pre-calculate price map for Section 1 aggregates
-  const materialPriceMap = {};
-  (purchaseItems || []).forEach(it => {
-    const key = (it.materialName || '').toLowerCase().trim();
-    if (!key) return;
-    if (!materialPriceMap[key]) {
-      materialPriceMap[key] = { total: 0, count: 0 };
-    }
-    materialPriceMap[key].total += (Number(it.pricePerUnit) || 0);
-    materialPriceMap[key].count += 1;
+  // Pre-calculate price map from INVOICES for Section 1 aggregates
+  const invoicePriceMap = {};
+  (invoicesList || []).forEach(inv => {
+    (inv.items || []).forEach(it => {
+      const key = (it.productName || '').toLowerCase().trim();
+      if (!key) return;
+      if (!invoicePriceMap[key]) {
+        invoicePriceMap[key] = { total: 0, count: 0 };
+      }
+      invoicePriceMap[key].total += (Number(it.unitPrice) || 0);
+      invoicePriceMap[key].count += 1;
+    });
   });
 
-  const getAvgPrice = (name) => {
+  const getInvoicePrice = (name) => {
     const key = (name || '').toLowerCase().trim();
-    const data = materialPriceMap[key];
+    const data = invoicePriceMap[key];
     return data && data.count > 0 ? data.total / data.count : 0;
   };
 
@@ -233,7 +235,7 @@ export default function PurchaseNoteReportPdf({
           </thead>
           <tbody>
             {(groupRecap || []).map((it, idx) => {
-              const avgPrice = getAvgPrice(it.name);
+              const avgPrice = getInvoicePrice(it.name);
               const rowTotal = avgPrice * (Number(it.totalQty) || 0);
               return (
                 <tr key={idx}>
