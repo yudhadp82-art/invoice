@@ -371,7 +371,7 @@ export default function PurchaseNoteReportPdf({
                                  Number(mixVegetableParent.sellPrice) || 0;
                     }
 
-                    const totalJual = invoiceQty * sellPrice;
+                    const totalJual = totalQty * sellPrice;
                     const margin = totalJual > 0 ? ((totalJual - totalBeli) / totalJual * 100) : 0;
                     const marginColor = margin >= 20 ? '#15803d' : margin >= 10 ? '#f59e0b' : '#dc2626';
 
@@ -429,7 +429,7 @@ export default function PurchaseNoteReportPdf({
 
                     // Calculate totals
                     const totalBeli = Number(it.totalCost) || 0;
-                    const qty = Number(it.invoiceQty) || Number(it.qtyNota) || 0;
+                    const qty = Number(it.qtyNota) || 0;
                     const totalJual = qty * sellPrice;
 
                     // Calculate margin
