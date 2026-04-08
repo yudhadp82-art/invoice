@@ -571,37 +571,51 @@ export default function PurchaseNoteReportPdf({
                 </tr>
                 <tr>
                   <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Total Biaya Pembelian</div>
-                    <div style={{ fontSize: '9px', opacity: 0.7 }}>Biaya bahan + biaya tambahan</div>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Total Pembelian Bahan</div>
+                    <div style={{ fontSize: '9px', opacity: 0.7 }}>Net bayar ke semua supplier (setelah diskon)</div>
                   </td>
                   <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
-                    -{formatCurrency(grandTotalNet)}
+                    -{formatCurrency(totalFromSuppliers)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Total Biaya Tambahan</div>
+                    <div style={{ fontSize: '9px', opacity: 0.7 }}>Tenaga kerja, pengiriman, dan bahan produksi</div>
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
+                    -{formatCurrency(totalAdditionalCosts)}
                   </td>
                 </tr>
                 <tr style={{ background: (() => {
                   const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                  const profit = totalRevenue - grandTotalNet;
+                  const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
+                  const profit = totalRevenue - totalExpenses;
                   return profit >= 0 ? '#f0fdf4' : '#fef2f2';
                 })() }}>
                   <td style={{ padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: '800', width: '60%', color: (() => {
                     const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                    const profit = totalRevenue - grandTotalNet;
+                    const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
+                    const profit = totalRevenue - totalExpenses;
                     return profit >= 0 ? '#166534' : '#991b1b';
                   })() }}>
                     {(() => {
                       const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                      const profit = totalRevenue - grandTotalNet;
+                      const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
+                      const profit = totalRevenue - totalExpenses;
                       return profit >= 0 ? 'PROFIT / LABA BERSIH' : 'LOSS / RUGI';
                     })()}
                   </td>
                   <td style={{ textAlign: 'right', padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '16px', fontWeight: '900', color: (() => {
                     const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                    const profit = totalRevenue - grandTotalNet;
+                    const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
+                    const profit = totalRevenue - totalExpenses;
                     return profit >= 0 ? '#15803d' : '#dc2626';
                   })() }}>
                     {(() => {
                       const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                      const profit = totalRevenue - grandTotalNet;
+                      const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
+                      const profit = totalRevenue - totalExpenses;
                       return formatCurrency(Math.abs(profit));
                     })()}
                   </td>
@@ -610,7 +624,8 @@ export default function PurchaseNoteReportPdf({
                   <td colSpan="2" style={{ padding: '6px 12px', border: '1px solid #e2e8f0', fontSize: '9px', textAlign: 'center', background: '#f8fafc', opacity: 0.8 }}>
                     {(() => {
                       const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                      const profit = totalRevenue - grandTotalNet;
+                      const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
+                      const profit = totalRevenue - totalExpenses;
                       const margin = totalRevenue > 0 ? ((profit / totalRevenue) * 100).toFixed(1) : 0;
                       return `Margin: ${margin}% (${profit >= 0 ? 'Profit' : 'Loss'} dari total penjualan)`;
                     })()}
