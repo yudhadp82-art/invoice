@@ -5,9 +5,9 @@ import ConfirmModal from '../components/ConfirmModal';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
-import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter } from 'react-icons/fi';
-import { PurchaseNotes as PNStore, Invoices, SupportingMaterialItems as MasterItems, Customers, Suppliers } from '../utils/storage';
-
+import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter, FiSend } from 'react-icons/fi';
+import { PurchaseNotes as PNStore, Invoices, SupportingMaterialItems as MasterItems, Customers, Suppliers, TelegramOrders } from '../utils/storage';
+import { sendDocument } from '../utils/telegram';
 export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
   const [pendingInvoices, setPendingInvoices] = useState([]);
@@ -23,6 +23,7 @@ export default function PurchaseNotes() {
   const [masterBahan, setMasterBahan] = useState([]);
   const [printData, setPrintData] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [sendingId, setSendingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [debug, setDebug] = useState({ url: '', notesCount: 0, legacyCount: 0 });
@@ -282,6 +283,141 @@ export default function PurchaseNotes() {
       }
       setIsGeneratingPdf(false);
       setPrintData(null);
+    }
+  }
+
+  async function handleSendTelegramPdf(note) {
+    if (!note) return;
+    
+    let chatId = null;
+    const ids = note.sourceInvoiceIds || (note.invoiceId ? [note.invoiceId] : []);
+    const matchedInvs = fullInvoices.filter(inv => ids.includes(inv.id));
+    
+    for (const inv of matchedInvs) {
+      if (inv.telegramChatId) {
+        chatId = inv.telegramChatId;
+        break;
+      }
+    }
+
+    if (!chatId) {
+      try {
+        const orders = await TelegramOrders.getAll();
+        for (const inv of matchedInvs) {
+          const linkedOrder = orders.find(o => o.matchedCustomerId === inv.customerId);
+          if (linkedOrder && linkedOrder.telegramChatId) {
+            chatId = linkedOrder.telegramChatId;
+            break;
+          }
+        }
+      } catch(err) { console.error('TelegramOrders check error:', err); }
+    }
+
+    if (!chatId) {
+      alert('Telegram Chat ID tidak ditemukan. Pesanan grup/pembeli ini mungkin tidak berasal dari Telegram.');
+      return;
+    }
+
+    setSendingId(note.id);
+    
+    const noteDateStr = note.date ? String(note.date || '').slice(0, 10) : '';
+    const grp = note.groupName || '(Tanpa Grup)';
+
+    let invsForGroup = [];
+    if (note.sourceInvoiceIds && note.sourceInvoiceIds.length > 0) {
+      invsForGroup = fullInvoices.filter(inv => note.sourceInvoiceIds.includes(inv.id));
+    } else if (note.invoiceId) {
+      invsForGroup = fullInvoices.filter(inv => inv.id === note.invoiceId);
+    } else {
+      const nameToGroup = {};
+      allCustomers.forEach(c => { if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group; });
+      invsForGroup = fullInvoices.filter(inv => {
+        try {
+          const dateObj = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
+          if (!dateObj || isNaN(dateObj.getTime())) return false;
+          const invDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+          return invDateStr === noteDateStr && nameToGroup[(inv.customerName || '').toLowerCase()] === grp;
+        } catch (e) { return false; }
+      });
+    }
+
+    const groupAgg = {};
+    invsForGroup.forEach(inv => {
+      (inv.items || []).forEach(it => {
+        const key = (it.productName || '').trim();
+        if (!key) return;
+        if (!groupAgg[key]) groupAgg[key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
+        groupAgg[key].totalQty += (Number(it.qty) || 0);
+      });
+    });
+    const recapArray = Object.values(groupAgg).sort((a, b) => a.name.localeCompare(b.name));
+
+    setPrintData({
+      groupName: grp,
+      date: note.date,
+      groupRecap: recapArray,
+      purchaseItems: note.items || [],
+      supplierDiscounts: note.supplierDiscounts || {},
+      invoicesList: invsForGroup,
+      additionalCosts: note.additionalCosts || {}
+    });
+
+    await new Promise(r => setTimeout(r, 800)); // Allow render
+    let element = null;
+    let originalDisplay = '';
+    
+    try {
+      element = document.getElementById('purchase-note-report-render');
+      if (!element) throw new Error('Render element not found');
+
+      originalDisplay = element.style.display;
+      element.style.display = 'block';
+
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
+      await new Promise(r => setTimeout(r, 400));
+      
+      const pageWidth = 210;
+      const dpi = 96;
+      const pixelWidth = Math.round((pageWidth / 25.4) * dpi);
+      
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', width: pixelWidth, allowTaint: true });
+      
+      const pageHeight = 297;
+      const marginTop = 15;
+      const marginBottom = 15;
+      const marginLeft = 15;
+      const marginRight = 15;
+      
+      const usableHeight = pageHeight - marginTop - marginBottom;
+      const imgWidth = pageWidth - marginLeft - marginRight;
+      
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const totalPages = Math.ceil(imgHeight / usableHeight);
+      
+      const imgData = canvas.toDataURL('image/jpeg', 0.96);
+      
+      for (let i = 0; i < totalPages; i++) {
+        if (i > 0) pdf.addPage();
+        const yOffset = marginTop - (i * usableHeight);
+        pdf.addImage(imgData, 'JPEG', marginLeft, yOffset, imgWidth, imgHeight);
+      }
+      
+      const blob = pdf.output('blob');
+      const filename = `Laporan_Pembelian_${grp}_${noteDateStr}.pdf`;
+
+      const res = await sendDocument(chatId, blob, filename);
+      if (res.ok) {
+        alert('PDF Laporan Pembelian Berhasil dikirim ke Telegram');
+      } else {
+        alert(`Gagal mengirim PDF ke Telegram: ${res.description || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kesalahan saat memproses dan mengirim PDF: ' + err.message);
+    } finally {
+      if (element) element.style.display = originalDisplay;
+      setPrintData(null);
+      setSendingId(null);
     }
   }
 
@@ -602,6 +738,9 @@ export default function PurchaseNotes() {
                   <div className="table-actions">
                     <button className="btn btn-ghost btn-sm text-info" onClick={() => handlePrintPdf(note)} disabled={isGeneratingPdf && printData?.groupName === note.groupName}>
                       <FiPrinter style={{ animation: (isGeneratingPdf && printData?.groupName === note.groupName) ? 'spin 1s linear infinite' : 'none' }} />
+                    </button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleSendTelegramPdf(note)} disabled={sendingId === note.id} title="Kirim PDF ke Telegram">
+                      <FiSend style={{ animation: (sendingId === note.id) ? 'spin 1s linear infinite' : 'none', color: '#8b5cf6' }} />
                     </button>
                     <Link to={`/purchase-notes/${note.id}/edit`} className="btn btn-ghost btn-sm">
                       <FiEdit2 />
