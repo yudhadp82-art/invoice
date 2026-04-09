@@ -104,55 +104,64 @@ export default function Employees() {
       <div className="page-header page-header-actions">
         <div>
           <h1>Daftar Pekerja</h1>
-          <p>Kelola data karyawan dan upah per jam</p>
+          <p>Kelola data karyawan dan upah per jam kerja</p>
         </div>
         <div className="flex gap-sm">
           <button className="btn btn-secondary" onClick={handleExport}>
             <FiDownload /> Export Excel
           </button>
-          <button className="btn btn-primary" onClick={openAdd}>
+          <button className="btn btn-primary shadow-glow" onClick={openAdd}>
             <FiPlus /> Tambah Pekerja
           </button>
         </div>
       </div>
 
       {loading && (
-        <div className="card p-lg text-center animate-in">
+        <div className="card p-xl text-center animate-in">
           <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
-          <p className="text-muted">Memuat data pekerja...</p>
+          <p className="text-secondary">Memuat data pekerja...</p>
         </div>
       )}
 
       {error && (
-        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
-          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiUsers /></div>
-          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Data'}</h3>
-          <p className="mb-md">
-            {error.includes('Permission Denied') 
-              ? 'Data pekerja ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda.'
-              : 'Terjadi kesalahan saat memuat data pekerja dari database.'}
-          </p>
-          <div className="flex-center gap-md">
-            <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
-            {error.includes('Permission Denied') && (
-              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                Buka Supabase Dashboard
-              </a>
-            )}
+        <div className="card p-xl text-center animate-in" style={{ borderColor: 'var(--accent-danger)', background: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="stat-card-icon mb-md" style={{ margin: '0 auto', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--accent-danger)' }}>
+            <FiUsers />
           </div>
+          <h3 className="text-danger mb-sm">Gagal Memuat Data</h3>
+          <p className="text-secondary mb-lg">{error}</p>
+          <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
         </div>
       )}
 
       {(!loading && !error) && (
         <>
-          <div className="toolbar">
-            <div className="search-box">
-              <FiSearch className="search-icon" />
-              <input type="text" placeholder="Cari pekerja..." value={search} onChange={e => setSearch(e.target.value)} />
+          <div className="stats-grid">
+            <div className="stat-card blue">
+              <div className="stat-card-header">
+                <div className="stat-card-icon"><FiUsers /></div>
+              </div>
+              <div className="stat-card-value">{employees.length}</div>
+              <div className="stat-card-label">Total Pekerja</div>
+            </div>
+            
+            <div className="stat-card cyan">
+              <div className="stat-card-header">
+                <div className="stat-card-icon"><FiSearch /></div>
+              </div>
+              <div className="stat-card-value">{filtered.length}</div>
+              <div className="stat-card-label">Pekerja Terfilter</div>
             </div>
           </div>
 
-          <div className="table-container">
+          <div className="toolbar bg-glass p-md rounded-lg mb-lg border border-white-05">
+            <div className="search-box">
+              <FiSearch className="search-icon" />
+              <input type="text" placeholder="Cari nama, jabatan, atau telepon..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="table-container shadow-lg">
             <table className="table">
               <thead>
                 <tr>
@@ -168,24 +177,34 @@ export default function Employees() {
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="empty-state">
-                        <div className="empty-state-icon"><FiUsers /></div>
-                        <h3>Belum ada data pekerja</h3>
-                        <p>Klik "Tambah Pekerja" untuk memasukkan data</p>
+                      <div className="card p-xl text-center border-dashed" style={{ background: 'transparent' }}>
+                        <div className="stat-card-icon mb-md" style={{ margin: '0 auto', background: 'var(--bg-glass)', color: 'var(--text-muted)' }}>
+                          <FiUsers />
+                        </div>
+                        <h3 className="text-secondary">Belum ada data pekerja</h3>
+                        <p className="text-muted">Klik tombol "Tambah Pekerja" untuk memasukkan data baru.</p>
                       </div>
                     </td>
                   </tr>
                 ) : filtered.map(e => (
-                  <tr key={e.id}>
-                    <td><strong>{e.name || '-'}</strong></td>
-                    <td>{e.position || '-'}</td>
-                    <td style={{ color: '#4ade80', fontWeight: 600 }}>{formatCurrency(e.hourlyRate)}</td>
-                    <td>{e.phone || '-'}</td>
-                    <td className="text-muted text-sm">{e.notes || '-'}</td>
+                  <tr key={e.id} className="hover-bright transition-fast">
                     <td>
-                      <div className="table-actions">
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(e)}><FiEdit2 /></button>
-                        <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(e.id)}><FiTrash2 /></button>
+                      <div className="font-bold text-primary">{e.name || '-'}</div>
+                    </td>
+                    <td>
+                      <span className="badge badge-purple">{e.position || 'Staf'}</span>
+                    </td>
+                    <td className="font-bold text-success font-mono">
+                      {formatCurrency(e.hourlyRate)}
+                    </td>
+                    <td className="text-secondary">{e.phone || '-'}</td>
+                    <td className="text-muted text-sm" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {e.notes || '-'}
+                    </td>
+                    <td className="text-right">
+                      <div className="table-actions justify-end">
+                        <button className="btn btn-ghost btn-sm text-primary" onClick={() => openEdit(e)} title="Edit"><FiEdit2 /></button>
+                        <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(e.id)} title="Hapus"><FiTrash2 /></button>
                       </div>
                     </td>
                   </tr>
@@ -196,38 +215,38 @@ export default function Employees() {
         </>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Pekerja' : 'Tambah Pekerja'}>
-        <form onSubmit={handleSave}>
-          <div className="modal-body">
-            <div className="form-group">
-              <label className="form-label">Nama Pekerja</label>
-              <input className="form-input" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Nama lengkap" />
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Pekerja' : 'Tambah Pekerja'} size="md">
+        <form onSubmit={handleSave} className="p-lg">
+          <div className="grid gap-lg">
+            <div className="form-group mb-0">
+              <label className="form-label text-xs uppercase tracking-widest opacity-60">Nama Pekerja</label>
+              <input className="form-input bg-glass" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Nama lengkap karyawan" />
             </div>
             
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Jabatan</label>
-                <input className="form-input" value={form.position} onChange={e => setForm({...form, position: e.target.value})} placeholder="Misal: Operator Produksi" />
+            <div className="grid grid-2 gap-md">
+              <div className="form-group mb-0">
+                <label className="form-label text-xs uppercase tracking-widest opacity-60">Jabatan</label>
+                <input className="form-input bg-glass" value={form.position} onChange={e => setForm({...form, position: e.target.value})} placeholder="Misal: Produksi, Admin" />
               </div>
-              <div className="form-group">
-                <label className="form-label">Upah Standar Per Jam (Rp)</label>
-                <input className="form-input" type="number" value={form.hourlyRate} onChange={e => setForm({...form, hourlyRate: e.target.value})} placeholder="0" />
+              <div className="form-group mb-0">
+                <label className="form-label text-xs uppercase tracking-widest opacity-60">Upah Standar / Jam (Rp)</label>
+                <input className="form-input bg-glass font-bold text-success" type="number" value={form.hourlyRate} onChange={e => setForm({...form, hourlyRate: e.target.value})} placeholder="0" />
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Nomor Telepon</label>
-              <input className="form-input" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="08xxxxxxxxxx" />
+            <div className="form-group mb-0">
+              <label className="form-label text-xs uppercase tracking-widest opacity-60">Nomor Telepon</label>
+              <input className="form-input bg-glass" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="08xxxxxxxxxx" />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Catatan</label>
-              <textarea className="form-textarea" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Catatan tambahan (opsional)..." rows={3} />
+            <div className="form-group mb-0">
+              <label className="form-label text-xs uppercase tracking-widest opacity-60">Catatan</label>
+              <textarea className="form-input bg-glass" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Catatan tambahan..." rows={3} />
             </div>
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>Batal</button>
-            <button type="submit" className="btn btn-primary">Simpan</button>
+          <div className="modal-footer mt-xl pt-lg border-top border-white-05">
+            <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Batal</button>
+            <button type="submit" className="btn btn-primary shadow-glow px-xl">Simpan Data</button>
           </div>
         </form>
       </Modal>

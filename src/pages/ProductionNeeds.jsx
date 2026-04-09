@@ -180,217 +180,215 @@ export default function ProductionNeedsPage() {
       <div className="page-header page-header-actions">
         <div>
           <h1>Kebutuhan Produksi</h1>
-          <p>Barang &amp; pengeluaran kebutuhan operasional produksi</p>
+          <p>Operasional produksi & operasional pabrik</p>
         </div>
-        <button className="btn btn-primary" onClick={openAdd}>
+        <button className="btn btn-primary shadow-glow" onClick={openAdd}>
           <FiPlus /> Tambah Kebutuhan
         </button>
       </div>
 
       {loading && (
-        <div className="card p-lg text-center animate-in">
+        <div className="card p-xl text-center animate-in">
           <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
-          <p className="text-muted">Memuat data kebutuhan produksi...</p>
+          <p className="text-secondary">Memuat data kebutuhan produksi...</p>
         </div>
       )}
 
       {error && (
-        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
-          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiTool /></div>
-          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Data'}</h3>
-          <p className="mb-md">
-            {error.includes('Permission Denied') 
-              ? 'Data kebutuhan produksi ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda.'
-              : 'Terjadi kesalahan saat memuat data kebutuhan produksi dari database.'}
-          </p>
-          <div className="flex-center gap-md">
-            <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
-            {error.includes('Permission Denied') && (
-              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                Buka Supabase Dashboard
-              </a>
-            )}
+        <div className="card p-xl text-center animate-in" style={{ borderColor: 'var(--accent-danger)', background: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="stat-card-icon mb-md" style={{ margin: '0 auto', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--accent-danger)' }}>
+            <FiTool />
           </div>
+          <h3 className="text-danger mb-sm">Gagal Memuat Data</h3>
+          <p className="text-secondary mb-lg">{error}</p>
+          <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
         </div>
       )}
 
       {(!loading && !error) && (
         <>
           <div className="stats-grid">
-        <div className="stat-card blue">
-          <div className="stat-card-header">
-            <div className="stat-card-icon"><FiTool /></div>
-          </div>
-          <div className="stat-card-value">{items.length}</div>
-          <div className="stat-card-label">Total Transaksi</div>
-        </div>
-        <div className="stat-card orange">
-          <div className="stat-card-header">
-            <div className="stat-card-icon">🔧</div>
-          </div>
-          <div className="stat-card-value">{formatCurrency(totalMonth)}</div>
-          <div className="stat-card-label">Pengeluaran Bulan Ini</div>
-        </div>
-        <div className="stat-card purple">
-          <div className="stat-card-header">
-            <div className="stat-card-icon">💰</div>
-          </div>
-          <div className="stat-card-value">{formatCurrency(totalAll)}</div>
-          <div className="stat-card-label">Total Pengeluaran</div>
-        </div>
-      </div>
+            <div className="stat-card blue">
+              <div className="stat-card-header">
+                <div className="stat-card-icon"><FiTool /></div>
+                <div className="stat-card-trend">Total</div>
+              </div>
+              <div className="stat-card-value">{items.length}</div>
+              <div className="stat-card-label">Jumlah Transaksi</div>
+            </div>
+            
+            <div className="stat-card orange">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">⚡</div>
+                <div className="stat-card-trend up">Bulan Ini</div>
+              </div>
+              <div className="stat-card-value font-mono">{formatCurrency(totalMonth)}</div>
+              <div className="stat-card-label">Biaya Produksi Terkini</div>
+            </div>
 
-      <div className="toolbar" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div className="search-box" style={{ flex: 1 }}>
-          <FiSearch className="search-icon" />
-          <input type="text" placeholder="Cari item kebutuhan..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <select
-          className="form-select"
-          style={{ width: 200 }}
-          value={filterCategory}
-          onChange={e => setFilterCategory(e.target.value)}
-        >
-          <option value="">Semua Kategori</option>
-          {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
+            <div className="stat-card purple">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">💰</div>
+              </div>
+              <div className="stat-card-value font-mono">{formatCurrency(totalAll)}</div>
+              <div className="stat-card-label">Akumulasi Pengeluaran</div>
+            </div>
+          </div>
 
-      <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Tanggal</th>
-              <th>Nama Item</th>
-              <th>Kategori</th>
-              <th>Qty</th>
-              <th style={{ textAlign: 'right' }}>Harga/Unit</th>
-              <th style={{ textAlign: 'right' }}>Total</th>
-              <th>Ref. Invoice</th>
-              <th>Catatan</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={8}>
-                  <div className="empty-state">
-                    <div className="empty-state-icon"><FiTool /></div>
-                    <h3>Belum ada data kebutuhan produksi</h3>
-                    <p>Klik tombol "Tambah Kebutuhan" untuk mencatat.</p>
-                  </div>
-                </td>
-              </tr>
-            ) : filtered.map(it => (
-              <tr key={it.id}>
-                <td className="text-muted">{formatDateShort(it.date || it.createdAt)}</td>
-                <td><strong>{it.itemName}</strong></td>
-                <td>
-                  <span style={{
-                    background: `${(CATEGORY_COLORS[it.category] || '#94a3b8')}22`,
-                    color: CATEGORY_COLORS[it.category] || '#94a3b8',
-                    padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600
-                  }}>
-                    {it.category}
-                  </span>
-                </td>
-                <td>{it.qty} {it.unit}</td>
-                <td className="text-right">{formatCurrency(it.pricePerUnit)}</td>
-                <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(it.totalCost)}</td>
-                <td>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {(it.invoiceIds || []).map(id => {
-                      const inv = invoices.find(i => i.id === id);
-                      return inv ? (
-                        <span key={id} style={{ fontSize: 11, background: 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>
-                          {inv.invoiceNumber}
-                        </span>
-                      ) : null;
-                    })}
-                    {(!it.invoiceIds || it.invoiceIds.length === 0) && <span style={{ color: '#64748b', fontSize: 11 }}>-</span>}
-                  </div>
-                </td>
-                <td className="text-muted text-sm">{it.notes || '-'}</td>
-                <td>
-                  <div className="table-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(it)}><FiEdit2 /></button>
-                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => setDeleteId(it.id)}><FiTrash2 /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          </table>
-        </div>
-      </>
+          <div className="toolbar bg-glass p-md rounded-lg mb-lg border border-white-05">
+            <div className="search-box">
+              <FiSearch className="search-icon" />
+              <input type="text" placeholder="Cari item atau catatan..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <select
+              className="form-select bg-glass"
+              style={{ width: 220 }}
+              value={filterCategory}
+              onChange={e => setFilterCategory(e.target.value)}
+            >
+              <option value="">Semua Kategori</option>
+              {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div className="table-container shadow-lg">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Nama Item</th>
+                  <th>Kategori</th>
+                  <th>Qty</th>
+                  <th className="text-right">Harga/Unit</th>
+                  <th className="text-right">Total</th>
+                  <th>HPP Ref</th>
+                  <th>Catatan</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={9}>
+                      <div className="card p-xl text-center border-dashed" style={{ background: 'transparent' }}>
+                        <div className="stat-card-icon mb-md" style={{ margin: '0 auto', background: 'var(--bg-glass)', color: 'var(--text-muted)' }}>
+                          <FiTool />
+                        </div>
+                        <h3 className="text-secondary">Belum ada data kebutuhan</h3>
+                        <p className="text-muted">Klik tombol "Tambah Kebutuhan" untuk mencatat operasional baru.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.map(it => (
+                  <tr key={it.id} className="hover-bright transition-fast">
+                    <td className="text-muted">{formatDateShort(it.date || it.createdAt)}</td>
+                    <td>
+                      <div className="font-bold text-primary">{it.itemName}</div>
+                    </td>
+                    <td>
+                      <span className="badge" style={{ 
+                        background: `${(CATEGORY_COLORS[it.category] || '#94a3b8')}22`, 
+                        color: CATEGORY_COLORS[it.category] || '#94a3b8' 
+                      }}>
+                        {it.category}
+                      </span>
+                    </td>
+                    <td className="text-secondary">{it.qty} {it.unit}</td>
+                    <td className="text-right text-muted">{formatCurrency(it.pricePerUnit)}</td>
+                    <td className="text-right font-bold text-success font-mono">
+                      {formatCurrency(it.totalCost)}
+                    </td>
+                    <td>
+                      <div className="flex flex-col gap-xs">
+                        {(it.invoiceIds || []).map(id => {
+                          const inv = invoices.find(i => i.id === id);
+                          return inv ? (
+                            <span key={id} className="badge badge-info" style={{ fontSize: 10 }}>
+                              {inv.invoiceNumber}
+                            </span>
+                          ) : null;
+                        })}
+                        {(!it.invoiceIds || it.invoiceIds.length === 0) && <span className="text-muted text-xs">-</span>}
+                      </div>
+                    </td>
+                    <td className="text-muted text-sm" style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {it.notes || '-'}
+                    </td>
+                    <td className="text-right">
+                      <div className="table-actions justify-end">
+                        <button className="btn btn-ghost btn-sm text-primary" onClick={() => openEdit(it)} title="Edit"><FiEdit2 /></button>
+                        <button className="btn btn-ghost btn-sm text-danger" onClick={() => setDeleteId(it.id)} title="Hapus"><FiTrash2 /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Kebutuhan Produksi' : 'Tambah Kebutuhan Produksi'} size="md">
-        <form onSubmit={handleSave}>
-          <div className="modal-body">
-            <div className="form-group">
-              <label className="form-label">Tanggal</label>
-              <input type="date" className="form-input" value={form.date} onChange={e => handleFieldChange('date', e.target.value)} required />
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Kebutuhan Produksi' : 'Tambah Kebutuhan'} size="md">
+        <form onSubmit={handleSave} className="p-lg">
+          <div className="grid gap-lg">
+            <div className="form-group mb-0">
+              <label className="form-label text-xs uppercase tracking-widest opacity-60">Tanggal</label>
+              <input type="date" className="form-input bg-glass" value={form.date} onChange={e => handleFieldChange('date', e.target.value)} required />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div className="form-group">
-                <label className="form-label">Nama Item</label>
-                <input className="form-input" value={form.itemName} onChange={e => handleFieldChange('itemName', e.target.value)} placeholder="Nama barang/kebutuhan" required />
+
+            <div className="grid grid-2 gap-md">
+              <div className="form-group mb-0">
+                <label className="form-label text-xs uppercase tracking-widest opacity-60">Nama Item</label>
+                <input className="form-input bg-glass" value={form.itemName} onChange={e => handleFieldChange('itemName', e.target.value)} placeholder="Nama operasional" required />
               </div>
-              <div className="form-group">
-                <label className="form-label">Kategori</label>
-                <select className="form-select" value={form.category} onChange={e => handleFieldChange('category', e.target.value)}>
+              <div className="form-group mb-0">
+                <label className="form-label text-xs uppercase tracking-widest opacity-60">Kategori</label>
+                <select className="form-select bg-glass" value={form.category} onChange={e => handleFieldChange('category', e.target.value)}>
                   {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div className="form-group">
-                <label className="form-label">Qty</label>
-                <input className="form-input" value={form.qty} onChange={e => handleFieldChange('qty', e.target.value)} placeholder="0" required />
+
+            <div className="grid grid-2 gap-md">
+              <div className="form-group mb-0">
+                <label className="form-label text-xs uppercase tracking-widest opacity-60">Qty</label>
+                <input className="form-input bg-glass" value={form.qty} onChange={e => handleFieldChange('qty', e.target.value)} placeholder="0" required />
               </div>
-              <div className="form-group">
-                <label className="form-label">Satuan</label>
-                <input className="form-input" value={form.unit} onChange={e => handleFieldChange('unit', e.target.value)} placeholder="pcs, ltr, m..." />
+              <div className="form-group mb-0">
+                <label className="form-label text-xs uppercase tracking-widest opacity-60">Satuan</label>
+                <input className="form-input bg-glass" value={form.unit} onChange={e => handleFieldChange('unit', e.target.value)} placeholder="pcs, ltr, etc..." />
               </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Harga per Unit (Rp)</label>
-              <input className="form-input" value={form.pricePerUnit} onChange={e => handleFieldChange('pricePerUnit', e.target.value)} placeholder="0" required />
-            </div>
-            <div style={{ textAlign: 'right', marginBottom: 12, fontSize: 15, fontWeight: 700, color: '#818cf8' }}>
-              Total: {formatCurrency(calcTotal())}
-            </div>
-            <div className="form-group">
-              <label className="form-label">Catatan</label>
-              <textarea className="form-textarea" value={form.notes} onChange={e => handleFieldChange('notes', e.target.value)} placeholder="Catatan tambahan..." rows={2} />
             </div>
 
-            {/* Referensi Invoice */}
-            <hr style={{ border: 0, borderTop: '1px solid rgba(255,255,255,0.06)', margin: '16px 0' }} />
-            <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FiFileText /> Hubungkan ke Invoice (HPP)
+            <div className="form-group mb-0">
+              <label className="form-label text-xs uppercase tracking-widest opacity-60">Harga Satuan (Rp)</label>
+              <input className="form-input bg-glass font-bold" value={form.pricePerUnit} onChange={e => handleFieldChange('pricePerUnit', e.target.value)} placeholder="0" required />
+              
+              <div className="mt-md p-md bg-glass rounded-lg border border-white-05 flex-between">
+                <span className="text-secondary text-sm">Estimasi Total</span>
+                <span className="text-xl font-black text-success">{formatCurrency(calcTotal())}</span>
+              </div>
+            </div>
+
+            <div className="form-group mb-0">
+              <label className="form-label text-xs uppercase tracking-widest opacity-60">Catatan</label>
+              <textarea className="form-input bg-glass" value={form.notes} onChange={e => handleFieldChange('notes', e.target.value)} placeholder="Detail tambahan..." rows={2} />
+            </div>
+
+            <div className="p-md rounded-xl border border-white-05 bg-glass">
+              <label className="form-label text-xs uppercase tracking-widest opacity-60 mb-md flex items-center gap-xs">
+                <FiFileText /> Hubungkan ke HPP Invoice
               </label>
-              <div style={{ position: 'relative', marginBottom: 8 }}>
-                <FiSearch style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: 12 }} />
+              <div className="relative mb-md">
+                <FiSearch className="absolute left-md top-half -translate-y-half opacity-40 text-xs" />
                 <input 
-                  className="form-input" 
-                  style={{ paddingLeft: 30, fontSize: 13 }} 
-                  placeholder="Cari no. invoice atau customer..." 
+                  className="form-input bg-white-05 p-sm pl-xl text-xs" 
+                  placeholder="Cari no. invoice / customer..." 
                   value={invoiceSearch}
                   onChange={e => setInvoiceSearch(e.target.value)}
                 />
               </div>
-              <div style={{ 
-                maxHeight: 150, 
-                overflowY: 'auto', 
-                border: '1px solid rgba(255,255,255,0.06)', 
-                borderRadius: 8,
-                background: 'rgba(0,0,0,0.1)',
-                padding: 4
-              }}>
+              <div className="grid gap-xs max-h-40 overflow-y-auto pr-xs">
                 {invoices
                   .filter(inv => {
                     const q = invoiceSearch.toLowerCase();
@@ -399,19 +397,11 @@ export default function ProductionNeedsPage() {
                   .map(inv => {
                     const isSelected = (form.invoiceIds || []).includes(inv.id);
                     return (
-                      <label key={inv.id} style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 10, 
-                        padding: '6px 10px', 
-                        borderRadius: 6,
-                        cursor: 'pointer',
-                        background: isSelected ? 'rgba(129,140,248,0.1)' : 'transparent',
-                        marginBottom: 2
-                      }}>
+                      <label key={inv.id} className={`flex items-center gap-md p-sm rounded-lg cursor-pointer transition-fast ${isSelected ? 'bg-indigo-500-10 border-indigo-500-20' : 'hover-bg-white-05'}`} style={{ border: '1px solid transparent' }}>
                         <input 
                           type="checkbox" 
                           checked={isSelected}
+                          className="w-4 h-4 accent-indigo-500"
                           onChange={() => {
                             const current = [...(form.invoiceIds || [])];
                             if (isSelected) {
@@ -421,22 +411,23 @@ export default function ProductionNeedsPage() {
                             }
                           }}
                         />
-                        <div style={{ fontSize: 12 }}>
-                          <div style={{ fontWeight: 600 }}>{inv.invoiceNumber}</div>
-                          <div style={{ fontSize: 11, color: '#94a3b8' }}>{inv.customerName}</div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-primary truncate">{inv.invoiceNumber}</div>
+                          <div className="text-xxs text-muted truncate">{inv.customerName}</div>
                         </div>
                       </label>
                     );
                   })}
               </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
-                {form.invoiceIds?.length || 0} invoice terpilih. Biaya akan dibagi rata ke setiap invoice di Laporan HPP.
+              <div className="mt-md text-xxs text-muted italic">
+                {form.invoiceIds?.length || 0} invoice terpilih. Biaya ini akan didistribusikan ke laporan margin terkait.
               </div>
             </div>
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>Batal</button>
-            <button type="submit" className="btn btn-primary">Simpan</button>
+
+          <div className="modal-footer mt-xl pt-lg border-top border-white-05">
+            <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Batal</button>
+            <button type="submit" className="btn btn-primary shadow-glow px-xl">Simpan Kebutuhan</button>
           </div>
         </form>
       </Modal>
@@ -446,7 +437,7 @@ export default function ProductionNeedsPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={confirmDelete}
         title="Hapus Kebutuhan Produksi"
-        message="Apakah Anda yakin ingin menghapus data ini?"
+        message="Data ini akan dihapus permanen dan stok material terkait akan dikembalikan (jika ada)."
       />
     </div>
   );

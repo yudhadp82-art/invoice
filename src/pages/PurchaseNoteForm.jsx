@@ -171,9 +171,11 @@ export default function PurchaseNoteForm() {
           newItem.isManuallyEdited = true;
           return newItem;
         });
-        setItems(hydrated);
+        
+        // AUTO-SUM: Re-aggregate to ensure parent Mix Veg reflects current sub-item sum
+        setItems(aggregateItems(hydrated));
       } else {
-        setItems(actualItems);
+        setItems(aggregateItems(actualItems));
       }
 
       const [invs, history, supps, allCusts] = await Promise.all([
@@ -430,7 +432,7 @@ export default function PurchaseNoteForm() {
       } else {
         // Calculate margin for new item
         const purchaseCost = Number(it.purchaseCost) || (Number(it.pricePerUnit || 0) * Number(it.qtyNota || 0));
-        const salesRevenue = Number(it.salesRevenue) || (Number(it.sellPrice || 0) * Number(it.qtyNota || 0));
+        const salesRevenue = Number(it.salesRevenue) || (Number(it.invoiceQty || it.qtyNota || 0) * Number(it.invoicePrice || it.sellPrice || 0));
         const profit = salesRevenue - purchaseCost;
         const marginPercent = salesRevenue > 0 ? (profit / salesRevenue) * 100 : 0;
 
@@ -450,34 +452,47 @@ export default function PurchaseNoteForm() {
       }
     });
 
-    // Add Mix Vegetable parent with aggregated sub-items
+    // Update Mix Vegetable parent with aggregated sub-items
     parentMap.forEach((parent, parentName) => {
-      const marginPercent = parent.salesRevenue > 0 ? (parent.profit / parent.salesRevenue) * 100 : 0;
+      // Dapatkan parent dari map (dipenuhi dari expandItems atau edit user)
+      let existingParent = null;
+      let existingParentKey = 'mix-vegetable-parent';
+      for (const [key, val] of map.entries()) {
+        if (val.isParentItem && (val.materialName || '').toLowerCase().includes('mix vegetable')) {
+          existingParent = val;
+          existingParentKey = key;
+          break;
+        }
+      }
+
+      // invoiceQty parent BUKAN dari sub-items (karena 0), melainkan dari parent asli (atau dari input user)
+      const invQty = existingParent ? Number(existingParent.invoiceQty) || Number(existingParent.qtyNota) || 0 : 0;
+      const totalBeli = parent.totalCost; // Total beli hanya 100% dari akumulasi edit sub-items
+
+      const profit = existingParent ? existingParent.salesRevenue - totalBeli : -totalBeli;
+      const marginPercent = existingParent && existingParent.salesRevenue > 0 ? (profit / existingParent.salesRevenue) * 100 : 0;
 
       const parentItem = {
-        ...emptyItem,
-        materialId: 'mix-vegetable-parent',
+        ...(existingParent || emptyItem),
+        materialId: existingParentKey,
         materialName: parentName,
         isParentItem: true,
         unit: 'kg',
-        qtyNota: parent.qtyNota,
-        invoiceQty: parent.invoiceQty,
-        invoicePrice: parent.invoicePrice,
-        pricePerUnit: parent.qtyNota > 0 ? Number((parent.totalCost / parent.qtyNota).toFixed(2)) : 0,
-        sellPrice: parent.qtyNota > 0 ? Number((parent.salesRevenue / parent.qtyNota).toFixed(2)) : 0,
-        purchaseCost: parent.purchaseCost,
-        salesRevenue: parent.salesRevenue,
-        profit: parent.profit,
-        marginPercent: marginPercent,
-        totalCost: parent.totalCost
+        qtyNota: 0, // Kosongkan qty nota parent per request
+        // invoiceQty bawaan existingParent tetap dipertahankan
+        pricePerUnit: invQty > 0 ? Number((totalBeli / invQty).toFixed(2)) : 0,
+        purchaseCost: totalBeli,
+        totalCost: totalBeli,
+        profit: profit,
+        marginPercent: marginPercent
       };
 
-      map.set(`mix-vegetable-parent`, parentItem);
+      map.set(existingParentKey, parentItem);
 
-      // Add sub-items
+      // Add sub-items (dan 0-kan sellPrice / Harga Jual)
       parent.subItems.forEach((subItem, idx) => {
         const subKey = `mix-veg-sub-${idx}`;
-        map.set(subKey, subItem);
+        map.set(subKey, { ...subItem, sellPrice: 0, invoicePrice: 0 });
       });
     });
 
@@ -593,7 +608,7 @@ export default function PurchaseNoteForm() {
           it.unit = m.unit;
           it.sellPrice = m.sellPrice || 0;
           const qty = Number(it.qtyNota) || 0;
-          it.salesRevenue = qty * Number(it.sellPrice);
+          it.salesRevenue = (Number(it.invoiceQty) || 0) * (Number(it.invoicePrice) || 0);
           it.purchaseCost = Number(it.totalCost) || 0;
           it.profit = it.salesRevenue - it.purchaseCost;
           it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
@@ -622,7 +637,7 @@ export default function PurchaseNoteForm() {
 
       it.totalCost = qty * pricePerUnit;
       it.purchaseCost = it.totalCost;
-      it.salesRevenue = qty * sellPrice;
+      it.salesRevenue = (Number(it.invoiceQty) || Number(it.qtyNota) || 0) * (Number(it.invoicePrice) || 0);
       it.profit = it.salesRevenue - it.purchaseCost;
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
     } else if (field === 'totalCost') {
@@ -635,7 +650,7 @@ export default function PurchaseNoteForm() {
       // Recalculate margin
       const sellPrice = Number(it.sellPrice) || 0;
       it.purchaseCost = it.totalCost;
-      it.salesRevenue = qty * sellPrice;
+      it.salesRevenue = (Number(it.invoiceQty) || Number(it.qtyNota) || 0) * (Number(it.invoicePrice) || 0);
       it.profit = it.salesRevenue - it.purchaseCost;
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
     } else if (field === 'pricePerUnit') {
@@ -646,8 +661,7 @@ export default function PurchaseNoteForm() {
       it.purchaseCost = it.totalCost;
 
       // Recalculate margin
-      const sellPrice = Number(it.sellPrice) || 0;
-      it.salesRevenue = qty * sellPrice;
+      it.salesRevenue = (Number(it.invoiceQty) || Number(it.qtyNota) || 0) * (Number(it.invoicePrice) || 0);
       it.profit = it.salesRevenue - it.purchaseCost;
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
     } else if (field === 'sellPrice') {
@@ -655,7 +669,7 @@ export default function PurchaseNoteForm() {
       // Recalculate margin
       const qty = Number(it.qtyNota) || 0;
       const sellPrice = Number(value) || 0;
-      it.salesRevenue = qty * sellPrice;
+      it.salesRevenue = (Number(it.invoiceQty) || Number(it.qtyNota) || 0) * (Number(it.invoicePrice) || 0);
       it.purchaseCost = Number(it.totalCost) || 0;
       it.profit = it.salesRevenue - it.purchaseCost;
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
@@ -683,9 +697,8 @@ export default function PurchaseNoteForm() {
 
     newItems[index] = it;
 
-    // Sub-items of Mix Vegetable: laba, margin, revenue, and invoice price always = 0
-    // (revenue and profit belong to the parent Mix Vegetable row)
-    if (it.isSubItem && it.parentName === 'Mix Vegetable') {
+    // RULE 1: If this is a Mix Vegetable sub-item, force 0 revenue/profit (shared with parent)
+    if (it.isSubItem && (it.parentName || '').toLowerCase().includes('mix vegetable')) {
       newItems[index] = {
         ...it,
         invoicePrice: 0,
@@ -694,36 +707,24 @@ export default function PurchaseNoteForm() {
         profit: 0,
         marginPercent: 0
       };
-    }
-
-    // If the changed item is a sub-item of Mix Vegetable,
-    // update the parent's totalCost = sum of all sub-items totalCost
-    if (it.isSubItem && it.parentName && it.parentName.toLowerCase().includes('mix vegetable')) {
-      // Find the nearest parent above this sub-item
-      let parentIdx = -1;
-      for (let i = index - 1; i >= 0; i--) {
-        if (newItems[i].isParentItem && (newItems[i].materialName || '').toLowerCase().includes('mix vegetable')) {
-          parentIdx = i;
-          break;
-        }
-      }
-
+      
+      // AUTO-SUM: Update Parent Mix Vegetable row
+      const parentIdx = newItems.findIndex(x => 
+        x.isParentItem && (x.materialName || '').toLowerCase().includes('mix vegetable')
+      );
       if (parentIdx !== -1) {
         const parent = newItems[parentIdx];
         const subItems = newItems.filter(i => i.isSubItem && i.parentName === parent.materialName);
-        
         const subTotal = subItems.reduce((sum, i) => sum + (Number(i.totalCost) || 0), 0);
         const subQtyNota = subItems.reduce((sum, i) => sum + (Number(i.qtyNota) || 0), 0);
+        const invQty = Number(parent.invoiceQty) || Number(parent.qtyNota) || 0;
         
-        const invQty = Number(parent.invoiceQty) || 0;
-        const newPricePerUnit = invQty > 0 ? subTotal / invQty : 0;
-
         newItems[parentIdx] = {
           ...parent,
-          qtyNota: Number(subQtyNota.toFixed(2)),
+          qtyNota: 0, // Kosongkan qty nota parent per request
           totalCost: subTotal,
           purchaseCost: subTotal,
-          pricePerUnit: Number(newPricePerUnit.toFixed(2)),
+          pricePerUnit: invQty > 0 ? Number((subTotal / invQty).toFixed(2)) : 0,
           profit: (Number(parent.salesRevenue) || 0) - subTotal,
           marginPercent: (Number(parent.salesRevenue) || 0) > 0
             ? (((Number(parent.salesRevenue) || 0) - subTotal) / (Number(parent.salesRevenue) || 0)) * 100
@@ -732,14 +733,13 @@ export default function PurchaseNoteForm() {
       }
     }
 
-    // Additional rule: if parent invoiceQty changes, update pricePerUnit
+    // RULE 2: If parent invoiceQty changes, update pricePerUnit (Total Beli / Qty Inv)
     if (it.isParentItem && (it.materialName || '').toLowerCase().includes('mix vegetable') && field === 'invoiceQty') {
       const subItems = newItems.filter(i => i.isSubItem && i.parentName === it.materialName);
       const subTotal = subItems.reduce((sum, i) => sum + (Number(i.totalCost) || 0), 0);
-      const subQtyNota = subItems.reduce((sum, i) => sum + (Number(i.qtyNota) || 0), 0);
       const invQty = Number(value) || 0;
       
-      it.qtyNota = Number(subQtyNota.toFixed(2));
+      it.qtyNota = 0; // Kosongkan
       it.pricePerUnit = invQty > 0 ? Number((subTotal / invQty).toFixed(2)) : 0;
       it.totalCost = subTotal;
       newItems[index] = it;

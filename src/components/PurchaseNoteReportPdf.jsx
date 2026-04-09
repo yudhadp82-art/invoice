@@ -16,695 +16,450 @@ export default function PurchaseNoteReportPdf({
   if (!groupName) return null;
 
   const containerStyle = {
-    width: '210mm',
-    minHeight: 'auto',
-    background: 'white',
-    color: 'black',
-    padding: '0',
-    margin: '0',
-    boxSizing: 'border-box',
-    fontFamily: 'Arial, sans-serif',
-    fontSize: '13px',
-    maxWidth: '100%',
-    overflow: 'visible'
+    width: '210mm', minHeight: 'auto', background: 'white', color: 'black',
+    padding: '0', margin: '0', boxSizing: 'border-box',
+    fontFamily: 'Arial, sans-serif', fontSize: '13px', maxWidth: '100%', overflow: 'visible'
   };
- 
-  // Aggregate items by Supplier for grouping (Case-insensitive)
-  const supplierMap = {};
-  const displayNames = {}; // Normalized Key -> Original Display Name for rendering
 
-  (purchaseItems || []).forEach(it => {
-    const rawSup = (it.supplier || supplierName || 'Penyedia Barang').trim();
-    const key = rawSup.toUpperCase();
-    
-    if (!supplierMap[key]) {
-      supplierMap[key] = [];
-      displayNames[key] = rawSup; 
+  // Sesi 1: Agregasi Invoice per Item dan per Customer
+  // Struktur: Item -> { Customer A: {qty, price, total}, Customer B: ... }
+  const session1Data = [];
+  (invoicesList || []).forEach(inv => {
+    const custName = inv.customerName || '-';
+    (inv.items || []).forEach(it => {
+      const prodName = (it.productName || '').trim();
+      if (!prodName) return;
+      const qty = Number(it.qty) || 0;
+      const price = Number(it.unitPrice) || 0;
+      const total = qty * price;
+      
+      const existing = session1Data.find(x => x.name === prodName && x.customer === custName && x.price === price);
+      if (existing) {
+        existing.qty += qty;
+        existing.total += total;
+      } else {
+        session1Data.push({ name: prodName, customer: custName, qty, price, total, unit: it.unit || 'kg' });
+      }
+    });
+  });
+  session1Data.sort((a, b) => a.name.localeCompare(b.name));
+  const session1Total = session1Data.reduce((sum, item) => sum + item.total, 0);
+
+  // Extract unique customers for pivot columns
+  const uniqueCustomersSet = new Set();
+  session1Data.forEach(it => uniqueCustomersSet.add(it.customer));
+  const uniqueCustomers = Array.from(uniqueCustomersSet).sort();
+
+  // Create Pivot Table Data
+  const session1Pivot = [];
+  session1Data.forEach(it => {
+    let row = session1Pivot.find(r => r.name === it.name && r.price === it.price);
+    if (!row) {
+      row = { name: it.name, price: it.price, unit: it.unit, customerQty: {}, totalQty: 0, totalRowValue: 0 };
+      session1Pivot.push(row);
     }
-    supplierMap[key].push(it);
+    
+    row.customerQty[it.customer] = (row.customerQty[it.customer] || 0) + it.qty;
+    row.totalQty += it.qty;
+    row.totalRowValue += it.total;
   });
 
-  // Sort by name and convert back to entries for the component to map over
-  const supplierGroups = Object.keys(supplierMap).sort().map(key => [displayNames[key], supplierMap[key]]);
+  // Sesi 2: Agregasi Pembelian Gabungan (Semua Supplier)
+  // Hitung total pembelian item, jika Mix Vegetable, handle sub-items
+  const session2Map = new Map();
+  (purchaseItems || []).forEach(it => {
+    const key = it.isSubItem ? `${it.materialName}_sub_${it.parentName}` : it.materialName;
+    if (!session2Map.has(key)) {
+      session2Map.set(key, { ...it, totalCost: 0, qtyNota: 0, invoiceQty: 0, purchaseCount: 0 });
+    }
+    const agg = session2Map.get(key);
+    agg.totalCost += Number(it.totalCost) || 0;
+    agg.qtyNota += Number(it.qtyNota) || 0;
+    agg.invoiceQty += Number(it.invoiceQty) || 0;
+    agg.purchaseCount += 1;
+    
+    // Average pricePerUnit
+    if (agg.qtyNota > 0) agg.pricePerUnit = agg.totalCost / agg.qtyNota;
+  });
+
+  const session2Data = Array.from(session2Map.values());
+  const grandTotalPurchases = session2Data.filter(it => !it.isParentItem).reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+
+  // Cari Harga Jual untuk Sesi 2 dari Invoices (Average per item)
+  const getAvgSellPrice = (name) => {
+    const items = session1Data.filter(x => (x.name || '').toLowerCase() === (name || '').toLowerCase());
+    if (items.length === 0) return 0;
+    const totalQty = items.reduce((sum, x) => sum + x.qty, 0);
+    const totalRev = items.reduce((sum, x) => sum + x.total, 0);
+    return totalQty > 0 ? totalRev / totalQty : 0;
+  };
+
+  // Sesi 3: Rekap Pembelian per Supplier (Aggregated by Material)
+  const supplierMap = {};
+  const displayNamesForSup = {};
+  (purchaseItems || []).forEach(it => {
+    // SKIP: Mix Vegetable parent row (already detailed by sub-items)
+    if (it.isParentItem && (it.materialName || '').toLowerCase().includes('mix vegetable')) return;
+
+    const rawSup = (it.supplier || supplierName || 'Penyedia Barang').trim();
+    const supKey = rawSup.toUpperCase();
+    if (!supplierMap[supKey]) {
+      supplierMap[supKey] = new Map(); // Map material name -> aggregated object
+      displayNamesForSup[supKey] = rawSup; 
+    }
+    
+    const matName = it.materialName || 'Tanpa Nama';
+    const matMap = supplierMap[supKey];
+    if (matMap.has(matName)) {
+      const ex = matMap.get(matName);
+      ex.qtyNota = (Number(ex.qtyNota) || 0) + (Number(it.qtyNota) || 0);
+      ex.totalCost = (Number(ex.totalCost) || 0) + (Number(it.totalCost) || 0);
+      ex.pricePerUnit = ex.qtyNota > 0 ? ex.totalCost / ex.qtyNota : ex.pricePerUnit;
+    } else {
+      matMap.set(matName, { ...it, totalCost: Number(it.totalCost) || 0, qtyNota: Number(it.qtyNota) || 0 });
+    }
+  });
   
-  // Debug logging
-  console.log('PDF Render Debug:', {
-    purchaseItemsCount: purchaseItems?.length || 0,
-    supplierDiscounts,
-    additionalCosts,
-    sampleItem: purchaseItems?.[0],
-    totalItemsCost: (purchaseItems || []).reduce((n, it) => n + (Number(it.totalCost) || 0), 0)
+  const supplierGroups = Object.keys(supplierMap).sort().map(key => {
+    const aggItems = Array.from(supplierMap[key].values());
+    return [displayNamesForSup[key], aggItems];
   });
 
-  const totalItemsCost = (purchaseItems || []).reduce((n, it) => n + (Number(it.totalCost) || 0), 0);
-  const totalDiscounts = Object.values(supplierDiscounts || {}).reduce((s, d) => s + (Number(d) || 0), 0);
-  const totalAdditionalCosts = Object.values(additionalCosts || {}).reduce((s, c) => s + (Number(c) || 0), 0);
+  // Sesi 4: Laba Rugi per Customer
+  // Alokasi HPP: Total HPP item dari sesi 2 / Total Qty penjualan keseluruhan = Average HPP unit
+  const avgHppMap = {};
+  session2Data.forEach(it => {
+    if (!it.isSubItem && !it.isParentItem) {
+      avgHppMap[(it.materialName || '').toLowerCase()] = it.pricePerUnit || 0;
+    } else if (it.isParentItem) {
+      // Mix Vegetable parent HPP per INV QTY
+      const subItems = session2Data.filter(sub => sub.isSubItem && sub.parentName === it.materialName);
+      const subTotalCost = subItems.reduce((s, sub) => s + (Number(sub.totalCost) || 0), 0);
+      const invQty = Number(it.invoiceQty) || Number(it.qtyNota) || 1;
+      avgHppMap[(it.materialName || '').toLowerCase()] = subTotalCost / invQty;
+    }
+  });
 
-  // Calculate grand total by summing supplier net totals (after discounts) + additional costs
-  // This ensures the grand total matches the sum of all "TOTAL BAYAR KE [SUPPLIER]" values
+  const session4Data = [];
+  const uniqueCustomersSet4 = new Set();
+  session1Data.forEach(it => uniqueCustomersSet4.add(it.customer));
+  const uniqueCustomers4 = Array.from(uniqueCustomersSet4).sort();
+
+  uniqueCustomers4.forEach(cust => {
+    let revenue = 0;
+    let hpp = 0;
+
+    session1Data.filter(it => it.customer === cust).forEach(it => {
+      // Pendapatan berdasarkan barang-barang yang dibeli customer ini di sesi 1
+      revenue += it.total;
+      
+      // HPP untuk barang tersebut
+      const unitHpp = avgHppMap[(it.name || '').toLowerCase()] || 0;
+      hpp += (it.qty * unitHpp);
+    });
+
+    session4Data.push({ customer: cust, revenue, hpp, profit: revenue - hpp });
+  });
+
+  // Calculate Net Supplier Payments (for Section 5)
   let totalFromSuppliers = 0;
   supplierGroups.forEach(([s, items]) => {
     const discount = Number(supplierDiscounts[s]) || 0;
-    const subtotal = items.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
-    const netToPay = Math.max(0, subtotal - discount);
-    totalFromSuppliers += netToPay;
+    const subtotal = items.reduce((sum, it) => {
+      if (it.isParentItem && (it.materialName || '').toLowerCase().includes('mix vegetable')) return sum;
+      return sum + (Number(it.totalCost) || 0);
+    }, 0);
+    totalFromSuppliers += Math.max(0, subtotal - discount);
   });
-
-  const totalInvoiceRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-  const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
-  const grandTotalNet = totalExpenses;
-
-  console.log('Calculated totals:', {
-    totalItemsCost,
-    totalDiscounts,
-    totalAdditionalCosts,
-    totalFromSuppliers,
-    totalExpenses,
-    totalInvoiceRevenue,
-    grandTotalNet
-  });
-  // Pre-calculate price map from INVOICES for Section 1 aggregates
-  const invoicePriceMap = {};
-  (invoicesList || []).forEach(inv => {
-    (inv.items || []).forEach(it => {
-      const key = (it.productName || '').toLowerCase().trim();
-      if (!key) return;
-      if (!invoicePriceMap[key]) {
-        invoicePriceMap[key] = { total: 0, count: 0 };
-      }
-      invoicePriceMap[key].total += (Number(it.unitPrice) || 0);
-      invoicePriceMap[key].count += 1;
-    });
-  });
-
-  const getInvoicePrice = (name) => {
-    const key = (name || '').toLowerCase().trim();
-    const data = invoicePriceMap[key];
-    return data && data.count > 0 ? data.total / data.count : 0;
-  };
+  const totalAdditionalCosts = Object.values(additionalCosts || {}).reduce((s, c) => s + (Number(c) || 0), 0);
+  const grandTotalNet = totalFromSuppliers + totalAdditionalCosts;
 
   return (
     <>
       <style>{`
         @media print {
-          /* A4 page size and margins */
-          @page {
-            size: A4 portrait;
-            margin: 0;
-          }
-
-          /* Ensure body fits A4 */
-          body {
-            width: 210mm;
-            margin: 0;
-            padding: 0;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          /* Prevent breaks inside important elements */
-          .print-section {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            position: relative !important;
-          }
-
-          /* Force page breaks before major sections */
-          .page-break-before {
-            page-break-before: always !important;
-            break-before: page !important;
-          }
-
-          /* Force page breaks after major sections */
-          .page-break-after {
-            page-break-after: always !important;
-            break-after: page !important;
-          }
-
-          /* Prevent breaks after headings */
-          h4 {
-            page-break-after: avoid !important;
-            break-after: avoid !important;
-          }
-
-          /* Keep tables together - more aggressive */
-          table {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            width: 100% !important;
-          }
-
-          /* Keep table headers with data */
-          thead {
-            page-break-after: avoid !important;
-            break-after: avoid !important;
-            display: table-header-group !important;
-          }
-
-          /* Keep table footers with data */
-          tfoot {
-            display: table-footer-group !important;
-          }
-
-          /* Prevent breaks in summary rows */
-          tr.summary-row {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-
-          /* Keep grand total and signatures together */
-          .no-break {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            page-break-before: avoid !important;
-            break-before: avoid !important;
-          }
-
-          /* Ensure print container fits A4 */
-          #purchase-note-report-render {
-            width: 210mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: visible !important;
-          }
-
-          /* Force supplier sections to stay together */
-          .supplier-section {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
+          @page { size: A4 portrait; margin: 0; }
+          body { width: 210mm; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .print-section { page-break-inside: avoid !important; break-inside: avoid !important; position: relative !important; }
+          .page-break-before { page-break-before: always !important; break-before: page !important; }
+          table { page-break-inside: avoid !important; break-inside: avoid !important; width: 100% !important; }
+          thead { display: table-header-group !important; }
+          tfoot { display: table-footer-group !important; }
         }
-
-        /* Screen styles for preview */
-        @media screen {
-          #purchase-note-report-render {
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            margin: 20px auto;
-          }
-        }
+        @media screen { #purchase-note-report-render { box-shadow: 0 0 10px rgba(0,0,0,0.1); margin: 20px auto; } }
       `}</style>
       <div id="purchase-note-report-render" className="print-only" style={containerStyle}>
-      {/* Content wrapper with padding for A4 margins */}
-      <div style={{ padding: '15mm' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', borderBottom: '2px solid #1e293b', paddingBottom: 10, marginBottom: 20, gap: 8 }}>
-        <div style={{ width: 55, height: 55, marginRight: 15, flexShrink: 0 }}>
-          <img src="/logo-kdmp.png" alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-        </div>
-        <div style={{ flex: '1 1 220px', textAlign: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 'bold', color: '#1e293b', textTransform: 'uppercase' }}>KOPERASI DESA MERAH PUTIH SINDANGJAYA</h2>
-          <h3 style={{ margin: '3px 0 0 0', fontSize: 13, color: '#475569' }}>LAPORAN REKAP PEMBELIAN BAHAN BAKU</h3>
-          <p style={{ margin: '4px 0 0 0', fontSize: 12, fontWeight: '600' }}>
-            GRUP: <span style={{ color: '#ef4444' }}>{groupName.toUpperCase()}</span> | TANGGAL: {formatDateShort(date)}
-          </p>
-        </div>
-      </div>
-
-      {/* SECTION 1: REKAP KEBUTUHAN GRUP (AGGREGATE) */}
-      <div className="print-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-        <h4 style={{ margin: '0 0 10px 0', fontSize: 15, borderLeft: '4px solid #3b82f6', paddingLeft: 10, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>1. Rekap Kebutuhan Gabungan (Agregat)</h4>
-        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, fontSize: '12px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 'bold' }}>Nama Bahan Baku</th>
-              <th style={{ textAlign: 'center', width: '15%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 'bold' }}>Total Qty</th>
-              <th style={{ textAlign: 'center', width: '10%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 'bold' }}>Satuan</th>
-              <th style={{ textAlign: 'right', width: '20%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 'bold' }}>Harga Satuan</th>
-              <th style={{ textAlign: 'right', width: '20%', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 'bold' }}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(groupRecap || []).map((it, idx) => {
-              const avgPrice = getInvoicePrice(it.name);
-              const rowTotal = avgPrice * (Number(it.totalQty) || 0);
-              return (
-                <tr key={idx}>
-                  <td style={{ fontWeight: '600', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '11px' }}>{it.name}</td>
-                  <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '11px' }}>{formatNumber(it.totalQty)}</td>
-                  <td style={{ textAlign: 'center', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '11px' }}>{it.unit || 'kg'}</td>
-                  <td style={{ textAlign: 'right', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '11px' }}>{avgPrice > 0 ? formatCurrency(avgPrice) : '-'}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '6px 8px', border: '1px solid #e2e8f0', fontSize: '11px' }}>{rowTotal > 0 ? formatCurrency(rowTotal) : '-'}</td>
-                </tr>
-              );
-            })}
-            {(!groupRecap || groupRecap.length === 0) && (
-              <tr><td colSpan="3" style={{ padding: 10, textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0', fontSize: '10px' }}>Tidak ada data rekap grup</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Page break before section 2 */}
-      <div className="page-break-before" style={{ pageBreakBefore: 'always', breakBefore: 'page' }}></div>
-
-      {/* SECTION 2: REKAP & REALISASI PEMBELIAN PER SUPPLIER */}
-      <h4 style={{ margin: '16px 0 12px 0', fontSize: 13, borderLeft: '4px solid #10b981', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>2. Rekap & Realisasi Pembelian per Supplier</h4>
-
-      {supplierGroups.map(([s, items], idx) => {
-        const discount = Number(supplierDiscounts[s]) || 0;
-        const subtotal = items.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
-        const netToPay = Math.max(0, subtotal - discount);
-        const suppInfo = (suppliersData || []).find(sd =>
-          (sd.name || '').toLowerCase() === s.toLowerCase() ||
-          (sd.company || '').toLowerCase() === s.toLowerCase()
-        );
-
-        return (
-          <div key={idx} className="print-section supplier-section" style={{
-            border: '1px solid #e2e8f0',
-            borderRadius: 6,
-            overflow: 'visible',
-            marginBottom: 20,
-            marginTop: 16,
-            pageBreakInside: 'avoid',
-            breakInside: 'avoid',
-            pageBreakBefore: idx > 0 ? 'always' : 'auto',
-            breakBefore: idx > 0 ? 'page' : 'auto',
-            pageBreakAfter: 'auto',
-            breakAfter: 'auto',
-            width: '100%',
-            minHeight: 'auto'
-          }}>
-            {/* Supplier Header Box */}
-            <div style={{ background: '#f8fafc', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', gap: 10 }}>
-               <div>
-                  <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#64748b', fontWeight: '600' }}>Penyedia Barang:</span>
-                  <h5 style={{ margin: '1px 0 0 0', fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>{s.toUpperCase()}</h5>
-               </div>
-               <div style={{ textAlign: 'right', fontSize: '10px' }}>
-                  <div style={{ textTransform: 'uppercase', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>Info Pembayaran (Bank):</div>
-                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#1e293b' }}>
-                    {suppInfo && suppInfo.bankName ? `${suppInfo.bankName} / ${suppInfo.accountName}` : 'Informasi rekening belum diatur'}
-                  </div>
-                  {suppInfo && suppInfo.accountNumber && (
-                    <div style={{ fontSize: '10px', fontWeight: '600', color: '#1e293b' }}>No: {suppInfo.accountNumber}</div>
-                  )}
-               </div>
+        <div style={{ padding: '15mm' }}>
+         {/* HEADER */}
+          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid #1e293b', paddingBottom: 10, marginBottom: 20 }}>
+            <div style={{ width: 55, height: 55, marginRight: 15 }}>
+              <img src="/logo-kdmp.png" alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
             </div>
+            <div style={{ flex: '1', textAlign: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 'bold', color: '#1e293b' }}>KOPERASI DESA MERAH PUTIH SINDANGJAYA</h2>
+              <h3 style={{ margin: '3px 0 0 0', fontSize: 13, color: '#475569' }}>LAPORAN PEMBELIAN & PENJUALAN KOMPREHENSIF</h3>
+              <p style={{ margin: '4px 0 0 0', fontSize: 12, fontWeight: '600' }}>GRUP: <span style={{ color: '#ef4444' }}>{groupName.toUpperCase()}</span> | TANGGAL: {formatDateShort(date)}</p>
+            </div>
+          </div>
 
-            {/* Items Table for this Supplier */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-              <thead style={{ pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>
+          {/* SESSION 1: Rekap Invoice Gabungan */}
+          <div className="print-section">
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #3b82f6', paddingLeft: 8, textTransform: 'uppercase' }}>Session 1: Rekap Invoice Gabungan</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: 20 }}>
+              <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', color: '#475569', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Bahan Baku</th>
-                  <th style={{ textAlign: 'center', color: '#475569', width: '8%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Qty</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '12%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>H. Beli</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '13%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Tot. Beli</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '12%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>H. Jual</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '13%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Tot. Jual</th>
-                  <th style={{ textAlign: 'right', color: '#475569', width: '15%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Laba</th>
-                  <th style={{ textAlign: 'center', color: '#475569', width: '10%', padding: '5px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>%</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', width: '5%' }}>No</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'left' }}>Komoditas</th>
+                  {uniqueCustomers.map(cust => (
+                    <th key={cust} style={{ padding: '6px', background: '#e0f2fe', border: '1px solid #cbd5e1', textAlign: 'center' }}>{cust}</th>
+                  ))}
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center' }}>Total</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center' }}>Satuan</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right' }}>Harga Satuan</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right' }}>Total (Rp)</th>
                 </tr>
               </thead>
-              <tbody style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                {(() => {
-                  // Aggregate Mix Vegetable items
-                  const mixVegetableItems = items.filter(it =>
-                    it.isSubItem &&
-                    (it.materialName || '').toLowerCase().match(/jagung|wortel|buncis/)
-                  );
-
-                  const hasMixVegetable = mixVegetableItems.length > 0;
-                  const mixVegetableParent = items.find(it =>
-                    !it.isSubItem &&
-                    (it.materialName || '').toLowerCase().includes('mix vegetable')
-                  );
-
-                  // Get items to display (exclude Mix Vegetable sub-items)
-                  let itemsToDisplay = items.filter(it =>
-                    !it.isSubItem ||
-                    !(it.materialName || '').toLowerCase().match(/jagung|wortel|buncis/)
-                  );
-
-                  // If we have Mix Vegetable sub-items, create aggregated item
-                  if (hasMixVegetable && mixVegetableParent) {
-                    const totalBeli = mixVegetableItems.reduce((sum, it) =>
-                      sum + (Number(it.totalCost) || 0), 0
-                    );
-                    const totalQty = mixVegetableItems.reduce((sum, it) =>
-                      sum + (Number(it.qtyNota) || 0), 0
-                    );
-                    const invoiceQty = Number(mixVegetableParent.invoiceQty) ||
-                                      Number(mixVegetableParent.qtyNota) || 0;
-
-                    // Calculate price per kg based on total cost divided by invoice qty
-                    const pricePerKg = invoiceQty > 0 ? totalBeli / invoiceQty : totalBeli / totalQty;
-
-                    // Get sell price from connected invoice items
-                    let sellPrice = 0;
-                    if (invoicesList && invoicesList.length > 0) {
-                      invoicesList.forEach(inv => {
-                        if (inv.items && inv.items.length > 0) {
-                          const matchingInvoiceItem = inv.items.find(invItem =>
-                            (invItem.productName || '').toLowerCase().includes('mix vegetable')
-                          );
-                          if (matchingInvoiceItem && matchingInvoiceItem.unitPrice) {
-                            sellPrice = Number(matchingInvoiceItem.unitPrice) || 0;
-                          }
-                        }
-                      });
-                    }
-
-                    // Fallback to stored values
-                    if (sellPrice === 0) {
-                      sellPrice = Number(mixVegetableParent.invoicePrice) ||
-                                 Number(mixVegetableParent.sellPrice) || 0;
-                    }
-
-                    const totalJual = totalQty * sellPrice;
-                    const margin = totalJual > 0 ? ((totalJual - totalBeli) / totalJual * 100) : 0;
-                    const marginColor = margin >= 20 ? '#15803d' : margin >= 10 ? '#f59e0b' : '#dc2626';
-
-                    const aggregatedItem = {
-                      materialName: 'Mix Vegetable',
-                      qtyNota: invoiceQty,
-                      unit: 'kg',
-                      pricePerUnit: pricePerKg,
-                      totalCost: totalBeli,
-                      invoiceQty: invoiceQty,
-                      invoicePrice: sellPrice,
-                      sellPrice: sellPrice,
-                      salesRevenue: totalJual,
-                      profit: totalJual - totalBeli,
-                      marginPercent: margin,
-                      marginColor: marginColor,
-                      isMixVegetable: true
-                    };
-
-                    // Replace parent with aggregated item
-                    itemsToDisplay = itemsToDisplay.map(it =>
-                      (it.materialName || '').toLowerCase().includes('mix vegetable') && !it.isSubItem
-                        ? aggregatedItem
-                        : it
-                    );
-                  }
-
-                  return itemsToDisplay.map((it, iIdx) => {
-                    // Get sell price from connected invoice items
-                    let sellPrice = 0;
-
-                    // For Mix Vegetable, use the stored sell price
-                    if (it.isMixVegetable) {
-                      sellPrice = it.sellPrice;
-                    } else {
-                      // Try to find matching invoice item by product name
-                      if (invoicesList && invoicesList.length > 0) {
-                        invoicesList.forEach(inv => {
-                          if (inv.items && inv.items.length > 0) {
-                            const matchingInvoiceItem = inv.items.find(invItem =>
-                              (invItem.productName || '').toLowerCase() === (it.materialName || '').toLowerCase()
-                            );
-                            if (matchingInvoiceItem && matchingInvoiceItem.unitPrice) {
-                              sellPrice = Number(matchingInvoiceItem.unitPrice) || 0;
-                            }
-                          }
-                        });
-                      }
-
-                      // Fallback to stored values if not found in invoice
-                      if (sellPrice === 0) {
-                        sellPrice = Number(it.invoicePrice) || Number(it.sellPrice) || 0;
-                      }
-                    }
-
-                    // Calculate totals
-                    const totalBeli = Number(it.totalCost) || 0;
-                    const qty = Number(it.qtyNota) || 0;
-                    const totalJual = qty * sellPrice;
-
-                    // Calculate margin
-                    const margin = totalJual > 0 ? ((totalJual - totalBeli) / totalJual * 100) : 0;
-                    const marginColor = it.isMixVegetable ? it.marginColor :
-                                      (margin >= 20 ? '#15803d' : margin >= 10 ? '#f59e0b' : '#dc2626');
-                    const rowLaba = totalJual - totalBeli;
-
-                    return (
-                      <tr key={iIdx}>
-                        <td style={{ color: '#1e293b', wordBreak: 'break-word', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: it.isMixVegetable ? '700' : 'normal' }}>
-                          {it.isMixVegetable ? '' : (it.isSubItem ? '↳ ' : '')}{it.materialName}
-                        </td>
-                        <td style={{ textAlign: 'center', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px' }}>
-                          {formatNumber(it.qtyNota)} {it.unit}
-                        </td>
-                        <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px' }}>
-                          {formatCurrency(it.pricePerUnit)}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px' }}>
-                          {formatCurrency(totalBeli)}
-                        </td>
-                        <td style={{ textAlign: 'right', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', color: '#3b82f6' }}>
-                          {formatCurrency(sellPrice)}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px', color: '#3b82f6' }}>
-                          {formatCurrency(totalJual)}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: '800', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px', color: rowLaba >= 0 ? '#166534' : '#991b1b' }}>
-                          {formatCurrency(rowLaba)}
-                        </td>
-                        <td style={{ textAlign: 'center', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '700', color: marginColor }}>
-                          {totalJual > 0 ? margin.toFixed(1) + '%' : '-'}
-                        </td>
-                      </tr>
-                    );
-                  });
-                })()}
-                {/* Summary Rows for this Supplier */}
-                <tr className="summary-row" style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                  <td colSpan="3" style={{ textAlign: 'right', color: '#64748b', fontSize: '10px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Subtotal Beli:</td>
-                  <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px' }}>{formatCurrency(subtotal)}</td>
-                  <td colSpan="2"></td>
-                  <td></td>
-                </tr>
-                {discount > 0 && (
-                  <tr className="summary-row" style={{ background: '#fafafa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                    <td colSpan="3" style={{ textAlign: 'right', color: '#ef4444', fontSize: '10px', fontWeight: '600', padding: '4px 6px', border: '1px solid #e2e8f0' }}>Potongan Diskon:</td>
-                    <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#ef4444', padding: '4px 6px', border: '1px solid #e2e8f0', fontSize: '11px' }}>-{formatCurrency(discount)}</td>
-                    <td colSpan="2"></td>
-                    <td></td>
+              <tbody>
+                {session1Pivot.map((row, idx) => (
+                  <tr key={idx}>
+                    <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>{idx + 1}</td>
+                    <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', fontWeight: '600' }}>{row.name}</td>
+                    {uniqueCustomers.map(cust => (
+                      <td key={cust} style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                        {row.customerQty[cust] ? formatNumber(row.customerQty[cust]) : '-'}
+                      </td>
+                    ))}
+                    <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'center', fontWeight: 'bold', color: '#312e81' }}>{formatNumber(row.totalQty)}</td>
+                    <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>{row.unit}</td>
+                    <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'right' }}>{formatCurrency(row.price)}</td>
+                    <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(row.totalRowValue)}</td>
                   </tr>
-                )}
-                <tr className="summary-row" style={{ background: '#f0fdf4', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                  <td colSpan="3" style={{ textAlign: 'right', fontSize: '11px', fontWeight: '700', color: '#166534', padding: '5px 6px', border: '1px solid #e2e8f0' }}>TOTAL BAYAR KE {s.toUpperCase()}:</td>
-                  <td style={{ textAlign: 'right', fontSize: '12px', fontWeight: '800', color: '#15803d', padding: '5px 6px', border: '1px solid #e2e8f0' }}>{formatCurrency(netToPay)}</td>
-                  <td colSpan="2"></td>
-                  <td></td>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={uniqueCustomers.length + 5} style={{ padding: '6px', textAlign: 'right', fontWeight: 'bold', background: '#eff6ff', border: '1px solid #cbd5e1' }}>Total Penjualan Gabungan:</td>
+                  <td style={{ padding: '6px', textAlign: 'right', fontWeight: 'bold', background: '#eff6ff', border: '1px solid #cbd5e1' }}>{formatCurrency(session1Total)}</td>
                 </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* SESSION 2: Rekap Pembelian Semua Bahan Baku */}
+          <div className="print-section page-break-before" style={{ marginTop: 20 }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #10b981', paddingLeft: 8, textTransform: 'uppercase' }}>Session 2: Rekap Pembelian Gabungan Bahan Baku</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: 20 }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'left' }}>Bahan Baku</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center' }}>Qty Beli</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right' }}>H. Pembelian</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right' }}>H. Penjualan</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right' }}>Laba</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center' }}>Margin %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {session2Data.filter(it => !it.isParentItem).map((it, idx) => {
+                  const isMixVegParent = it.isParentItem;
+                  let sellPrice = getAvgSellPrice(it.materialName);
+                  if (sellPrice === 0) sellPrice = Number(it.sellPrice) || 0;
+
+                  const totalBeli = isMixVegParent ? 
+                    session2Data.filter(sub => sub.isSubItem && sub.parentName === it.materialName).reduce((s, sub) => s + sub.totalCost, 0)
+                    : (Number(it.totalCost) || 0);
+
+                  const invQtyTotal = Number(it.invoiceQty) || Number(it.qtyNota) || 0;
+                  const displayPricePerUnit = isMixVegParent 
+                    ? (invQtyTotal > 0 ? totalBeli / invQtyTotal : 0)
+                    : (it.qtyNota > 0 ? totalBeli / it.qtyNota : 0);
+
+                  const totalJual = invQtyTotal * sellPrice;
+                  const rowLaba = totalJual - totalBeli;
+                  const margin = totalJual > 0 ? (rowLaba / totalJual * 100) : 0;
+                  const displayQty = isMixVegParent ? '' : it.qtyNota;
+
+                  return (
+                    <tr key={idx}>
+                      <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', color: it.isSubItem ? '#64748b' : '#1e293b', fontWeight: isMixVegParent ? 'bold' : 'normal', paddingLeft: it.isSubItem ? '20px' : '6px' }}>
+                        {it.isSubItem ? '↳ ' : ''}{it.materialName}
+                      </td>
+                      <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                        {displayQty !== '' ? `${formatNumber(displayQty)} ${it.unit}` : ''}
+                      </td>
+                      <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'right' }}>{displayPricePerUnit > 0 ? formatCurrency(displayPricePerUnit) : '-'}</td>
+                      <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'right' }}>{sellPrice > 0 ? formatCurrency(sellPrice) : '-'}</td>
+                      <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 'bold', color: rowLaba >= 0 ? '#166534' : '#991b1b' }}>
+                        {(totalJual > 0 || isMixVegParent) ? formatCurrency(rowLaba) : (it.isSubItem ? '-' : formatCurrency(rowLaba))}
+                      </td>
+                      <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'center', color: margin >= 0 ? '#166534' : '#991b1b' }}>
+                        {totalJual > 0 ? `${margin.toFixed(1)}%` : '-'}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
-        );
-      })}
 
-      {/* SECTION 3: RELATED INVOICES */}
-      {(invoicesList || []).length > 0 && (
-        <div className="print-section page-break-before" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-          <h4 style={{ margin: '16px 0 12px 0', fontSize: 13, borderLeft: '4px solid #f59e0b', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>3. Invoice Terhubung</h4>
-          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', borderSpacing: 0, fontSize: '10px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>No Invoice</th>
-                <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Nama Pembeli</th>
-                <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Tanggal</th>
-                <th style={{ textAlign: 'center', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Jumlah Item</th>
-                <th style={{ textAlign: 'right', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoicesList.map((inv, idx) => (
-                <tr key={idx}>
-                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{inv.invoiceNumber || inv.id}</td>
-                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>{inv.customerName || '-'}</td>
-                  <td style={{ padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{formatDateShort(inv.date)}</td>
-                  <td style={{ textAlign: 'center', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>{(inv.items || []).length}</td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600' }}>
-                    {formatCurrency(inv.grandTotal || 0)}
-                  </td>
-                </tr>
-              ))}
-              {(!invoicesList || invoicesList.length === 0) && (
-                <tr>
-                  <td colSpan="5" style={{ padding: 8, textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0', fontSize: '10px' }}>Tidak ada invoice terhubung</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-        {/* SECTION 4: RINGKASAN PEMBAYARAN PER SUPPLIER */}
-        {supplierGroups.length > 0 && (
-          <div className="print-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: 20 }}>
-            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #06b6d4', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>4. Ringkasan Pembayaran per Supplier</h4>
-            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+          {/* SESSION 3: Rekap Pembelian Tiap Supplier */}
+          <div className="print-section" style={{ marginTop: 20 }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #8b5cf6', paddingLeft: 8, textTransform: 'uppercase' }}>Session 3: Rincian Pembelian Tiap Supplier</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: 20 }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold', width: '10%' }}>No</th>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Nama Supplier</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold', width: '20%' }}>Subtotal</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold', width: '20%' }}>Diskon</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', background: '#f8fafc', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 'bold', width: '22%' }}>Total Bayar</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'left' }}>Supplier</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'left' }}>Item Pembelian</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center' }}>Qty Pembelian</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right' }}>H. Pembelian</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right' }}>Total Beli</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supplierGroups.map(([s, items], sIdx) => (
+                  items.map((it, iIdx) => {
+                    const isMixVegParent = it.isParentItem && (it.materialName || '').toLowerCase().includes('mix vegetable');
+                    const totalBeli = isMixVegParent ? 
+                      items.filter(sub => sub.isSubItem && sub.parentName === it.materialName).reduce((sum, sub) => sum + (Number(sub.totalCost) || 0), 0)
+                      : (Number(it.totalCost) || 0);
+                    const invQtyTotal = Number(it.invoiceQty) || Number(it.qtyNota) || 0;
+                    const priceUnit = isMixVegParent ? (invQtyTotal > 0 ? totalBeli / invQtyTotal : 0) : (Number(it.pricePerUnit) || 0);
+                    const displayQty = isMixVegParent ? '' : it.qtyNota;
+                    
+                    return (
+                      <tr key={`${sIdx}-${iIdx}`}>
+                        {iIdx === 0 && <td rowSpan={items.length} style={{ padding: '4px 6px', border: '1px solid #e2e8f0', fontWeight: 'bold', verticalAlign: 'top' }}>{s}</td>}
+                        <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', paddingLeft: it.isSubItem ? '20px' : '6px', fontWeight: isMixVegParent ? 'bold' : 'normal', color: it.isSubItem ? '#64748b' : '#000' }}>
+                          {it.isSubItem ? '↳ ' : ''}{it.materialName}
+                        </td>
+                        <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>{displayQty !== '' ? `${formatNumber(displayQty)} ${it.unit}` : ''}</td>
+                        <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'right' }}>{priceUnit > 0 ? formatCurrency(priceUnit) : '-'}</td>
+                        <td style={{ padding: '4px 6px', border: '1px solid #e2e8f0', textAlign: 'right' }}>{totalBeli > 0 ? formatCurrency(totalBeli) : '-'}</td>
+                      </tr>
+                    );
+                  })
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* SESSION 4: Laporan Laba Rugi Consolidated Summary */}
+          <div className="print-section" style={{ marginTop: 20 }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #f59e0b', paddingLeft: 8, textTransform: 'uppercase' }}>Session 4: Laporan Laba Rugi Summary</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: 20 }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right' }}>Total Invoice</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right' }}>Total Pembelian</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right' }}>Laba / Rugi</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center' }}>Margin %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const totalRev = session1Total; 
+                  const totalPurchase = grandTotalNet;
+                  const totalProfit = totalRev - totalPurchase;
+                  const totalMargin = totalRev > 0 ? (totalProfit / totalRev * 100) : 0;
+                  return (
+                    <tr>
+                      <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', textAlign: 'right', color: '#15803d', fontWeight: 'bold', fontSize: '13px' }}>
+                        {formatCurrency(totalRev)}
+                      </td>
+                      <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', textAlign: 'right', color: '#dc2626', fontSize: '13px' }}>
+                        {formatCurrency(totalPurchase)}
+                      </td>
+                      <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 'bold', fontSize: '13px', color: totalProfit >= 0 ? '#166534' : '#991b1b' }}>
+                        {formatCurrency(totalProfit)}
+                      </td>
+                      <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: totalMargin >= 0 ? '#166534' : '#991b1b' }}>
+                        {totalMargin.toFixed(1)}%
+                      </td>
+                    </tr>
+                  );
+                })()}
+              </tbody>
+            </table>
+          </div>
+
+          {/* PAGE BREAK UNTUK SESSION 5 */}
+          <div className="page-break-before" style={{ paddingTop: '15mm' }}>
+            {/* SESSION 5: Tabel Pembayaran Supplier */}
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, borderLeft: '4px solid #06b6d4', paddingLeft: 8, textTransform: 'uppercase' }}>Session 5: Tabel Pembayaran Supplier & Bank</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'center', width: '5%' }}>No</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'left', width: '25%' }}>Nama Supplier</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right', width: '15%' }}>Subtotal</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right', width: '15%' }}>Diskon</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'right', width: '15%' }}>Net Bayar</th>
+                  <th style={{ padding: '6px', background: '#f8fafc', border: '1px solid #cbd5e1', textAlign: 'left', width: '25%' }}>Keterangan Akun Bank</th>
                 </tr>
               </thead>
               <tbody>
                 {supplierGroups.map(([s, items], idx) => {
                   const discount = Number(supplierDiscounts[s]) || 0;
-                  const subtotal = items.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+                  const subtotal = items.reduce((sum, it) => {
+                    if (it.isParentItem && (it.materialName || '').toLowerCase().includes('mix vegetable')) return sum;
+                    return sum + (Number(it.totalCost) || 0);
+                  }, 0);
                   const netToPay = Math.max(0, subtotal - discount);
+                  
+                  const suppInfo = (suppliersData || []).find(sd => (sd.name || '').toLowerCase() === s.toLowerCase());
+
                   return (
                     <tr key={idx}>
-                      <td style={{ padding: '5px 8px', border: '1px solid #e2e8f0', fontSize: '11px', textAlign: 'center' }}>{idx + 1}</td>
-                      <td style={{ padding: '5px 8px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600' }}>{s}</td>
-                      <td style={{ textAlign: 'right', padding: '5px 8px', border: '1px solid #e2e8f0', fontSize: '11px' }}>{formatCurrency(subtotal)}</td>
-                      <td style={{ textAlign: 'right', padding: '5px 8px', border: '1px solid #e2e8f0', fontSize: '11px', color: discount > 0 ? '#ef4444' : '#94a3b8' }}>{discount > 0 ? `-${formatCurrency(discount)}` : '-'}</td>
-                      <td style={{ textAlign: 'right', padding: '5px 8px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: '700', color: '#15803d' }}>{formatCurrency(netToPay)}</td>
+                      <td style={{ padding: '6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>{idx + 1}</td>
+                      <td style={{ padding: '6px', border: '1px solid #e2e8f0', fontWeight: 'bold' }}>{s}</td>
+                      <td style={{ padding: '6px', border: '1px solid #e2e8f0', textAlign: 'right' }}>{formatCurrency(subtotal)}</td>
+                      <td style={{ padding: '6px', border: '1px solid #e2e8f0', textAlign: 'right', color: discount > 0 ? '#ef4444' : 'inherit' }}>{discount > 0 ? `-${formatCurrency(discount)}` : '-'}</td>
+                      <td style={{ padding: '6px', border: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 'bold', color: '#15803d' }}>{formatCurrency(netToPay)}</td>
+                      <td style={{ padding: '6px', border: '1px solid #e2e8f0', fontSize: '10px' }}>
+                        {suppInfo && suppInfo.bankName ? (
+                          <>
+                            <div style={{ fontWeight: 'bold' }}>{suppInfo.bankName}</div>
+                            <div>{suppInfo.accountNumber} a/n {suppInfo.accountName}</div>
+                          </>
+                        ) : <span style={{ color: '#94a3b8' }}>Belum diatur</span>}
+                      </td>
                     </tr>
-                  );
+                  )
                 })}
+              </tbody>
+              <tfoot>
                 {totalAdditionalCosts > 0 && (
-                  <tr style={{ background: '#f8fafc' }}>
-                    <td colSpan="4" style={{ textAlign: 'right', padding: '5px 8px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '600', color: '#8b5cf6' }}>+ Biaya Tambahan:</td>
-                    <td style={{ textAlign: 'right', padding: '5px 8px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '700', color: '#8b5cf6' }}>{formatCurrency(totalAdditionalCosts)}</td>
+                  <tr>
+                    <td colSpan="4" style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 'bold', color: '#8b5cf6' }}>+ Biaya Tambahan (Buruh/Kirim):</td>
+                    <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 'bold', color: '#8b5cf6' }}>{formatCurrency(totalAdditionalCosts)}</td>
+                    <td style={{ padding: '6px', border: '1px solid #cbd5e1' }}></td>
                   </tr>
                 )}
-                <tr style={{ background: '#0f172a' }}>
-                  <td colSpan="4" style={{ textAlign: 'right', padding: '6px 8px', border: '1px solid #334155', fontSize: '11px', fontWeight: '700', color: 'white' }}>GRAND TOTAL:</td>
-                  <td style={{ textAlign: 'right', padding: '6px 8px', border: '1px solid #334155', fontSize: '13px', fontWeight: '900', color: '#10b981' }}>{formatCurrency(grandTotalNet)}</td>
+                <tr>
+                  <td colSpan="4" style={{ padding: '8px 6px', background: '#0f172a', border: '1px solid #334155', textAlign: 'right', fontWeight: 'bold', color: 'white' }}>GRAND TOTAL TRANSFER:</td>
+                  <td style={{ padding: '8px 6px', background: '#0f172a', border: '1px solid #334155', textAlign: 'right', fontWeight: 'bold', color: '#10b981', fontSize: '14px' }}>{formatCurrency(grandTotalNet)}</td>
+                  <td style={{ padding: '8px 6px', background: '#0f172a', border: '1px solid #334155' }}></td>
                 </tr>
-              </tbody>
+              </tfoot>
             </table>
+            
+            {/* Tanda Tangan */}
+            <div className="no-break" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 40, padding: '0 20px', pageBreakInside: 'avoid' }}>
+              <div style={{ textAlign: 'center', width: 160 }}>
+                <p style={{ margin: '0 0 45px 0' }}>Diperiksa Oleh,</p>
+                <div style={{ borderBottom: '1px solid black' }}></div>
+                <p style={{ margin: '3px 0 0 0', fontWeight: 'bold' }}>Bagian Operasional</p>
+              </div>
+              <div style={{ textAlign: 'center', width: 160 }}>
+                <p style={{ margin: '0 0 45px 0' }}>Dibuat Oleh,</p>
+                <div style={{ borderBottom: '1px solid black' }}></div>
+                <p style={{ margin: '3px 0 0 0', fontWeight: 'bold' }}>Admin Pembelian</p>
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Global Grand Total Area */}
-        <div className="no-break" style={{ marginTop: 24, background: '#0f172a', color: 'white', padding: '12px 16px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-          <div>
-            <h4 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 14, opacity: 0.8, fontWeight: '600' }}>Grand Total Keseluruhan</h4>
-            <div style={{ fontSize: 11, marginTop: 2, opacity: 0.6 }}>(Total setelah potongan + biaya tambahan)</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: 22, fontWeight: '900', color: '#10b981' }}>{formatCurrency(grandTotalNet)}</span>
-          </div>
-        </div>
-
-        {/* Profit/Loss Calculation */}
-        {(invoicesList || []).length > 0 && (
-          <div className="no-break print-section" style={{ marginTop: 20, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: 13, borderLeft: '4px solid #f59e0b', paddingLeft: 8, textTransform: 'uppercase', color: '#1e293b', pageBreakAfter: 'avoid', breakAfter: 'avoid' }}>5. Analisis Profit & Loss</h4>
-            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', borderSpacing: 0, fontSize: '11px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-              <tbody>
-                <tr>
-                  <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#f0fdf4', width: '60%' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#166534', marginBottom: 2 }}>Total Penjualan (Invoice)</div>
-                    <div style={{ fontSize: '9px', opacity: 0.7 }}>Jumlah dari semua invoice terhubung</div>
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#f0fdf4', color: '#15803d' }}>
-                    {formatCurrency((invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0))}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Total Pembelian Bahan</div>
-                    <div style={{ fontSize: '9px', opacity: 0.7 }}>Net bayar ke semua supplier (setelah diskon)</div>
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
-                    -{formatCurrency(totalFromSuppliers)}
-                  </td>
-                </tr>
-                {Number(additionalCosts?.labor) > 0 && (
-                  <tr>
-                    <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Biaya Tenaga Kerja</div>
-                    </td>
-                    <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
-                      -{formatCurrency(additionalCosts.labor)}
-                    </td>
-                  </tr>
-                )}
-                {Number(additionalCosts?.shipping) > 0 && (
-                  <tr>
-                    <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Biaya Pengiriman</div>
-                    </td>
-                    <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
-                      -{formatCurrency(additionalCosts.shipping)}
-                    </td>
-                  </tr>
-                )}
-                {Number(additionalCosts?.productionMaterial) > 0 && (
-                  <tr>
-                    <td style={{ padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', background: '#fef2f2', width: '60%' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', marginBottom: 2 }}>Biaya Bahan Produksi</div>
-                    </td>
-                    <td style={{ textAlign: 'right', padding: '8px 12px', border: '1px solid #e2e8f0', fontSize: '13px', fontWeight: '800', background: '#fef2f2', color: '#dc2626' }}>
-                      -{formatCurrency(additionalCosts.productionMaterial)}
-                    </td>
-                  </tr>
-                )}
-                <tr style={{ background: (() => {
-                  const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                  const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
-                  const profit = totalRevenue - totalExpenses;
-                  return profit >= 0 ? '#f0fdf4' : '#fef2f2';
-                })() }}>
-                  <td style={{ padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: '800', width: '60%', color: (() => {
-                    const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                    const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
-                    const profit = totalRevenue - totalExpenses;
-                    return profit >= 0 ? '#166534' : '#991b1b';
-                  })() }}>
-                    {(() => {
-                      const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                      const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
-                      const profit = totalRevenue - totalExpenses;
-                      return profit >= 0 ? 'PROFIT / LABA BERSIH' : 'LOSS / RUGI';
-                    })()}
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '16px', fontWeight: '900', color: (() => {
-                    const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                    const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
-                    const profit = totalRevenue - totalExpenses;
-                    return profit >= 0 ? '#15803d' : '#dc2626';
-                  })() }}>
-                    {(() => {
-                      const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                      const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
-                      const profit = totalRevenue - totalExpenses;
-                      return formatCurrency(Math.abs(profit));
-                    })()}
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan="2" style={{ padding: '6px 12px', border: '1px solid #e2e8f0', fontSize: '9px', textAlign: 'center', background: '#f8fafc', opacity: 0.8 }}>
-                    {(() => {
-                      const totalRevenue = (invoicesList || []).reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-                      const totalExpenses = totalFromSuppliers + totalAdditionalCosts;
-                      const profit = totalRevenue - totalExpenses;
-                      const margin = totalRevenue > 0 ? ((profit / totalRevenue) * 100).toFixed(1) : 0;
-                      return `Margin: ${margin}% (${profit >= 0 ? 'Profit' : 'Loss'} dari total penjualan)`;
-                    })()}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-
-
-      {/* Signatures */}
-      <div className="no-break" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, fontSize: 13, padding: '0 20px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-        <div style={{ textAlign: 'center', width: 160 }}>
-          <p style={{ marginBottom: 45, margin: 0, fontSize: 13 }}>Diperiksa Oleh,</p>
-          <div style={{ borderBottom: '1px solid #1e293b', width: '100%', marginBottom: 3 }}></div>
-          <p style={{ fontWeight: 'bold', margin: 0, fontSize: 13 }}>Bagian Operasional</p>
-        </div>
-        <div style={{ textAlign: 'center', width: 160 }}>
-          <p style={{ marginBottom: 45, margin: 0, fontSize: 13 }}>Dibuat Oleh,</p>
-          <div style={{ borderBottom: '1px solid #1e293b', width: '100%', marginBottom: 3 }}></div>
-          <p style={{ fontWeight: 'bold', margin: 0, fontSize: 13 }}>Admin Pembelian</p>
         </div>
       </div>
-      </div>
-    </div>
     </>
   );
 }

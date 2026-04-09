@@ -184,137 +184,147 @@ export default function SalaryCostsPage() {
       <div className="page-header page-header-actions">
         <div>
           <h1>Biaya Gaji</h1>
-          <p>Pencatatan pembayaran gaji &amp; jam kerja karyawan</p>
+          <p>Pencatatan pembayaran gaji & jam kerja karyawan</p>
         </div>
-        <button className="btn btn-primary" onClick={openAdd}>
+        <button className="btn btn-primary shadow-glow" onClick={openAdd}>
           <FiPlus /> Tambah Gaji
         </button>
       </div>
 
       {loading && (
-        <div className="card p-lg text-center animate-in">
+        <div className="card p-xl text-center animate-in">
           <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
-          <p className="text-muted">Memuat data biaya gaji...</p>
+          <p className="text-secondary">Memuat data biaya gaji...</p>
         </div>
       )}
 
       {error && (
-        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
-          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiDollarSign /></div>
-          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Database Terbatas (RLS)' : 'Gagal Memuat Gaji'}</h3>
-          <p className="mb-md">
+        <div className="card p-xl text-center animate-in" style={{ borderColor: 'var(--accent-danger)', background: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="stat-card-icon mb-md" style={{ margin: '0 auto', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--accent-danger)' }}>
+            <FiDollarSign />
+          </div>
+          <h3 className="text-danger mb-sm">{error.includes('Permission Denied') ? 'Akses Database Terbatas' : 'Gagal Memuat Data'}</h3>
+          <p className="text-secondary mb-lg">
             {error.includes('Permission Denied') 
               ? 'Data gaji ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda.'
               : 'Terjadi kesalahan saat memuat data biaya gaji dari database.'}
           </p>
-          <div className="flex-center gap-md">
-            <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
-            {error.includes('Permission Denied') && (
-              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                Buka Supabase Dashboard
-              </a>
-            )}
-          </div>
+          <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
         </div>
       )}
 
       {(!loading && !error) && (
         <>
           <div className="stats-grid">
-        <div className="stat-card orange">
-          <div className="stat-card-header">
-            <div className="stat-card-icon">📅</div>
+            <div className="stat-card purple">
+              <div className="stat-card-header">
+                <div className="stat-card-icon"><FiDollarSign /></div>
+                <div className="stat-card-trend up">Bulan Ini</div>
+              </div>
+              <div className="stat-card-value font-mono">{formatCurrency(totalMonth)}</div>
+              <div className="stat-card-label">Total Pengeluaran Gaji</div>
+            </div>
+            
+            <div className="stat-card green">
+              <div className="stat-card-header">
+                <div className="stat-card-icon"><FiUsers /></div>
+                <div className="stat-card-trend">Aktif</div>
+              </div>
+              <div className="stat-card-value">{employees.length}</div>
+              <div className="stat-card-label">Jumlah Pekerja Terdaftar</div>
+            </div>
+
+            <div className="stat-card cyan">
+              <div className="stat-card-header">
+                <div className="stat-card-icon"><FiClock /></div>
+              </div>
+              <div className="stat-card-value">{items.length}</div>
+              <div className="stat-card-label">Total Transaksi Gaji</div>
+            </div>
           </div>
-          <div className="stat-card-value">{formatCurrency(totalMonth)}</div>
-          <div className="stat-card-label">Total Gaji Bulan Ini</div>
-        </div>
-        <div className="stat-card green">
-          <div className="stat-card-header">
-            <div className="stat-card-icon"><FiUsers /></div>
+
+          <div className="toolbar bg-glass p-md rounded-lg mb-lg border border-white-05">
+            <div className="search-box">
+              <FiSearch className="search-icon" />
+              <input type="text" placeholder="Cari nama karyawan / jabatan..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
           </div>
-          <div className="stat-card-value">{employees.length}</div>
-          <div className="stat-card-label">Jumlah Pekerja Terdaftar</div>
-        </div>
-      </div>
 
-      <div className="toolbar">
-        <div className="search-box">
-          <FiSearch className="search-icon" />
-          <input type="text" placeholder="Cari nama karyawan / jabatan..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-      </div>
-
-      <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Tanggal</th>
-              <th>Nama Karyawan</th>
-              <th>Tipe</th>
-              <th>Detail Kerja</th>
-              <th style={{ textAlign: 'right' }}>Total Gaji</th>
-              <th>Catatan</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7}>
-                  <div className="empty-state">
-                    <div className="empty-state-icon"><FiUsers /></div>
-                    <h3>Belum ada data biaya gaji</h3>
-                    <p>Klik tombol "Tambah Gaji" untuk mencatat.</p>
-                  </div>
-                </td>
-              </tr>
-            ) : filtered.map(it => {
-              const typeLabel = SALARY_TYPES.find(t => t.value === it.salaryType)?.label || it.salaryType;
-              let detailText = '-';
-              if (it.salaryType === 'per_jam') {
-                detailText = `${it.clockIn} - ${it.clockOut} (${formatCurrency(it.hourlyRate)}/jam)`;
-              } else if (it.periodStart || it.periodEnd) {
-                detailText = `${formatDateShort(it.periodStart)} - ${formatDateShort(it.periodEnd)}`;
-              }
-
-              return (
-                <tr key={it.id}>
-                  <td className="text-muted">{formatDateShort(it.date || it.createdAt)}</td>
-                  <td>
-                    <strong>{it.employeeName}</strong>
-                    <div className="text-xs text-muted">{it.position}</div>
-                  </td>
-                  <td>
-                    <span className="badge" style={{ background: 'rgba(129,140,248,0.15)', color: '#818cf8', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
-                      {typeLabel}
-                    </span>
-                  </td>
-                  <td className="text-sm text-muted">{detailText}</td>
-                  <td className="text-right" style={{ fontWeight: 600, color: '#4ade80' }}>
-                    {formatCurrency(it.amount)}
-                  </td>
-                  <td className="text-muted text-sm">{it.notes || '-'}</td>
-                  <td>
-                    <div className="table-actions">
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(it)}><FiEdit2 /></button>
-                      <button className="btn btn-ghost btn-sm text-danger" onClick={() => setDeleteId(it.id)}><FiTrash2 /></button>
-                    </div>
-                  </td>
+          <div className="table-container shadow-lg">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Nama Karyawan</th>
+                  <th>Tipe</th>
+                  <th>Detail Kerja</th>
+                  <th className="text-right">Total Gaji</th>
+                  <th>Catatan</th>
+                  <th></th>
                 </tr>
-              );
-            })}
-          </tbody>
-          </table>
-        </div>
-      </>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="card p-xl text-center border-dashed" style={{ background: 'transparent' }}>
+                        <div className="stat-card-icon mb-md" style={{ margin: '0 auto', background: 'var(--bg-glass)', color: 'var(--text-muted)' }}>
+                          <FiUsers />
+                        </div>
+                        <h3 className="text-secondary">Belum ada data biaya gaji</h3>
+                        <p className="text-muted">Klik tombol "Tambah Gaji" untuk mencatat pengeluaran baru.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.map(it => {
+                  const typeLabel = SALARY_TYPES.find(t => t.value === it.salaryType)?.label || it.salaryType;
+                  let detailText = '-';
+                  if (it.salaryType === 'per_jam') {
+                    detailText = `${it.clockIn} - ${it.clockOut} (${formatCurrency(it.hourlyRate)}/jam)`;
+                  } else if (it.periodStart || it.periodEnd) {
+                    detailText = `${formatDateShort(it.periodStart)} - ${formatDateShort(it.periodEnd)}`;
+                  }
+
+                  return (
+                    <tr key={it.id} className="hover-bright transition-fast">
+                      <td className="text-muted">{formatDateShort(it.date || it.createdAt)}</td>
+                      <td>
+                        <div className="font-bold text-primary">{it.employeeName}</div>
+                        <div className="text-xs text-muted mt-xs uppercase tracking-wider">{it.position}</div>
+                      </td>
+                      <td>
+                        <span className={`badge ${it.salaryType === 'per_jam' ? 'badge-purple' : 'badge-info'}`}>
+                          {typeLabel}
+                        </span>
+                      </td>
+                      <td className="text-sm text-secondary">{detailText}</td>
+                      <td className="text-right font-bold text-success font-mono">
+                        {formatCurrency(it.amount)}
+                      </td>
+                      <td className="text-muted text-sm" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {it.notes || '-'}
+                      </td>
+                      <td className="text-right">
+                        <div className="table-actions justify-end">
+                          <button className="btn btn-ghost btn-sm text-primary" onClick={() => openEdit(it)} title="Edit"><FiEdit2 /></button>
+                          <button className="btn btn-ghost btn-sm text-danger" onClick={() => setDeleteId(it.id)} title="Hapus"><FiTrash2 /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Biaya Gaji' : 'Tambah Biaya Gaji'} size="md">
-        <form onSubmit={handleSave}>
-          <div className="modal-body">
-            <div className="form-group">
-              <label className="form-label">Pilih Pekerja</label>
-              <select className="form-select" value={form.employeeId} onChange={e => handleEmployeeChange(e.target.value)} required>
+        <form onSubmit={handleSave} className="p-lg">
+          <div className="grid gap-lg">
+            <div className="form-group mb-0">
+              <label className="form-label text-xs uppercase tracking-widest opacity-60">Pilih Pekerja</label>
+              <select className="form-select bg-glass" value={form.employeeId} onChange={e => handleEmployeeChange(e.target.value)} required>
                 <option value="">-- Pilih Nama Pekerja --</option>
                 {employees.map(e => (
                   <option key={e.id} value={e.id}>{e.name} ({e.position || 'Staf'})</option>
@@ -322,81 +332,85 @@ export default function SalaryCostsPage() {
               </select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div className="form-group">
-                <label className="form-label">Tanggal</label>
-                <input type="date" className="form-input" value={form.date} onChange={e => handleFormChange('date', e.target.value)} required />
+            <div className="grid grid-2 gap-md">
+              <div className="form-group mb-0">
+                <label className="form-label text-xs uppercase tracking-widest opacity-60">Tanggal</label>
+                <input type="date" className="form-input bg-glass" value={form.date} onChange={e => handleFormChange('date', e.target.value)} required />
               </div>
-              <div className="form-group">
-                <label className="form-label">Tipe Pembayaran</label>
-                <select className="form-select" value={form.salaryType} onChange={e => handleFormChange('salaryType', e.target.value)}>
+              <div className="form-group mb-0">
+                <label className="form-label text-xs uppercase tracking-widest opacity-60">Tipe Pembayaran</label>
+                <select className="form-select bg-glass" value={form.salaryType} onChange={e => handleFormChange('salaryType', e.target.value)}>
                   {SALARY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
             </div>
 
             {form.salaryType === 'per_jam' ? (
-              <div className="animate-in" style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="p-lg rounded-xl border border-white-05 bg-glass animate-in">
+                <div className="grid grid-2 gap-md">
                   <div className="form-group">
-                    <label className="form-label"><FiClock /> Jam Masuk</label>
+                    <label className="form-label text-xs"><FiClock className="mr-xs" /> Jam Masuk</label>
                     <input type="time" className="form-input" value={form.clockIn} onChange={e => handleFormChange('clockIn', e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label"><FiClock /> Jam Keluar</label>
+                    <label className="form-label text-xs"><FiClock className="mr-xs" /> Jam Keluar</label>
                     <input type="time" className="form-input" value={form.clockOut} onChange={e => handleFormChange('clockOut', e.target.value)} />
                   </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label"><FiDollarSign /> Upah Per Jam</label>
-                  <input type="number" className="form-input" value={form.hourlyRate} onChange={e => handleFormChange('hourlyRate', e.target.value)} placeholder="0" />
-                  <div className="text-xs text-muted mt-xs">
-                    Durasi Bruto: {getHoursDelta(form.clockIn, form.clockOut).toFixed(2)} jam
-                  </div>
-                  <div className="text-xs text-danger mt-xs">
-                    Potongan Istirahat: 1.00 jam
-                  </div>
-                  <div className="text-xs text-success mt-xs" style={{ fontWeight: 600 }}>
-                    Total Jam Kerja: {Math.max(0, getHoursDelta(form.clockIn, form.clockOut) - 1).toFixed(2)} jam
+                <div className="form-group mb-0">
+                  <label className="form-label text-xs"><FiDollarSign className="mr-xs" /> Upah Per Jam</label>
+                  <input type="number" className="form-input font-bold" value={form.hourlyRate} onChange={e => handleFormChange('hourlyRate', e.target.value)} placeholder="0" />
+                  
+                  <div className="mt-md p-md bg-white-05 rounded-lg border border-white-05">
+                     <div className="flex-between text-xs opacity-60 mb-xs"><span>Durasi Kerja</span><span>{getHoursDelta(form.clockIn, form.clockOut).toFixed(2)} jam</span></div>
+                     <div className="flex-between text-xs text-danger mb-xs"><span>Potongan Istirahat</span><span>-1.00 jam</span></div>
+                     <hr className="opacity-05 my-xs" />
+                     <div className="flex-between text-sm font-bold text-success"><span>Total Jam Kerja</span><span>{Math.max(0, getHoursDelta(form.clockIn, form.clockOut) - 1).toFixed(2)} jam</span></div>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Periode Mulai</label>
+              <div className="grid grid-2 gap-md p-md bg-glass rounded-lg border border-white-05">
+                <div className="form-group mb-0">
+                  <label className="form-label text-xs">Periode Mulai</label>
                   <input type="date" className="form-input" value={form.periodStart} onChange={e => handleFormChange('periodStart', e.target.value)} />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Periode Selesai</label>
+                <div className="form-group mb-0">
+                  <label className="form-label text-xs">Periode Selesai</label>
                   <input type="date" className="form-input" value={form.periodEnd} onChange={e => handleFormChange('periodEnd', e.target.value)} />
                 </div>
               </div>
             )}
 
-            <div className="form-group">
-              <label className="form-label">Total Gaji (Rp)</label>
-              <input 
-                className="form-input" 
-                type="number" 
-                value={form.amount} 
-                onChange={e => handleFormChange('amount', e.target.value)} 
-                placeholder="0" 
-                required 
-                style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#4ade80' }}
-                readOnly={form.salaryType === 'per_jam'}
-              />
-              {form.salaryType === 'per_jam' && <div className="text-xs text-muted mt-xs">* Terhitung otomatis dari jam kerja</div>}
+            <div className="form-group mb-0">
+              <label className="form-label text-xs uppercase tracking-widest opacity-60">Total Gaji (Rp)</label>
+              <div className="relative">
+                 <input 
+                  className="form-input bg-glass p-lg text-2xl font-black text-success" 
+                  type="number" 
+                  value={form.amount} 
+                  onChange={e => handleFormChange('amount', e.target.value)} 
+                  placeholder="0" 
+                  required 
+                  readOnly={form.salaryType === 'per_jam'}
+                  style={{ height: 'auto' }}
+                />
+                {form.salaryType === 'per_jam' && (
+                  <div className="text-xxs text-info mt-xs flex items-center gap-xs">
+                    <FiInfo /> Terhitung otomatis dari jam kerja
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Catatan</label>
-              <textarea className="form-textarea" value={form.notes} onChange={e => handleFormChange('notes', e.target.value)} placeholder="Catatan tambahan..." rows={2} />
+            <div className="form-group mb-0">
+              <label className="form-label text-xs uppercase tracking-widest opacity-60">Catatan</label>
+              <textarea className="form-input bg-glass" value={form.notes} onChange={e => handleFormChange('notes', e.target.value)} placeholder="Catatan tambahan..." rows={2} />
             </div>
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>Batal</button>
-            <button type="submit" className="btn btn-primary">Simpan</button>
+          <div className="modal-footer mt-xl pt-lg border-top border-white-05">
+            <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Batal</button>
+            <button type="submit" className="btn btn-primary shadow-glow px-xl">Simpan Data</button>
           </div>
         </form>
       </Modal>

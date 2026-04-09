@@ -189,141 +189,137 @@ export default function DeliveryNotes() {
       <div className="page-header page-header-actions">
         <div>
           <h1>Surat Jalan</h1>
-          <p>Kelola surat jalan pengiriman</p>
+          <p>Kelola surat jalan pengiriman barang</p>
         </div>
         <div className="flex gap-sm">
           <button className="btn btn-secondary" onClick={() => exportDeliveryNotesToExcel(filtered)}>
             <FiDownload /> Export Excel
           </button>
-          <Link to="/delivery-notes/new" className="btn btn-primary">
+          <Link to="/delivery-notes/new" className="btn btn-primary shadow-glow">
             <FiPlus /> Buat Surat Jalan
           </Link>
         </div>
       </div>
 
       {loading && (
-        <div className="card p-lg text-center animate-in">
+        <div className="card p-xl text-center animate-in">
           <div className="loading-spinner mb-md" style={{ margin: '0 auto' }}></div>
-          <p className="text-muted">Memuat data surat jalan...</p>
+          <p className="text-secondary">Memuat data surat jalan...</p>
         </div>
       )}
 
       {error && (
-        <div className="card p-lg text-center animate-in" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
-          <div className="empty-state-icon" style={{ color: '#ef4444' }}><FiTruck /></div>
-          <h3 className="text-danger">{error.includes('Permission Denied') ? 'Akses Surat Jalan Terbatas (RLS)' : 'Gagal Memuat Surat Jalan'}</h3>
-          <p className="mb-md text-muted">
-            {error.includes('Permission Denied') 
-              ? 'Data surat jalan ditemukan di database tapi diblokir oleh kebijakan keamanan (RLS) Supabase Anda. Anda perlu mengaktifkan akses baca bagi role anon di dashboard Supabase.'
-              : 'Terjadi kesalahan saat memuat data surat jalan dari database.'}
-          </p>
-          <div className="flex-center gap-md">
-            <button className="btn btn-primary" onClick={reload}>Coba Lagi (Refresh)</button>
-            {error.includes('Permission Denied') && (
-              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                Buka Supabase Dashboard
-              </a>
-            )}
+        <div className="card p-xl text-center animate-in" style={{ borderColor: 'var(--accent-danger)', background: 'rgba(239, 68, 68, 0.05)' }}>
+          <div className="stat-card-icon mb-md" style={{ margin: '0 auto', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--accent-danger)' }}>
+            <FiTruck />
           </div>
+          <h3 className="text-danger mb-sm">Gagal Memuat Data</h3>
+          <p className="text-secondary mb-lg">{error}</p>
+          <button className="btn btn-primary" onClick={reload}>Coba Lagi</button>
         </div>
       )}
 
       {(!loading && !error) && (
         <>
-          <div className="toolbar">
-        <div className="search-box">
-          <FiSearch className="search-icon" />
-          <input name="input_1_2" type="text" placeholder="Cari surat jalan..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-      </div>
-
-      <div className="tabs-container" style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }}>
-        <button 
-          className={`btn ${customerFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setCustomerFilter('all')}
-          style={{ whiteSpace: 'nowrap' }}
-        >
-          Semua Customer
-        </button>
-        {uniqueCustomers.map(customer => {
-          const isHighlighted = customer === 'SPPG SINDANGJAYA 5' || customer === 'SPPG SINDANGJAYA 2';
-          
-          let btnClass = 'btn-secondary';
-          if (customerFilter === customer) {
-            btnClass = isHighlighted ? 'btn-success' : 'btn-primary';
-          }
-          
-          let btnStyle = { whiteSpace: 'nowrap' };
-          if (!btnClass.includes('btn-success') && !btnClass.includes('btn-primary') && isHighlighted) {
-            btnStyle = { ...btnStyle, borderColor: 'var(--accent-success)', color: 'var(--accent-success)' };
-          }
-
-          return (
-            <button 
-              key={customer}
-              className={`btn ${btnClass}`}
-              onClick={() => setCustomerFilter(customer)}
-              style={btnStyle}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {customer}
-                {(() => {
-                  const count = notes.filter(n => n.customerName === customer).length;
-                  return count > 0 ? (
-                    <span style={{ background: '#64748b', color: 'white', padding: '2px 5px', borderRadius: 8, fontSize: 10, fontWeight: 700 }}>
-                      {count}
-                    </span>
-                  ) : null;
-                })()}
+          <div className="stats-grid">
+            <div className="stat-card cyan">
+              <div className="stat-card-header">
+                <div className="stat-card-icon"><FiTruck /></div>
               </div>
-            </button>
-          );
-        })}
-      </div>
+              <div className="stat-card-value">{notes.length}</div>
+              <div className="stat-card-label">Total Surat Jalan</div>
+            </div>
+            
+            <div className="stat-card purple">
+              <div className="stat-card-header">
+                <div className="stat-card-icon"><FiPrinter /></div>
+              </div>
+              <div className="stat-card-value">{filtered.length}</div>
+              <div className="stat-card-label">Surat Jalan Terfilter</div>
+            </div>
+          </div>
 
-      <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>No. Surat Jalan</th>
-              <th>Customer</th>
-              <th>Ref. Invoice</th>
-              <th>Driver</th>
-              <th>Tanggal</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6}>
-                  <div className="empty-state">
-                    <div className="empty-state-icon"><FiTruck /></div>
-                    <h3>Belum ada surat jalan</h3>
-                  </div>
-                </td>
-              </tr>
-            ) : filtered.map(n => (
-              <tr key={n.id}>
-                <td><strong>{n.noteNumber}</strong></td>
-                <td>{n.customerName}</td>
-                <td className="text-muted">{n.invoiceNumber || '-'}</td>
-                <td>{n.driver || '-'}</td>
-                <td className="text-muted">{formatDateShort(n.date || n.createdAt)}</td>
-                <td>
-                  <div className="table-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={() => setPrintId(n.id)} title="Print"><FiPrinter /></button>
-                    <Link to={`/delivery-notes/${n.id}/edit`} className="btn btn-ghost btn-sm"><FiEdit2 /></Link>
-                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(n.id)}><FiTrash2 /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          </table>
-        </div>
-      </>
+          <div className="toolbar bg-glass p-md rounded-lg mb-lg border border-white-05">
+            <div className="search-box">
+              <FiSearch className="search-icon" />
+              <input type="text" placeholder="Cari surat jalan atau customer..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="tabs-container mb-lg border-bottom border-white-05 pb-sm">
+            <button 
+              className={`btn btn-sm ${customerFilter === 'all' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setCustomerFilter('all')}
+            >
+              Semua Customer
+            </button>
+            {uniqueCustomers.map(customer => {
+              const isSelected = customerFilter === customer;
+              return (
+                <button 
+                  key={customer}
+                  className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setCustomerFilter(customer)}
+                >
+                  {customer}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="table-container shadow-lg">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>No. Surat Jalan</th>
+                  <th>Customer</th>
+                  <th>Ref. Invoice</th>
+                  <th>Driver</th>
+                  <th>Tanggal</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="card p-xl text-center border-dashed" style={{ background: 'transparent' }}>
+                        <div className="stat-card-icon mb-md" style={{ margin: '0 auto', background: 'var(--bg-glass)', color: 'var(--text-muted)' }}>
+                          <FiTruck />
+                        </div>
+                        <h3 className="text-secondary">Belum ada surat jalan</h3>
+                        <p className="text-muted">Klik tombol "Buat Surat Jalan" untuk mencatat pengiriman baru.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.map(n => (
+                  <tr key={n.id} className="hover-bright transition-fast">
+                    <td>
+                      <div className="font-bold text-primary">{n.noteNumber}</div>
+                    </td>
+                    <td>
+                      <div className="text-primary">{n.customerName}</div>
+                    </td>
+                    <td>
+                      <span className="badge badge-info">{n.invoiceNumber || '-'}</span>
+                    </td>
+                    <td className="text-secondary">{n.driver || '-'}</td>
+                    <td className="text-muted">{formatDateShort(n.date || n.createdAt)}</td>
+                    <td className="text-right">
+                      <div className="table-actions justify-end">
+                        <button className="btn btn-ghost btn-sm text-info" onClick={() => setPrintId(n.id)} title="Cetak"><FiPrinter /></button>
+                        <Link to={`/delivery-notes/${n.id}/edit`} className="btn btn-ghost btn-sm text-primary" title="Edit"><FiEdit2 /></Link>
+                        <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(n.id)} title="Hapus"><FiTrash2 /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
+      
       <ConfirmModal 
         isOpen={!!deleteId} 
         onClose={() => setDeleteId(null)} 
