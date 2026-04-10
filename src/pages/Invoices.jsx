@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { FiPlus, FiSearch, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiCheck, FiClock, FiDownload, FiTruck, FiSend } from 'react-icons/fi';
 import { Invoices as InvoiceStore, DeliveryNotes as DNStore, TelegramOrders, HppReports, Products } from '../utils/storage';
 import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
@@ -53,7 +54,7 @@ export default function Invoices() {
     try {
       const note = deliveryNotes.find(n => n.invoiceId === inv.id);
       if (!note) {
-        alert('Surat Jalan untuk invoice ini tidak ditemukan. Silakan buat Surat Jalan terlebih dahulu.');
+        toast.error('Surat Jalan untuk invoice ini tidak ditemukan. Silakan buat Surat Jalan terlebih dahulu.');
         setSendingId(null);
         return;
       }
@@ -66,7 +67,7 @@ export default function Invoices() {
       }
 
       if (!chatId) {
-        alert('Telegram Chat ID tidak ditemukan untuk customer ini. Pesanan asal harus berasal dari Telegram.');
+        toast.error('Telegram Chat ID tidak ditemukan untuk customer ini. Pesanan asal harus berasal dari Telegram.');
         setSendingId(null);
         return;
       }
@@ -91,13 +92,13 @@ export default function Invoices() {
       console.log('sendDocument Response:', res);
       
       if (res.ok) {
-        alert('PDF Berhasil dikirim ke Telegram');
+        toast.success('PDF Berhasil dikirim ke Telegram');
       } else {
-        alert(`Gagal mengirim PDF ke Telegram: ${res.description || 'Unknown error'}`);
+        toast.error(`Gagal mengirim PDF ke Telegram: ${res.description || 'Unknown error'}`);
       }
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan saat membuat PDF.');
+      toast.error('Terjadi kesalahan saat membuat dan mengirim PDF: ' + err.message);
     } finally {
       setSendingId(null);
     }

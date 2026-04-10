@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 import { jsPDF } from 'jspdf';
@@ -272,11 +273,11 @@ export default function PurchaseNotes() {
         const yOffset = marginTop - (i * usableHeight);
         pdf.addImage(imgData, 'JPEG', marginLeft, yOffset, imgWidth, imgHeight);
       }
-      
       pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
+      toast.success('PDF Laporan Pembelian berhasil didownload!');
     } catch (err) {
       console.error(err);
-      alert('Gagal mencetak PDF: ' + err.message);
+      toast.error('Gagal mencetak PDF: ' + err.message);
     } finally {
       if (element) {
         element.style.display = originalDisplay;
@@ -314,7 +315,7 @@ export default function PurchaseNotes() {
     }
 
     if (!chatId) {
-      alert('Telegram Chat ID tidak ditemukan. Pesanan grup/pembeli ini mungkin tidak berasal dari Telegram.');
+      toast.error('Telegram Chat ID tidak ditemukan. Pesanan grup/pembeli ini mungkin tidak berasal dari Telegram.');
       return;
     }
 
@@ -407,13 +408,13 @@ export default function PurchaseNotes() {
 
       const res = await sendDocument(chatId, blob, filename);
       if (res.ok) {
-        alert('PDF Laporan Pembelian Berhasil dikirim ke Telegram');
+        toast.success('PDF Laporan Pembelian Berhasil dikirim ke Telegram');
       } else {
-        alert(`Gagal mengirim PDF ke Telegram: ${res.description || 'Unknown error'}`);
+        toast.error(`Gagal mengirim PDF ke Telegram: ${res.description || 'Unknown error'}`);
       }
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan saat memproses dan mengirim PDF: ' + err.message);
+      toast.error('Terjadi kesalahan saat memproses dan mengirim PDF: ' + err.message);
     } finally {
       if (element) element.style.display = originalDisplay;
       setPrintData(null);

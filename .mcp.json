@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "node",
+      "args": ["C:\\Users\\yudhadp82\\AppData\\Roaming\\npm\\node_modules\\@upstash\\context7-mcp\\dist\\index.js"],
+      "env": {
+        "CONTEXT7_API_KEY": "ctx7sk-22baba78-ae9e-4bcb-b281-3c28043ed3e4"
+      }
+    }
+  }
+}

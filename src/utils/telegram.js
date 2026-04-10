@@ -1,11 +1,18 @@
+import axios from 'axios';
+
 const BOT_TOKEN = '8671171673:AAGqI3BacRQEeKm1YrVdhmqTKtiBA6S-B84';
 const BASE_URL = `/tgapi/bot${BOT_TOKEN}`;
 
+// Create an axios instance for Telegram
+const tgClient = axios.create({
+  baseURL: BASE_URL,
+  timeout: 15000,
+});
+
 export async function checkBotStatus() {
   try {
-    const res = await fetch(`${BASE_URL}/getMe`);
-    const data = await res.json();
-    return data.ok ? data.result : null;
+    const res = await tgClient.get('/getMe');
+    return res.data.ok ? res.data.result : null;
   } catch (err) {
     console.error('Failed to check bot status:', err);
     return null;
@@ -14,9 +21,10 @@ export async function checkBotStatus() {
 
 export async function fetchUpdates(offset = 0) {
   try {
-    const res = await fetch(`${BASE_URL}/getUpdates?offset=${offset}&timeout=10`);
-    const data = await res.json();
-    if (data.ok) return data.result;
+    const res = await tgClient.get('/getUpdates', {
+      params: { offset, timeout: 10 }
+    });
+    if (res.data.ok) return res.data.result;
     return [];
   } catch (err) {
     console.error('Failed to fetch Telegram updates:', err);
@@ -26,12 +34,11 @@ export async function fetchUpdates(offset = 0) {
 
 export async function sendMessage(chatId, text) {
   try {
-    const res = await fetch(`${BASE_URL}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text }),
+    const res = await tgClient.post('/sendMessage', {
+      chat_id: chatId,
+      text
     });
-    return await res.json();
+    return res.data;
   } catch (err) {
     console.error('Failed to send Telegram message:', err);
     return { ok: false };
@@ -44,14 +51,14 @@ export async function sendDocument(chatId, blob, filename) {
     formData.append('chat_id', chatId);
     formData.append('document', blob, filename);
 
-    const res = await fetch(`${BASE_URL}/sendDocument`, {
-      method: 'POST',
-      body: formData,
+    const res = await tgClient.post('/sendDocument', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
-    return await res.json();
+    return res.data;
   } catch (err) {
     console.error('Failed to send Telegram document:', err);
-    return { ok: false, description: err.message };
+    const errorDetails = err.response?.data?.description || err.message;
+    return { ok: false, description: errorDetails };
   }
 }
 

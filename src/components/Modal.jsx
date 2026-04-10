@@ -4,13 +4,13 @@ import { useEffect } from 'react';
 export default function Modal({ isOpen, onClose, title, children, size = '', persistent = false }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape' && isOpen && !persistent) {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, persistent]);
 
   if (!isOpen) return null;
 
