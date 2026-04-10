@@ -175,117 +175,127 @@ export default function PurchaseNoteReportPdf({
             print-color-adjust: exact !important;
             font-family: 'Arial', sans-serif;
           }
-          .pdf-container {
-            width: 100%;
-            max-width: 210mm;
-            margin: 0 auto;
-            background: white;
-            box-sizing: border-box;
-          }
-          .header {
-            text-align: center;
-            padding: 15mm 15mm 20mm 15mm;
-            border-bottom: 2px solid #1e40af;
-            margin-bottom: 15mm;
-            page-break-after: avoid;
-          }
-          .section-title {
-            font-size: 13px;
-            font-weight: bold;
-            margin: 0 0 8mm 0;
-            text-transform: uppercase;
-            padding-left: 4mm;
-            border-left: 3px solid;
-            page-break-inside: avoid;
-          }
-          .table-container {
-            margin: 0 0 10mm 0;
-            page-break-inside: avoid;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 11px;
-            page-break-inside: avoid;
-          }
-          thead {
-            background: #e8f0fe;
-            font-weight: bold;
-            border: 1px solid #2c3e50;
-          }
-          th {
-            padding: 6mm 4mm;
-            text-align: left;
-            border: 1px solid #2c3e50;
-            color: #1e293b;
-          }
-          th.text-center {
-            text-align: center;
-          }
-          th.text-right {
-            text-align: right;
-          }
-          td {
-            padding: 6mm 4mm;
-            border: 1px solid #2c3e50;
-            page-break-inside: avoid;
-            color: #1e293b;
-          }
-          td.text-center {
-            text-align: center;
-          }
-          td.text-right {
-            text-align: right;
-            font-weight: 600;
-          }
-          tfoot {
-            background: #e8f0fe;
-            font-weight: bold;
-            border: 1px solid #2c3e50;
-          }
-          .total-row td {
-            background: #d4e8ff;
-            font-weight: bold;
-            color: #1e293b;
-          }
-          .net-total-row td {
-            background: #1e3a8a;
-            color: white;
-            font-weight: bold;
-            border: 2px solid #1e3a8a;
-          }
-          .footer {
-            margin-top: 20mm;
-            padding: 0 15mm 20mm 15mm;
-            border-top: 2px solid #1e40af;
-            page-break-before: always;
-          }
-          .signature-section {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 15mm;
-            padding: 0 10mm 0 10mm;
-            page-break-inside: avoid;
-            page-break-after: avoid;
-          }
-          .signature-item {
-            width: 150px;
-            text-align: center;
-          }
-          .signature-item p {
-            margin: 0;
-            font-size: 11px;
-          }
-          .signature-item strong {
-            margin: 0 0 3mm 0;
-            font-size: 12px;
-          }
-          .signature-line {
-            width: 100%;
-            height: 1px;
-            background: black;
-            margin: 3mm 0;
-          }
+        }
+        
+        .pdf-container {
+          width: 100%;
+          max-width: 210mm;
+          margin: 0 auto;
+          background: white;
+          box-sizing: border-box;
+          color: #000000;
+          font-family: 'Arial', sans-serif;
+        }
+        .pdf-container * {
+          color: #000000;
+        }
+        .pdf-container .header {
+          text-align: center;
+          padding: 15mm 15mm 20mm 15mm;
+          border-bottom: 2px solid #1e40af;
+          margin-bottom: 15mm;
+          page-break-after: avoid;
+        }
+        .pdf-container .section-title {
+          font-size: 12px;
+          font-weight: bold;
+          margin: 12px 0 8px 0;
+          text-transform: uppercase;
+          padding: 4px 0 4px 4mm;
+          border-left: 4px solid;
+          background: #f8fafc;
+          page-break-inside: avoid;
+        }
+        .pdf-container .table-container {
+          margin: 8px 0 12px 0;
+          page-break-inside: avoid;
+        }
+        .pdf-container table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 9.5px;
+          page-break-inside: avoid;
+          table-layout: fixed;
+          word-wrap: break-word;
+        }
+        .pdf-container thead {
+          background: #e8f0fe;
+          font-weight: bold;
+          border: 1px solid #2c3e50;
+        }
+        .pdf-container th {
+          padding: 6mm 4mm;
+          text-align: left;
+          border: 1px solid #2c3e50;
+          color: #1e40af !important;
+          font-weight: bold;
+        }
+        .pdf-container th.text-center {
+          text-align: center;
+        }
+        .pdf-container th.text-right {
+          text-align: right;
+        }
+        .pdf-container td {
+          padding: 6mm 4mm;
+          border: 1px solid #2c3e50;
+          page-break-inside: avoid;
+          color: #000000 !important;
+        }
+        .pdf-container td.text-center {
+          text-align: center;
+        }
+        .pdf-container td.text-right {
+          text-align: right;
+          font-weight: 600;
+        }
+        .pdf-container tfoot {
+          background: #e8f0fe;
+          font-weight: bold;
+          border: 1px solid #2c3e50;
+        }
+        .pdf-container .total-row td {
+          background: #d4e8ff;
+          font-weight: bold;
+          color: #1e293b !important; /* It's ok since we want dark blue */
+        }
+        .pdf-container .net-total-row td {
+          background: #1e3a8a;
+          color: white !important;
+          font-weight: bold;
+          border: 2px solid #1e3a8a;
+        }
+        .pdf-container .footer {
+          margin-top: 20mm;
+          padding: 0 15mm 20mm 15mm;
+          border-top: 2px solid #1e40af;
+          page-break-before: always;
+        }
+        .pdf-container .signature-section {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 15mm;
+          padding: 0 10mm 0 10mm;
+          page-break-inside: avoid;
+          page-break-after: avoid;
+        }
+        .pdf-container .signature-item {
+          width: 150px;
+          text-align: center;
+        }
+        .pdf-container .signature-item p {
+          margin: 0;
+          font-size: 11px;
+        }
+        .pdf-container .signature-item strong {
+          margin: 0 0 3mm 0;
+          font-size: 12px;
+        }
+        .pdf-container .signature-line {
+          width: 100%;
+          height: 1px;
+          background: black;
+          margin: 3mm 0;
         }
         @media screen {
           #purchase-note-report-render {
@@ -300,55 +310,55 @@ export default function PurchaseNoteReportPdf({
       <div id="purchase-note-report-render" className="pdf-container print-only">
         {/* HEADER */}
         <div className="header">
-          <div style={{ marginBottom: 10 }}>
+          <div style={{ marginBottom: 12 }}>
             <img src="/logo-kdmp.png" alt="Logo" style={{ maxWidth: 120, maxHeight: 50, objectFit: 'contain' }} />
           </div>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 'bold', color: '#1e40af' }}>
+          <h1 style={{ margin: '0 0 8px 0', fontSize: 18, fontWeight: 'bold', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             KOPERASI DESA MERAH PUTIH SINDANGJAYA
           </h1>
-          <h2 style={{ margin: 0, fontSize: 14, color: '#475569' }}>
+          <h2 style={{ margin: '0 0 12px 0', fontSize: 13, color: '#3b82f6', fontWeight: '600' }}>
             LAPORAN PEMBELIAN & PENJUALAN KOMPREHENSIF
           </h2>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
-            GRUP: <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>{groupName.toUpperCase()}</span> | TANGGAL: {formatDateShort(date)}
+          <p style={{ margin: 0, fontSize: 11, fontWeight: '600', textTransform: 'uppercase' }}>
+            <span style={{ color: '#1e40af' }}>GRUP: {groupName}</span> <span style={{ color: '#3b82f6' }}>|</span> TANGGAL: <span style={{ color: '#1e40af' }}>{formatDateShort(date)}</span>
           </p>
         </div>
 
         {/* SESSION 1: Rekap Invoice Gabungan */}
-        <div className="section-title" style={{ borderColor: '#3b82f6' }}>
+        <div className="section-title" style={{ borderColor: '#3b82f6', color: '#3b82f6' }}>
           Session 1: Rekap Penjualan Gabungan
         </div>
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th style={{ width: '5%' }}>No</th>
-                <th>Komoditas</th>
+                <th style={{ width: '4%', fontSize: 10 }}>No</th>
+                <th style={{ width: '25%', fontSize: 10 }}>Komoditas</th>
                 {uniqueCustomers.map(cust => (
-                  <th key={cust} className="text-center">{cust}</th>
+                  <th key={cust} className="text-center" style={{ fontSize: 10 }}>{cust}</th>
                 ))}
-                <th className="text-center">Total</th>
-                <th className="text-center">Satuan</th>
-                <th className="text-right">Harga Satuan</th>
-                <th className="text-right">Total (Rp)</th>
+                <th className="text-center" style={{ width: '6%', fontSize: 10 }}>Total</th>
+                <th className="text-center" style={{ width: '8%', fontSize: 10 }}>Satuan</th>
+                <th className="text-right" style={{ width: '15%', fontSize: 10 }}>Harga Satuan</th>
+                <th className="text-right" style={{ width: '15%', fontSize: 10 }}>Total (Rp)</th>
               </tr>
             </thead>
             <tbody>
               {session1Pivot.map((row, idx) => (
                 <tr key={idx}>
-                  <td className="text-center">{idx + 1}</td>
-                  <td style={{ fontWeight: 600 }}>{row.name}</td>
+                  <td className="text-center" style={{ fontSize: 9.5 }}>{idx + 1}</td>
+                  <td style={{ fontWeight: 600, fontSize: 9.5 }}>{row.name}</td>
                   {uniqueCustomers.map(cust => (
-                    <td key={cust} className="text-center">
+                    <td key={cust} className="text-center" style={{ fontSize: 9.5 }}>
                       {row.customerQty[cust] ? formatNumber(row.customerQty[cust]) : '-'}
                     </td>
                   ))}
-                  <td className="text-center" style={{ fontWeight: 'bold', color: '#312e81' }}>
+                  <td className="text-center" style={{ fontWeight: 'bold', color: '#1e40af', fontSize: 9.5 }}>
                     {formatNumber(row.totalQty)}
                   </td>
-                  <td className="text-center">{row.unit}</td>
-                  <td className="text-right">{formatCurrency(row.price)}</td>
-                  <td className="text-right" style={{ fontWeight: 'bold' }}>
+                  <td className="text-center" style={{ fontSize: 9.5 }}>{row.unit}</td>
+                  <td className="text-right" style={{ fontSize: 9.5 }}>{formatCurrency(row.price)}</td>
+                  <td className="text-right" style={{ fontWeight: 'bold', color: '#1e40af', fontSize: 9.5 }}>
                     {formatCurrency(row.totalRowValue)}
                   </td>
                 </tr>
@@ -356,10 +366,10 @@ export default function PurchaseNoteReportPdf({
             </tbody>
             <tfoot>
               <tr className="total-row">
-                <td colSpan={uniqueCustomers.length + 5} style={{ textAlign: 'right', color: '#15803d' }}>
+                <td colSpan={uniqueCustomers.length + 5} style={{ textAlign: 'right', fontSize: 10, fontWeight: 'bold', color: '#1e3a8a' }}>
                   Total Penjualan Gabungan:
                 </td>
-                <td className="text-right" style={{ color: '#15803d' }}>
+                <td className="text-right" style={{ fontSize: 10, fontWeight: 'bold', color: '#1e3a8a' }}>
                   {formatCurrency(session1Total)}
                 </td>
               </tr>
@@ -368,19 +378,19 @@ export default function PurchaseNoteReportPdf({
         </div>
 
         {/* SESSION 2: Rekap Pembelian Semua Bahan Baku */}
-        <div className="section-title" style={{ borderColor: '#10b981' }}>
+        <div className="section-title" style={{ borderColor: '#10b981', color: '#10b981' }}>
           Session 2: Rekap Pembelian Gabungan Bahan Baku
         </div>
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th>Bahan Baku</th>
-                <th className="text-center">Qty Beli</th>
-                <th className="text-right">H. Pembelian</th>
-                <th className="text-right">H. Penjualan</th>
-                <th className="text-right">Laba</th>
-                <th className="text-center">Margin %</th>
+                <th style={{ width: '40%', fontSize: 10 }}>Bahan Baku</th>
+                <th className="text-center" style={{ width: '12%', fontSize: 10 }}>Qty Beli</th>
+                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>H. Pembelian</th>
+                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>H. Penjualan</th>
+                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>Laba</th>
+                <th className="text-center" style={{ width: '10%', fontSize: 10 }}>Margin %</th>
               </tr>
             </thead>
             <tbody>
@@ -406,29 +416,32 @@ export default function PurchaseNoteReportPdf({
                 return (
                   <tr key={idx}>
                     <td style={{
-                      color: item.isSubItem ? '#475569' : '#1e293b',
+                      color: item.isSubItem ? '#8b5cf6' : '#000000',
                       fontWeight: isMixVegParent ? 'bold' : 'normal',
-                      paddingLeft: item.isSubItem ? '5mm' : '4mm'
+                      paddingLeft: item.isSubItem ? '5mm' : '4mm',
+                      fontSize: 9.5
                     }}>
                       {item.isSubItem ? '↳ ' : ''}{item.materialName}
                     </td>
-                    <td className="text-center">
+                    <td className="text-center" style={{ fontSize: 9.5 }}>
                       {displayQty !== '' ? `${formatNumber(displayQty)} ${item.unit}` : ''}
                     </td>
-                    <td className="text-right">
+                    <td className="text-right" style={{ fontSize: 9.5 }}>
                       {displayPricePerUnit > 0 ? formatCurrency(displayPricePerUnit) : '-'}
                     </td>
-                    <td className="text-right">
+                    <td className="text-right" style={{ fontSize: 9.5 }}>
                       {sellPrice > 0 ? formatCurrency(sellPrice) : '-'}
                     </td>
                     <td className="text-right" style={{
-                      color: rowLaba >= 0 ? '#166534' : '#991b1b',
-                      fontWeight: 'bold'
+                      color: rowLaba >= 0 ? '#15803d' : '#dc2626',
+                      fontWeight: 'bold',
+                      fontSize: 9.5
                     }}>
                       {(totalJual > 0 || isMixVegParent) ? formatCurrency(rowLaba) : (item.isSubItem ? '-' : formatCurrency(rowLaba))}
                     </td>
                     <td className="text-center" style={{
-                      color: margin >= 0 ? '#166534' : '#991b1b'
+                      color: margin >= 0 ? '#15803d' : '#dc2626',
+                      fontSize: 9.5
                     }}>
                       {totalJual > 0 ? `${margin.toFixed(1)}%` : '-'}
                     </td>
@@ -440,19 +453,19 @@ export default function PurchaseNoteReportPdf({
         </div>
 
         {/* SESSION 3: Rekap Pembelian per Supplier */}
-        <div className="section-title" style={{ borderColor: '#8b5cf6' }}>
+        <div className="section-title" style={{ borderColor: '#8b5cf6', color: '#8b5cf6' }}>
           Session 3: Rincian Pembelian per Supplier
         </div>
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th style={{ width: '5%' }}>No</th>
-                <th>Supplier</th>
-                <th>Item Pembelian</th>
-                <th className="text-center">Qty Pembelian</th>
-                <th className="text-right">H. Pembelian</th>
-                <th className="text-right">Total Beli</th>
+                <th style={{ width: '4%', fontSize: 10 }}>No</th>
+                <th style={{ width: '20%', fontSize: 10 }}>Supplier</th>
+                <th style={{ width: '30%', fontSize: 10 }}>Item Pembelian</th>
+                <th className="text-center" style={{ width: '15%', fontSize: 10 }}>Qty Pembelian</th>
+                <th className="text-right" style={{ width: '15%', fontSize: 10 }}>H. Pembelian</th>
+                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>Total Beli</th>
               </tr>
             </thead>
             <tbody>
@@ -482,7 +495,7 @@ export default function PurchaseNoteReportPdf({
                             </td>
                           )}
                           <td style={{
-                            color: item.isSubItem ? '#475569' : '#1e293b',
+                            color: item.isSubItem ? '#8b5cf6' : '#000000',
                             fontWeight: isMixVegParent ? 'bold' : 'normal',
                             paddingLeft: item.isSubItem ? '5mm' : '4mm'
                           }}>
@@ -508,17 +521,17 @@ export default function PurchaseNoteReportPdf({
         </div>
 
         {/* SESSION 4: Laporan Laba Rugi */}
-        <div className="section-title" style={{ borderColor: '#f59e0b' }}>
+        <div className="section-title" style={{ borderColor: '#f59e0b', color: '#f59e0b' }}>
           Session 4: Laporan Laba Rugi per Pelanggan
         </div>
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th className="text-right">Total Penjualan</th>
-                <th className="text-right">Total Pembelian</th>
-                <th className="text-right">Laba / Rugi</th>
-                <th className="text-center">Margin %</th>
+                <th className="text-right" style={{ width: '25%', fontSize: 10 }}>Total Penjualan</th>
+                <th className="text-right" style={{ width: '25%', fontSize: 10 }}>Total Pembelian</th>
+                <th className="text-right" style={{ width: '25%', fontSize: 10 }}>Laba / Rugi</th>
+                <th className="text-center" style={{ width: '25%', fontSize: 10 }}>Margin %</th>
               </tr>
             </thead>
             <tbody>
@@ -529,16 +542,16 @@ export default function PurchaseNoteReportPdf({
                 const totalMargin = totalRev > 0 ? (totalProfit / totalRev * 100) : 0;
                 return (
                   <tr className="total-row">
-                    <td style={{ fontSize: 13, color: '#15803d' }}>
+                    <td style={{ fontSize: 11, fontWeight: 'bold', color: '#1e3a8a' }}>
                       {formatCurrency(totalRev)}
                     </td>
-                    <td style={{ fontSize: 13, color: '#dc2626' }}>
+                    <td style={{ fontSize: 11, fontWeight: 'bold', color: '#dc2626' }}>
                       {formatCurrency(totalPurchase)}
                     </td>
-                    <td style={{ fontSize: 13, color: totalProfit >= 0 ? '#166534' : '#991b1b' }}>
+                    <td style={{ fontSize: 11, fontWeight: 'bold', color: totalProfit >= 0 ? '#15803d' : '#dc2626' }}>
                       {formatCurrency(totalProfit)}
                     </td>
-                    <td className="text-center" style={{ fontSize: 13, color: totalMargin >= 0 ? '#166534' : '#991b1b' }}>
+                    <td className="text-center" style={{ fontSize: 11, fontWeight: 'bold', color: totalMargin >= 0 ? '#15803d' : '#dc2626' }}>
                       {totalMargin.toFixed(1)}%
                     </td>
                   </tr>
@@ -549,19 +562,19 @@ export default function PurchaseNoteReportPdf({
         </div>
 
         {/* SESSION 5: Tabel Pembayaran Supplier */}
-        <div className="section-title" style={{ borderColor: '#06b6d4' }}>
+        <div className="section-title" style={{ borderColor: '#06b6d4', color: '#06b6d4' }}>
           Session 5: Tabel Pembayaran Supplier
         </div>
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th style={{ width: '5%' }}>No</th>
-                <th style={{ width: '25%' }}>Nama Supplier</th>
-                <th className="text-right" style={{ width: '15%' }}>Subtotal</th>
-                <th className="text-right" style={{ width: '10%' }}>Diskon</th>
-                <th className="text-right" style={{ width: '15%' }}>Net Bayar</th>
-                <th style={{ width: '25%' }}>Keterangan</th>
+                <th style={{ width: '4%', fontSize: 10 }}>No</th>
+                <th style={{ width: '20%', fontSize: 10 }}>Nama Supplier</th>
+                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>Subtotal</th>
+                <th className="text-right" style={{ width: '12%', fontSize: 10 }}>Diskon</th>
+                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>Net Bayar</th>
+                <th style={{ width: '32%', fontSize: 10 }}>Keterangan</th>
               </tr>
             </thead>
             <tbody>
@@ -577,23 +590,23 @@ export default function PurchaseNoteReportPdf({
 
                 return (
                   <tr key={idx}>
-                    <td className="text-center">{idx + 1}</td>
-                    <td style={{ fontWeight: 'bold', color: '#1e40af' }}>{s}</td>
-                    <td className="text-right">{formatCurrency(subtotal)}</td>
-                    <td className="text-right" style={{ color: discount > 0 ? '#dc2626' : 'inherit' }}>
+                    <td className="text-center" style={{ fontSize: 9.5 }}>{idx + 1}</td>
+                    <td style={{ fontWeight: 'bold', color: '#1e40af', fontSize: 9.5 }}>{s}</td>
+                    <td className="text-right" style={{ fontSize: 9.5 }}>{formatCurrency(subtotal)}</td>
+                    <td className="text-right" style={{ color: discount > 0 ? '#dc2626' : '#3b82f6', fontSize: 9.5 }}>
                       {discount > 0 ? `-${formatCurrency(discount)}` : '-'}
                     </td>
-                    <td className="text-right" style={{ fontWeight: 'bold', color: '#15803d' }}>
+                    <td className="text-right" style={{ fontWeight: 'bold', color: '#15803d', fontSize: 9.5 }}>
                       {formatCurrency(netToPay)}
                     </td>
-                    <td style={{ fontSize: 10 }}>
+                    <td style={{ fontSize: 9 }}>
                       {suppInfo && suppInfo.bankName ? (
                         <div>
-                          <div style={{ fontWeight: 600 }}>{suppInfo.bankName}</div>
-                          <div style={{ color: '#475569' }}>{suppInfo.accountNumber} a/n {suppInfo.accountName}</div>
+                          <div style={{ fontWeight: 600, fontSize: 9 }}>{suppInfo.bankName}</div>
+                          <div style={{ color: '#06b6d4', fontSize: 9 }}>{suppInfo.accountNumber} a/n {suppInfo.accountName}</div>
                         </div>
                       ) : (
-                        <span style={{ color: '#64748b', fontStyle: 'italic' }}>Belum diatur</span>
+                        <span style={{ color: '#06b6d4', fontStyle: 'italic', fontSize: 9 }}>Belum diatur</span>
                       )}
                     </td>
                   </tr>
@@ -603,19 +616,19 @@ export default function PurchaseNoteReportPdf({
             <tfoot>
               {totalAdditionalCosts > 0 && (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'right', color: '#7c3aed', fontWeight: 'bold' }}>
+                  <td colSpan="5" style={{ textAlign: 'right', fontSize: 10, fontWeight: 'bold', color: '#1e3a8a' }}>
                     + Biaya Tambahan:
                   </td>
-                  <td className="text-right" style={{ color: '#7c3aed', fontWeight: 'bold' }}>
+                  <td className="text-right" style={{ fontSize: 10, fontWeight: 'bold', color: '#1e3a8a' }}>
                     {formatCurrency(totalAdditionalCosts)}
                   </td>
                 </tr>
               )}
               <tr className="net-total-row">
-                <td colSpan="5" style={{ textAlign: 'right', fontSize: 14 }}>
+                <td colSpan="5" style={{ textAlign: 'right', fontSize: 12, fontWeight: 'bold' }}>
                   GRAND TOTAL TRANSFER:
                 </td>
-                <td className="text-right" style={{ fontSize: 14 }}>
+                <td className="text-right" style={{ fontSize: 12, fontWeight: 'bold' }}>
                   {formatCurrency(grandTotalNet)}
                 </td>
               </tr>
@@ -627,17 +640,17 @@ export default function PurchaseNoteReportPdf({
         <div className="footer">
           <div className="signature-section">
             <div className="signature-item">
-              <p style={{ margin: 0, fontSize: 10, color: '#475569', fontWeight: 600 }}>
+              <p style={{ margin: '0 0 8px 0', fontSize: 10, color: '#3b82f6', fontWeight: 600, textTransform: 'uppercase' }}>
                 Diperiksa Oleh,
               </p>
-              <strong style={{ color: '#1e3a8a' }}>Bagian Operasional</strong>
+              <strong style={{ display: 'block', marginBottom: '25px', color: '#1e40af', fontSize: 12 }}>Bagian Operasional</strong>
               <div className="signature-line" />
             </div>
             <div className="signature-item">
-              <p style={{ margin: 0, fontSize: 10, color: '#475569', fontWeight: 600 }}>
+              <p style={{ margin: '0 0 8px 0', fontSize: 10, color: '#3b82f6', fontWeight: 600, textTransform: 'uppercase' }}>
                 Dibuat Oleh,
               </p>
-              <strong style={{ color: '#1e3a8a' }}>Admin Pembelian</strong>
+              <strong style={{ display: 'block', marginBottom: '25px', color: '#1e40af', fontSize: 12 }}>Admin Pembelian</strong>
               <div className="signature-line" />
             </div>
           </div>

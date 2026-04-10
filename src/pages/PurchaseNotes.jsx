@@ -246,7 +246,7 @@ export default function PurchaseNotes() {
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        width: pixelWidth,
+        windowWidth: element.scrollWidth,
         allowTaint: true
       });
       
@@ -381,7 +381,14 @@ export default function PurchaseNotes() {
       const dpi = 96;
       const pixelWidth = Math.round((pageWidth / 25.4) * dpi);
       
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', width: pixelWidth, allowTaint: true });
+      const canvas = await html2canvas(element, { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false, 
+        backgroundColor: '#ffffff', 
+        windowWidth: element.scrollWidth,
+        allowTaint: true 
+      });
       
       const pageHeight = 297;
       const marginTop = 15;
