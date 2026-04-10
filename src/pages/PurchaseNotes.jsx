@@ -668,6 +668,7 @@ export default function PurchaseNotes() {
         </div>
       )}
     </div>
+  )}
 
       <div className="table-container">
         <table className="table">
