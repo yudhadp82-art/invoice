@@ -603,9 +603,22 @@ export default function PurchaseNotes() {
 
       {pendingInvoices.length > 0 && (
         <div className="card mb-lg animate-in" style={{ borderColor: 'var(--primary)', borderLeftWidth: 4 }}>
-          <div className="card-header flex-between">
-            <h3 className="card-title text-primary"><FiFileText /> Invoice Menunggu Nota Pembelian ({pendingInvoices.length})</h3>
+          <div className="card-header flex-between" style={{ padding: '16px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h3 className="card-title text-primary" style={{ margin: 0 }}>
+                <FiFileText /> Invoice Menunggu Nota Pembelian ({pendingInvoices.length})
+              </h3>
+            </div>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setCollapsedPendingInvoices(!collapsedPendingInvoices)}
+              style={{ padding: '8px 16px', borderRadius: '6px' }}
+            >
+              {collapsedPendingInvoices ? 'Tampilkan' : 'Sembunyikan'}
+            </button>
           </div>
+          {!collapsedPendingInvoices && (
+            <div className="table-container" style={{ padding: '0 24px' }}>
           <div className="table-container">
             <table className="table">
               <thead>
