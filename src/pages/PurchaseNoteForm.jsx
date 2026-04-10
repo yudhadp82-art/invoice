@@ -855,12 +855,8 @@ export default function PurchaseNoteForm() {
           </div>
         </div>
         <div className="flex gap-sm">
-          {!isEditing && (
-            <>
-              <button className="btn btn-secondary" onClick={() => setIsImportModalOpen(true)}><FiShoppingBag /> Tarik Invoice</button>
-              {Object.keys(groupRecapData).length > 0 && <button className="btn btn-secondary" onClick={() => setIsGroupImportModalOpen(true)}><FiUsers /> Rekap Grup</button>}
-            </>
-          )}
+          <button className="btn btn-secondary" onClick={() => setIsImportModalOpen(true)}><FiShoppingBag /> Tarik Invoice</button>
+          {Object.keys(groupRecapData).length > 0 && <button className="btn btn-secondary" onClick={() => setIsGroupImportModalOpen(true)}><FiUsers /> Rekap Grup</button>}
           <button onClick={handleSave} className="btn btn-primary" disabled={saving || loading}><FiSave /> {saving ? 'Menyimpan...' : 'Simpan Nota'}</button>
         </div>
       </div>
