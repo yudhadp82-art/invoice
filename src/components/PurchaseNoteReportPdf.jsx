@@ -209,14 +209,15 @@ export default function PurchaseNoteReportPdf({
             page-break-inside: avoid;
           }
           thead {
-            background: #f8fafc;
+            background: #e8f0fe;
             font-weight: bold;
-            border: 1px solid #cbd5e1;
+            border: 1px solid #2c3e50;
           }
           th {
             padding: 6mm 4mm;
             text-align: left;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #2c3e50;
+            color: #1e293b;
           }
           th.text-center {
             text-align: center;
@@ -226,8 +227,9 @@ export default function PurchaseNoteReportPdf({
           }
           td {
             padding: 6mm 4mm;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #2c3e50;
             page-break-inside: avoid;
+            color: #1e293b;
           }
           td.text-center {
             text-align: center;
@@ -237,18 +239,20 @@ export default function PurchaseNoteReportPdf({
             font-weight: 600;
           }
           tfoot {
-            background: #f1f5f9;
+            background: #e8f0fe;
             font-weight: bold;
-            border: 1px solid #cbd5e1;
+            border: 1px solid #2c3e50;
           }
           .total-row td {
-            background: #eff6ff;
+            background: #d4e8ff;
             font-weight: bold;
+            color: #1e293b;
           }
           .net-total-row td {
-            background: #0f172a;
+            background: #1e3a8a;
             color: white;
             font-weight: bold;
+            border: 2px solid #1e3a8a;
           }
           .footer {
             margin-top: 20mm;
@@ -402,7 +406,7 @@ export default function PurchaseNoteReportPdf({
                 return (
                   <tr key={idx}>
                     <td style={{
-                      color: item.isSubItem ? '#64748b' : '#1e293b',
+                      color: item.isSubItem ? '#475569' : '#1e293b',
                       fontWeight: isMixVegParent ? 'bold' : 'normal',
                       paddingLeft: item.isSubItem ? '5mm' : '4mm'
                     }}>
@@ -478,7 +482,7 @@ export default function PurchaseNoteReportPdf({
                             </td>
                           )}
                           <td style={{
-                            color: item.isSubItem ? '#64748b' : '#1e293b',
+                            color: item.isSubItem ? '#475569' : '#1e293b',
                             fontWeight: isMixVegParent ? 'bold' : 'normal',
                             paddingLeft: item.isSubItem ? '5mm' : '4mm'
                           }}>
@@ -586,10 +590,10 @@ export default function PurchaseNoteReportPdf({
                       {suppInfo && suppInfo.bankName ? (
                         <div>
                           <div style={{ fontWeight: 600 }}>{suppInfo.bankName}</div>
-                          <div style={{ color: '#64748b' }}>{suppInfo.accountNumber} a/n {suppInfo.accountName}</div>
+                          <div style={{ color: '#475569' }}>{suppInfo.accountNumber} a/n {suppInfo.accountName}</div>
                         </div>
                       ) : (
-                        <span style={{ color: '#94a3b8' }}>Belum diatur</span>
+                        <span style={{ color: '#64748b', fontStyle: 'italic' }}>Belum diatur</span>
                       )}
                     </td>
                   </tr>
@@ -599,10 +603,10 @@ export default function PurchaseNoteReportPdf({
             <tfoot>
               {totalAdditionalCosts > 0 && (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'right', color: '#8b5cf6', fontWeight: 'bold' }}>
+                  <td colSpan="5" style={{ textAlign: 'right', color: '#7c3aed', fontWeight: 'bold' }}>
                     + Biaya Tambahan:
                   </td>
-                  <td className="text-right" style={{ color: '#8b5cf6', fontWeight: 'bold' }}>
+                  <td className="text-right" style={{ color: '#7c3aed', fontWeight: 'bold' }}>
                     {formatCurrency(totalAdditionalCosts)}
                   </td>
                 </tr>
@@ -623,17 +627,17 @@ export default function PurchaseNoteReportPdf({
         <div className="footer">
           <div className="signature-section">
             <div className="signature-item">
-              <p style={{ margin: 0, fontSize: 10, color: '#64748b', fontWeight: 600 }}>
+              <p style={{ margin: 0, fontSize: 10, color: '#475569', fontWeight: 600 }}>
                 Diperiksa Oleh,
               </p>
-              <strong style={{ color: '#1e40af' }}>Bagian Operasional</strong>
+              <strong style={{ color: '#1e3a8a' }}>Bagian Operasional</strong>
               <div className="signature-line" />
             </div>
             <div className="signature-item">
-              <p style={{ margin: 0, fontSize: 10, color: '#64748b', fontWeight: 600 }}>
+              <p style={{ margin: 0, fontSize: 10, color: '#475569', fontWeight: 600 }}>
                 Dibuat Oleh,
               </p>
-              <strong style={{ color: '#1e40af' }}>Admin Pembelian</strong>
+              <strong style={{ color: '#1e3a8a' }}>Admin Pembelian</strong>
               <div className="signature-line" />
             </div>
           </div>
