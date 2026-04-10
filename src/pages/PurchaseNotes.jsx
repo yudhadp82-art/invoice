@@ -1,14 +1,19 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
+import { pdf } from '@react-pdf/renderer';
+import PurchaseNoteReportPdfDocument from '../components/PurchaseNoteReportPdfDocument';
+import { saveAs } from 'file-saver';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter, FiSend } from 'react-icons/fi';
 import { PurchaseNotes as PNStore, Invoices, SupportingMaterialItems as MasterItems, Customers, Suppliers, TelegramOrders } from '../utils/storage';
 import { sendDocument } from '../utils/telegram';
+import { getInvoicesForPurchaseNote } from '../utils/purchaseReportModel';
+import SupplierPaymentRecapPdfDocument from '../components/SupplierPaymentRecapPdfDocument';
+
 export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
   const [pendingInvoices, setPendingInvoices] = useState([]);
@@ -22,12 +27,14 @@ export default function PurchaseNotes() {
   const [allCustomers, setAllCustomers] = useState([]);
   const [allSuppliers, setAllSuppliers] = useState([]);
   const [masterBahan, setMasterBahan] = useState([]);
-  const [printData, setPrintData] = useState(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfBusyNoteId, setPdfBusyNoteId] = useState(null);
   const [sendingId, setSendingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [debug, setDebug] = useState({ url: '', notesCount: 0, legacyCount: 0 });
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [isGeneratingRecap, setIsGeneratingRecap] = useState(false);
 
   useEffect(() => {
     reload();
@@ -154,136 +161,31 @@ export default function PurchaseNotes() {
       if (!window.confirm('Nota ini tidak memiliki data grup tersimpan (nota lama). Ingin tetap mencetak laporan hanya rincian pembelian?')) return;
     }
     
-    setIsGeneratingPdf(true);
-    
-    // Prepare data for the PDF template
-    const noteDateStr = note.date ? String(note.date || '').slice(0, 10) : '';
-    const grp = note.groupName || '(Tanpa Grup)';
-
-    // Build the invoices list: 3-layer check
-    let invsForGroup = [];
-    if (note.sourceInvoiceIds && note.sourceInvoiceIds.length > 0) {
-      invsForGroup = fullInvoices.filter(inv => note.sourceInvoiceIds.includes(inv.id));
-    } else if (note.invoiceId) {
-      invsForGroup = fullInvoices.filter(inv => inv.id === note.invoiceId);
-    } else {
-      // Fallback for old notes
-      const nameToGroup = {};
-      allCustomers.forEach(c => { if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group; });
-      invsForGroup = fullInvoices.filter(inv => {
-        try {
-          const dateObj = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
-          if (!dateObj || isNaN(dateObj.getTime())) return false;
-          const invDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-          return invDateStr === noteDateStr && nameToGroup[(inv.customerName || '').toLowerCase()] === grp;
-        } catch (e) {
-          console.error('Error filtering invoice:', inv, e);
-          return false;
-        }
-      });
-    }
-
-    // Reconstruct group recap aggregates
-    const groupAgg = {};
-    invsForGroup.forEach(inv => {
-      (inv.items || []).forEach(it => {
-        const key = (it.productName || '').trim();
-        if (!key) return;
-        if (!groupAgg[key]) groupAgg[key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
-        groupAgg[key].totalQty += (Number(it.qty) || 0);
-      });
-    });
-    const recapArray = Object.values(groupAgg).sort((a, b) => a.name.localeCompare(b.name));
-
-    const printDataObj = {
-      groupName: grp,
-      date: note.date,
-      groupRecap: recapArray,
-      purchaseItems: note.items || [],
-      supplierDiscounts: note.supplierDiscounts || {},
-      invoicesList: invsForGroup,
-      additionalCosts: note.additionalCosts || {}
-    };
-
-    console.log('Setting printData:', {
-      noteId: note.id,
-      hasSupplierDiscounts: !!printDataObj.supplierDiscounts,
-      supplierDiscounts: printDataObj.supplierDiscounts,
-      hasAdditionalCosts: !!printDataObj.additionalCosts,
-      itemsCount: printDataObj.purchaseItems.length
-    });
-
-    setPrintData(printDataObj);
-
-    // Generate PDF
-    await new Promise(r => setTimeout(r, 600)); // Allow render
-    let element = null;
-    let originalDisplay = '';
+    setPdfBusyNoteId(note.id);
     try {
-      element = document.getElementById('purchase-note-report-render');
-      if (!element) throw new Error('Render element not found');
-
-      originalDisplay = element.style.display;
-      element.style.display = 'block';
-
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-      
-      // Wait for render to complete
-      await new Promise(r => setTimeout(r, 300));
-      
-      // Capture element to canvas with A4 width constraint
-      const pageWidth = 210; // A4 width in mm
-      const dpi = 96;
-      const pixelWidth = Math.round((pageWidth / 25.4) * dpi); // Convert mm to pixels at 96 DPI
-      
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: element.scrollWidth,
-        allowTaint: true
-      });
-      
-      const pageHeight = 297; // A4 height in mm
-      const marginTop = 15;
-      const marginBottom = 15;
-      const marginLeft = 15;
-      const marginRight = 15;
-      
-      // Calculate usable height per page
-      const usableHeight = pageHeight - marginTop - marginBottom; // 267mm
-      const imgWidth = pageWidth - marginLeft - marginRight; // 180mm
-      
-      // Calculate image dimensions
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      const totalPages = Math.ceil(imgHeight / usableHeight);
-      
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      
-      // Add pages with proper offset calculation
-      for (let i = 0; i < totalPages; i++) {
-        if (i > 0) pdf.addPage();
-        // Position each page's image with proper margin offset
-        const yOffset = marginTop - (i * usableHeight);
-        pdf.addImage(imgData, 'JPEG', marginLeft, yOffset, imgWidth, imgHeight);
-      }
-      pdf.save(`Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
+      const { invsForGroup, grp, noteDateStr } = getInvoicesForPurchaseNote(note, fullInvoices, allCustomers);
+      const logoSrc = `${window.location.origin}/logo-kdmp.png`;
+      const instance = pdf(
+        <PurchaseNoteReportPdfDocument
+          groupName={grp}
+          date={note.date}
+          purchaseItems={note.items || []}
+          supplierName={note.supplierName || ''}
+          supplierDiscounts={note.supplierDiscounts || {}}
+          invoicesList={invsForGroup}
+          suppliersData={allSuppliers}
+          additionalCosts={note.additionalCosts || {}}
+          logoSrc={logoSrc}
+        />
+      );
+      const blob = await instance.toBlob();
+      saveAs(blob, `Laporan_Pembelian_${grp}_${noteDateStr}.pdf`);
       toast.success('PDF Laporan Pembelian berhasil didownload!');
     } catch (err) {
       console.error(err);
       toast.error('Gagal mencetak PDF: ' + err.message);
     } finally {
-      if (element) {
-        element.style.display = originalDisplay;
-      }
-      setIsGeneratingPdf(false);
-      setPrintData(null);
+      setPdfBusyNoteId(null);
     }
   }
 
@@ -320,97 +222,24 @@ export default function PurchaseNotes() {
     }
 
     setSendingId(note.id);
-    
-    const noteDateStr = note.date ? String(note.date || '').slice(0, 10) : '';
-    const grp = note.groupName || '(Tanpa Grup)';
 
-    let invsForGroup = [];
-    if (note.sourceInvoiceIds && note.sourceInvoiceIds.length > 0) {
-      invsForGroup = fullInvoices.filter(inv => note.sourceInvoiceIds.includes(inv.id));
-    } else if (note.invoiceId) {
-      invsForGroup = fullInvoices.filter(inv => inv.id === note.invoiceId);
-    } else {
-      const nameToGroup = {};
-      allCustomers.forEach(c => { if (c.group && c.name) nameToGroup[c.name.toLowerCase()] = c.group; });
-      invsForGroup = fullInvoices.filter(inv => {
-        try {
-          const dateObj = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
-          if (!dateObj || isNaN(dateObj.getTime())) return false;
-          const invDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-          return invDateStr === noteDateStr && nameToGroup[(inv.customerName || '').toLowerCase()] === grp;
-        } catch (e) { return false; }
-      });
-    }
-
-    const groupAgg = {};
-    invsForGroup.forEach(inv => {
-      (inv.items || []).forEach(it => {
-        const key = (it.productName || '').trim();
-        if (!key) return;
-        if (!groupAgg[key]) groupAgg[key] = { name: key, totalQty: 0, unit: it.unit || 'kg' };
-        groupAgg[key].totalQty += (Number(it.qty) || 0);
-      });
-    });
-    const recapArray = Object.values(groupAgg).sort((a, b) => a.name.localeCompare(b.name));
-
-    setPrintData({
-      groupName: grp,
-      date: note.date,
-      groupRecap: recapArray,
-      purchaseItems: note.items || [],
-      supplierDiscounts: note.supplierDiscounts || {},
-      invoicesList: invsForGroup,
-      additionalCosts: note.additionalCosts || {}
-    });
-
-    await new Promise(r => setTimeout(r, 800)); // Allow render
-    let element = null;
-    let originalDisplay = '';
-    
     try {
-      element = document.getElementById('purchase-note-report-render');
-      if (!element) throw new Error('Render element not found');
-
-      originalDisplay = element.style.display;
-      element.style.display = 'block';
-
-      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
-      await new Promise(r => setTimeout(r, 400));
-      
-      const pageWidth = 210;
-      const dpi = 96;
-      const pixelWidth = Math.round((pageWidth / 25.4) * dpi);
-      
-      const canvas = await html2canvas(element, { 
-        scale: 2, 
-        useCORS: true, 
-        logging: false, 
-        backgroundColor: '#ffffff', 
-        windowWidth: element.scrollWidth,
-        allowTaint: true 
-      });
-      
-      const pageHeight = 297;
-      const marginTop = 15;
-      const marginBottom = 15;
-      const marginLeft = 15;
-      const marginRight = 15;
-      
-      const usableHeight = pageHeight - marginTop - marginBottom;
-      const imgWidth = pageWidth - marginLeft - marginRight;
-      
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      const totalPages = Math.ceil(imgHeight / usableHeight);
-      
-      const imgData = canvas.toDataURL('image/jpeg', 0.96);
-      
-      for (let i = 0; i < totalPages; i++) {
-        if (i > 0) pdf.addPage();
-        const yOffset = marginTop - (i * usableHeight);
-        pdf.addImage(imgData, 'JPEG', marginLeft, yOffset, imgWidth, imgHeight);
-      }
-      
-      const blob = pdf.output('blob');
+      const { invsForGroup, grp, noteDateStr } = getInvoicesForPurchaseNote(note, fullInvoices, allCustomers);
+      const logoSrc = `${window.location.origin}/logo-kdmp.png`;
+      const instance = pdf(
+        <PurchaseNoteReportPdfDocument
+          groupName={grp}
+          date={note.date}
+          purchaseItems={note.items || []}
+          supplierName={note.supplierName || ''}
+          supplierDiscounts={note.supplierDiscounts || {}}
+          invoicesList={invsForGroup}
+          suppliersData={allSuppliers}
+          additionalCosts={note.additionalCosts || {}}
+          logoSrc={logoSrc}
+        />
+      );
+      const blob = await instance.toBlob();
       const filename = `Laporan_Pembelian_${grp}_${noteDateStr}.pdf`;
 
       const res = await sendDocument(chatId, blob, filename);
@@ -423,8 +252,6 @@ export default function PurchaseNotes() {
       console.error(err);
       toast.error('Terjadi kesalahan saat memproses dan mengirim PDF: ' + err.message);
     } finally {
-      if (element) element.style.display = originalDisplay;
-      setPrintData(null);
       setSendingId(null);
     }
   }
@@ -483,10 +310,46 @@ export default function PurchaseNotes() {
     }
   }
 
-  const filtered = notes.filter(n => 
-    (n.supplierName || '').toLowerCase().includes(search.toLowerCase()) ||
-    (n.notes || '').toLowerCase().includes(search.toLowerCase())
-  );
+  async function handlePrintRecapPdf() {
+    setIsGeneratingRecap(true);
+    try {
+      const logoSrc = `${window.location.origin}/logo-kdmp.png`;
+      const instance = pdf(
+        <SupplierPaymentRecapPdfDocument
+          filteredNotes={filtered}
+          startDate={startDate}
+          endDate={endDate}
+          suppliersData={allSuppliers}
+          logoSrc={logoSrc}
+        />
+      );
+      const blob = await instance.toBlob();
+      saveAs(blob, `Rekap_Pembayaran_Supplier${startDate ? '_'+startDate : ''}.pdf`);
+      toast.success('PDF Rekap berhasil didownload!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal mencetak rekap: ' + err.message);
+    } finally {
+      setIsGeneratingRecap(false);
+    }
+  }
+
+  const filtered = notes.filter(n => {
+    let match = true;
+    if (startDate) {
+      const d = n.date || n.createdAt;
+      if (!d || d < startDate) match = false;
+    }
+    if (endDate) {
+      const d = n.date || n.createdAt;
+      if (!d || d > endDate) match = false;
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      if (!(n.supplierName || '').toLowerCase().includes(q) && !(n.notes || '').toLowerCase().includes(q)) match = false;
+    }
+    return match;
+  });
 
   return (
     <div className="animate-in">
@@ -575,55 +438,123 @@ export default function PurchaseNotes() {
             const invs = groupInvoices[grp] || [];
             const isThisGroupCollapsed = collapsedGroups[grp];
             return (
-              <div key={grp} className="card animate-in" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.08) 100%)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                <div className="card-header flex-between" style={{ padding: '12px 20px' }}>
-                  <h3 className="card-title text-primary flex-center gap-sm" style={{ fontSize: 16 }}>
-                    <FiFileText />
-                    Rekap Kebutuhan: <span style={{ fontWeight: 800, marginLeft: 6, color: 'var(--accent-primary-hover)' }}>{grp}</span>
-                    <span className="badge badge-primary" style={{ marginLeft: 8, fontSize: 11 }}>{items.length} produk</span>
-                  </h3>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setCollapsedGroups(prev => ({ ...prev, [grp]: !prev[grp] }))}>
-                    {isThisGroupCollapsed ? 'Tampilkan Detail' : 'Sembunyikan'}
-                  </button>
+              <div key={grp} className="card animate-in" style={{
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(168,85,247,0.06) 100%)',
+                border: '1px solid rgba(99,102,241,0.15)',
+                borderRadius: '12px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+              }}>
+                <div className="card-header flex-between" style={{
+                  padding: '16px 24px',
+                  borderBottom: '1px solid rgba(99,102,241,0.1)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                    <FiFileText style={{ color: 'var(--accent-primary-hover)', fontSize: '18px' }} />
+                    <h3 className="card-title text-primary" style={{ fontSize: 17, margin: 0 }}>
+                      Rekap Kebutuhan: <span style={{
+                        fontWeight: 800,
+                        marginLeft: '8px',
+                        color: 'var(--accent-primary-hover)'
+                      }}>{grp}</span>
+                    </h3>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="badge badge-primary" style={{ fontSize: '12', padding: '4px 8px' }}>{items.length} produk</span>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setCollapsedGroups(prev => ({ ...prev, [grp]: !prev[grp] }))}
+                      style={{ padding: '6px 12px', borderRadius: '6px' }}
+                    >
+                      {isThisGroupCollapsed ? 'Tampilkan Detail' : 'Sembunyikan'}
+                    </button>
+                  </div>
                 </div>
                 {!isThisGroupCollapsed && (
-                  <div style={{ padding: '0 20px 20px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ padding: '20px 24px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {items.map((item, idx) => (
-                        <div key={idx} style={{ background: 'rgba(255,255,255,0.02)', padding: '8px 16px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.9 }}>{item.name}</span>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                             <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent-primary-hover)' }}>{Number(item.totalQty).toLocaleString('id-ID')}</span>
-                             <span style={{ fontSize: 11, opacity: 0.5 }}>{item.unit}</span>
+                        <div key={idx} style={{
+                          background: 'rgba(255,255,255,0.04)',
+                          padding: '12px 16px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          transition: 'all 0.2s ease'
+                        }}>
+                          <span style={{ fontSize: 14, fontWeight: 600, opacity: 0.95 }}>{item.name}</span>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                             <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-primary-hover)' }}>{Number(item.totalQty).toLocaleString('id-ID')}</span>
+                             <span style={{ fontSize: 12, opacity: 0.6, fontWeight: 500 }}>{item.unit}</span>
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    <div className="group-invoice-list">
-                      <div className="text-xs font-bold text-muted uppercase tracking-wider mb-sm">Daftar Invoice Terkait ({invs.length})</div>
+                    <div className="group-invoice-list" style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(99,102,241,0.1)' }}>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '12px',
+                        paddingBottom: '8px'
+                      }}>
+                        <div className="text-xs font-bold text-muted uppercase tracking-wider">
+                          Daftar Invoice Terkait ({invs.length})
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-primary-hover)' }}></div>
+                            {invs.length} invoice tersedia
+                          </span>
+                        </div>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-sm">
                         {invs.map(inv => (
-                          <div key={inv.id} className="group-invoice-item">
-                            <div>
-                              <div style={{ fontWeight: 700 }}>{inv.invoiceNumber}</div>
-                              <div className="text-xs text-muted">{inv.customerName}</div>
+                          <div key={inv.id} style={{
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: '8px',
+                            padding: '12px',
+                            transition: 'all 0.2s ease'
+                          }}>
+                            <div style={{ marginBottom: '8px' }}>
+                              <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>{inv.invoiceNumber}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{inv.customerName}</div>
                             </div>
-                            <Link 
-                              to="/purchase-notes/new" 
-                              state={{ invoiceId: inv.id }} 
-                              className="btn-link-sm"
+                            <Link
+                              to="/purchase-notes/new"
+                              state={{ invoiceId: inv.id }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '8px 16px',
+                                background: 'var(--accent-primary-hover)',
+                                color: 'white',
+                                borderRadius: '6px',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                transition: 'all 0.2s ease'
+                              }}
                             >
-                              Buat Nota <FiArrowRight />
+                              Buat Nota <FiArrowRight style={{ fontSize: '14px' }} />
                             </Link>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="mt-md flex gap-sm">
-                      <Link to="/purchase-notes/new" state={{ groupName: grp }} className="btn btn-primary btn-sm flex-1">
-                        <FiPlus /> Buat Nota Borongan dari Grup Ini
+                    <div className="mt-md flex gap-sm" style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(99,102,241,0.1)' }}>
+                      <Link to="/purchase-notes/new" state={{ groupName: grp }} className="btn btn-primary btn-sm flex-1" style={{
+                        padding: '10px 20px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 8px rgba(99,102,241,0.2)'
+                      }}>
+                        <FiPlus style={{ fontSize: '16px' }} /> Buat Nota Borongan dari Grup Ini
                       </Link>
                     </div>
                   </div>
@@ -634,15 +565,39 @@ export default function PurchaseNotes() {
         </div>
       )}
 
-      <div className="toolbar">
-        <div className="search-box">
+      <div className="toolbar" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <div className="search-box" style={{ flex: 1, minWidth: '200px' }}>
           <FiSearch className="search-icon" />
-          <input 
-            type="text" 
-            placeholder="Cari supplier atau catatan..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
+          <input
+            type="text"
+            placeholder="Cari supplier atau catatan..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
           />
+        </div>
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          background: 'rgba(99,102,241,0.05)',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          border: '1px solid rgba(99,102,241,0.15)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FiCalendar style={{ color: 'var(--accent-primary-hover)', fontSize: '16px' }} />
+              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-muted)' }}>Periode:</span>
+            </div>
+            <input type="date" className="input" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ padding: '8px 12px', minWidth: '130px' }} />
+            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-muted)' }}>—</span>
+            <input type="date" className="input" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ padding: '8px 12px', minWidth: '130px' }} />
+          </div>
+          <button className="btn btn-secondary" disabled={isGeneratingRecap || filtered.length === 0} onClick={handlePrintRecapPdf} style={{ marginLeft: '8px' }}>
+            {isGeneratingRecap ? <span style={{display: 'inline-block', animation: 'spin 1s linear infinite'}}><FiPrinter/></span> : <FiPrinter />}
+            Cetak Rekap ({filtered.length})
+          </button>
         </div>
       </div>
 
@@ -744,8 +699,8 @@ export default function PurchaseNotes() {
                   </td>
                 <td>
                   <div className="table-actions">
-                    <button className="btn btn-ghost btn-sm text-info" onClick={() => handlePrintPdf(note)} disabled={isGeneratingPdf && printData?.groupName === note.groupName}>
-                      <FiPrinter style={{ animation: (isGeneratingPdf && printData?.groupName === note.groupName) ? 'spin 1s linear infinite' : 'none' }} />
+                    <button className="btn btn-ghost btn-sm text-info" onClick={() => handlePrintPdf(note)} disabled={pdfBusyNoteId === note.id}>
+                      <FiPrinter style={{ animation: (pdfBusyNoteId === note.id) ? 'spin 1s linear infinite' : 'none' }} />
                     </button>
                     <button className="btn btn-ghost btn-sm" onClick={() => handleSendTelegramPdf(note)} disabled={sendingId === note.id} title="Kirim PDF ke Telegram">
                       <FiSend style={{ animation: (sendingId === note.id) ? 'spin 1s linear infinite' : 'none', color: '#8b5cf6' }} />
@@ -776,21 +731,6 @@ export default function PurchaseNotes() {
         message="Menghapus nota ini tidak akan mengoreksi stok secara otomatis. Apakah Anda yakin?"
       />
 
-      {/* PDF Rendering Area (Hidden) */}
-      {printData && (
-        <PurchaseNoteReportPdf
-          groupName={printData.groupName || printData.invoiceNumber || 'Pembelian Umum'}
-          date={printData.date}
-          groupRecap={printData.groupRecap}
-          purchaseItems={printData.purchaseItems}
-          supplierDiscounts={printData.supplierDiscounts}
-          invoicesList={printData.invoicesList}
-          suppliersData={allSuppliers}
-          additionalCosts={printData.additionalCosts}
-          forPrint={false}
-        />
-      )}
-      
       </>
       )}
 

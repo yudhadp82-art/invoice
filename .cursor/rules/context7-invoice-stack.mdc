@@ -1,0 +1,34 @@
+---
+description: Pakai Context7 MCP untuk dokumentasi library stack invoice (Vite, React, PDF, Supabase, dll.)
+alwaysApply: true
+---
+
+# Context7 untuk proyek invoice
+
+Server MCP **context7** (`resolve-library-id`, `query-docs`) sudah dikonfigurasi di `.mcp.json`. Saat menjawab pertanyaan implementasi, API, atau perilaku library—**utamakan memanggil Context7** alih-alih menebak dari ingatan.
+
+## Alur wajib
+
+1. Panggil **resolve-library-id** dengan `libraryName` yang sesuai tugas (dan `query` yang menjelaskan konteks), kecuali pengguna sudah memberi ID eksplisit seperti `/org/project` atau `/org/project/version`.
+2. Panggil **query-docs** dengan `libraryId` yang didapat dan pertanyaan spesifik.
+3. Batasi **resolve-library-id** maksimal ~3 kali per pertanyaan (sesuai panduan Context7).
+
+## Library utama repo ini (petunjuk `libraryName`)
+
+| Area | Nama untuk resolve |
+|------|-------------------|
+| Build / dev | `vite`, `@vitejs/plugin-react` |
+| UI | `react`, `react-dom`, `framer-motion`, `lucide-react`, `react-hot-toast` |
+| Routing | `react-router-dom` |
+| Styling | `tailwindcss` |
+| PDF / export | `@react-pdf/renderer`, `jspdf`, `html2canvas`, `file-saver` |
+| Data | `@supabase/supabase-js`, `axios`, `firebase` |
+| Sheet / chart | `xlsx`, `recharts` |
+| Utils | `date-fns`, `clsx`, `tailwind-merge` |
+| Integrasi | `googleapis` |
+
+Sesuaikan pilihan library dengan file atau fitur yang sedang dibahas (mis. PDF → `@react-pdf/renderer`; backend Google → `googleapis`).
+
+## Yang tidak dikirim ke Context7
+
+Jangan sertakan kunci API, token, kredensial, atau kode bisnis sensitif di parameter `query` Context7.

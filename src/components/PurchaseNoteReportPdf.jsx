@@ -1,6 +1,8 @@
 import React from 'react';
 import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
+import { computePurchaseReportModel } from '../utils/purchaseReportModel';
 
+/** Pratinjau HTML laporan (opsional). PDF unduhan memakai `PurchaseNoteReportPdfDocument` (@react-pdf/renderer). */
 export default function PurchaseNoteReportPdf({
   groupName,
   date,
@@ -15,646 +17,562 @@ export default function PurchaseNoteReportPdf({
 }) {
   if (!groupName) return null;
 
-  // Sesi 1: Agregasi Invoice per Item dan per Customer
-  const session1Data = [];
-  (invoicesList || []).forEach(inv => {
-    const custName = inv.customerName || '-';
-    (inv.items || []).forEach(it => {
-      const prodName = (it.productName || '').trim();
-      if (!prodName) return;
-      const qty = Number(it.qty) || 0;
-      const price = Number(it.unitPrice) || 0;
-      const total = qty * price;
-
-      const existing = session1Data.find(x => x.name === prodName && x.customer === custName && x.price === price);
-      if (existing) {
-        existing.qty += qty;
-        existing.total += total;
-      } else {
-        session1Data.push({ name: prodName, customer: custName, qty, price, total, unit: it.unit || 'kg' });
-      }
-    });
+  const model = computePurchaseReportModel({
+    groupName,
+    date,
+    purchaseItems,
+    supplierName,
+    supplierDiscounts,
+    invoicesList,
+    additionalCosts
   });
-  session1Data.sort((a, b) => a.name.localeCompare(b.name));
-  const session1Total = session1Data.reduce((sum, item) => sum + item.total, 0);
+  const {
+    session1Total,
+    uniqueCustomers,
+    session1Pivot,
+    session2Data,
+    getAvgSellPrice,
+    supplierGroups,
+    session4Data,
+    session4SumRev,
+    session4SumHpp,
+    session4SumProfit,
+    totalAdditionalCosts,
+    grandTotalNet,
+    groupProfit,
+    groupMarginPct,
+    custColCount
+  } = model;
+  const pivotHeadFont = custColCount > 10 ? 7 : custColCount > 6 ? 8 : 9;
+  const pivotCellFont = custColCount > 10 ? 7 : custColCount > 6 ? 8 : 9;
 
-  // Extract unique customers for pivot columns
-  const uniqueCustomersSet = new Set();
-  session1Data.forEach(it => uniqueCustomersSet.add(it.customer));
-  const uniqueCustomers = Array.from(uniqueCustomersSet).sort();
-
-  // Create Pivot Table Data
-  const session1Pivot = [];
-  session1Data.forEach(it => {
-    let row = session1Pivot.find(r => r.name === it.name && r.price === it.price);
-    if (!row) {
-      row = { name: it.name, price: it.price, unit: it.unit, customerQty: {}, totalQty: 0, totalRowValue: 0 };
-      session1Pivot.push(row);
-    }
-
-    row.customerQty[it.customer] = (row.customerQty[it.customer] || 0) + it.qty;
-    row.totalQty += it.qty;
-    row.totalRowValue += it.total;
-  });
-
-  // Sesi 2: Agregasi Pembelian Gabungan (Semua Supplier)
-  const session2Map = new Map();
-  (purchaseItems || []).forEach(it => {
-    const key = it.isSubItem ? `${it.materialName}_sub_${it.parentName}` : it.materialName;
-    if (!session2Map.has(key)) {
-      session2Map.set(key, { ...it, totalCost: 0, qtyNota: 0, invoiceQty: 0, purchaseCount: 0 });
-    }
-    const agg = session2Map.get(key);
-    agg.totalCost += Number(it.totalCost) || 0;
-    agg.qtyNota += Number(it.qtyNota) || 0;
-    agg.invoiceQty += Number(it.invoiceQty) || 0;
-    agg.purchaseCount += 1;
-
-    if (agg.qtyNota > 0) agg.pricePerUnit = agg.totalCost / agg.qtyNota;
-  });
-
-  const session2Data = Array.from(session2Map.values());
-  const grandTotalPurchases = session2Data.filter(it => !it.isParentItem).reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
-
-  // Cari Harga Jual untuk Sesi 2 dari Invoices
-  const getAvgSellPrice = (name) => {
-    const items = session1Data.filter(x => (x.name || '').toLowerCase() === (name || '').toLowerCase());
-    if (items.length === 0) return 0;
-    const totalQty = items.reduce((sum, x) => sum + x.qty, 0);
-    const totalRev = items.reduce((sum, x) => sum + x.total, 0);
-    return totalQty > 0 ? totalRev / totalQty : 0;
-  };
-
-  // Sesi 3: Rekap Pembelian per Supplier
-  const supplierMap = {};
-  const displayNamesForSup = {};
-  (purchaseItems || []).forEach(it => {
-    if (it.isParentItem && (it.materialName || '').toLowerCase().includes('mix vegetable')) return;
-
-    const rawSup = (it.supplier || supplierName || 'Penyedia Barang').trim();
-    const supKey = rawSup.toUpperCase();
-    if (!supplierMap[supKey]) {
-      supplierMap[supKey] = new Map();
-      displayNamesForSup[supKey] = rawSup;
-    }
-
-    const matName = it.materialName || 'Tanpa Nama';
-    const matMap = supplierMap[supKey];
-    if (matMap.has(matName)) {
-      const ex = matMap.get(matName);
-      ex.qtyNota = (Number(ex.qtyNota) || 0) + (Number(it.qtyNota) || 0);
-      ex.totalCost = (Number(ex.totalCost) || 0) + (Number(it.totalCost) || 0);
-      ex.pricePerUnit = ex.qtyNota > 0 ? ex.totalCost / ex.qtyNota : ex.pricePerUnit;
-    } else {
-      matMap.set(matName, { ...it, totalCost: Number(it.totalCost) || 0, qtyNota: Number(it.qtyNota) || 0 });
-    }
-  });
-
-  const supplierGroups = Object.keys(supplierMap).sort().map(key => {
-    const aggItems = Array.from(supplierMap[key].values());
-    return [displayNamesForSup[key], aggItems];
-  });
-
-  // Sesi 4: Laba Rugi per Customer
-  const avgHppMap = {};
-  session2Data.forEach(it => {
-    if (!it.isSubItem && !it.isParentItem) {
-      avgHppMap[(it.materialName || '').toLowerCase()] = it.pricePerUnit || 0;
-    } else if (it.isParentItem) {
-      const subItems = session2Data.filter(sub => sub.isSubItem && sub.parentName === it.materialName);
-      const subTotalCost = subItems.reduce((s, sub) => s + (Number(sub.totalCost) || 0), 0);
-      const invQty = Number(it.invoiceQty) || Number(it.qtyNota) || 1;
-      avgHppMap[(it.materialName || '').toLowerCase()] = subTotalCost / invQty;
-    }
-  });
-
-  const session4Data = [];
-  const uniqueCustomersSet4 = new Set();
-  session1Data.forEach(it => uniqueCustomersSet4.add(it.customer));
-  const uniqueCustomers4 = Array.from(uniqueCustomersSet4).sort();
-
-  uniqueCustomers4.forEach(cust => {
-    let revenue = 0;
-    let hpp = 0;
-
-    session1Data.filter(it => it.customer === cust).forEach(it => {
-      revenue += it.total;
-      const unitHpp = avgHppMap[(it.name || '').toLowerCase()] || 0;
-      hpp += (it.qty * unitHpp);
-    });
-
-    session4Data.push({ customer: cust, revenue, hpp, profit: revenue - hpp });
-  });
-
-  // Calculate Net Supplier Payments
-  let totalFromSuppliers = 0;
-  supplierGroups.forEach(([s, items]) => {
-    const discount = Number(supplierDiscounts[s]) || 0;
-    const subtotal = items.reduce((sum, it) => {
-      if (it.isParentItem && (it.materialName || '').toLowerCase().includes('mix vegetable')) return sum;
-      return sum + (Number(it.totalCost) || 0);
-    }, 0);
-    totalFromSuppliers += Math.max(0, subtotal - discount);
-  });
-  const totalAdditionalCosts = Object.values(additionalCosts || {}).reduce((s, c) => s + (Number(c) || 0), 0);
-  const grandTotalNet = totalFromSuppliers + totalAdditionalCosts;
+  const docRef = `${formatDateShort(date)} · ${String(groupName).slice(0, 40)}`;
 
   return (
     <>
       <style>{`
         @media print {
-          @page {
-            size: A4 portrait;
-            margin: 15mm 15mm 15mm;
-          }
+          @page { size: A4 portrait; margin: 12mm 12mm 14mm; }
           body {
-            width: 210mm;
-            margin: 0;
-            padding: 0;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            font-family: 'Arial', sans-serif;
           }
         }
-        
+
         .pdf-container {
           width: 100%;
-          max-width: 210mm;
+          max-width: 190mm;
           margin: 0 auto;
-          background: white;
+          padding: 0 0 28px 0;
           box-sizing: border-box;
-          color: #000000;
-          font-family: 'Arial', sans-serif;
+          color: #0f172a;
+          font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+          font-size: 10px;
+          line-height: 1.35;
         }
-        .pdf-container * {
-          color: #000000;
-        }
-        .pdf-container .header {
+        .pdf-container * { box-sizing: border-box; }
+
+        .pdf-header {
           text-align: center;
-          padding: 15mm 15mm 20mm 15mm;
-          border-bottom: 2px solid #1e40af;
-          margin-bottom: 15mm;
-          page-break-after: avoid;
+          padding: 10px 8px 14px;
+          border-bottom: 3px solid #1e3a8a;
+          margin-bottom: 14px;
         }
-        .pdf-container .section-title {
-          font-size: 12px;
-          font-weight: bold;
-          margin: 12px 0 8px 0;
+        .pdf-header h1 {
+          margin: 6px 0 4px;
+          font-size: 15px;
+          font-weight: 800;
+          color: #1e3a8a;
+          letter-spacing: 0.03em;
           text-transform: uppercase;
-          padding: 4px 0 4px 4mm;
-          border-left: 4px solid;
-          background: #f8fafc;
-          page-break-inside: avoid;
         }
-        .pdf-container .table-container {
-          margin: 8px 0 12px 0;
-          page-break-inside: avoid;
+        .pdf-header .subtitle {
+          margin: 0 0 8px;
+          font-size: 11px;
+          font-weight: 600;
+          color: #334155;
         }
+        .pdf-meta {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 8px 16px;
+          font-size: 9.5px;
+          color: #475569;
+          margin-top: 8px;
+        }
+        .pdf-meta span strong { color: #0f172a; }
+
+        .pdf-section {
+          margin-bottom: 16px;
+        }
+        .section-heading {
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: #1e3a8a;
+          padding: 6px 10px;
+          margin: 0 0 8px 0;
+          background: linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%);
+          border-left: 4px solid #2563eb;
+        }
+
+        .pdf-table-wrap {
+          overflow: visible;
+          margin: 0;
+        }
+
         .pdf-container table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 9.5px;
-          page-break-inside: avoid;
           table-layout: fixed;
-          word-wrap: break-word;
+          font-size: 9px;
         }
         .pdf-container thead {
-          background: #e8f0fe;
-          font-weight: bold;
-          border: 1px solid #2c3e50;
+          display: table-header-group;
         }
-        .pdf-container th {
-          padding: 6mm 4mm;
-          text-align: left;
-          border: 1px solid #2c3e50;
-          color: #1e40af !important;
-          font-weight: bold;
-        }
-        .pdf-container th.text-center {
-          text-align: center;
-        }
-        .pdf-container th.text-right {
-          text-align: right;
-        }
-        .pdf-container td {
-          padding: 6mm 4mm;
-          border: 1px solid #2c3e50;
-          page-break-inside: avoid;
-          color: #000000 !important;
-        }
-        .pdf-container td.text-center {
-          text-align: center;
-        }
-        .pdf-container td.text-right {
-          text-align: right;
-          font-weight: 600;
-        }
-        .pdf-container tfoot {
-          background: #e8f0fe;
-          font-weight: bold;
-          border: 1px solid #2c3e50;
-        }
-        .pdf-container .total-row td {
-          background: #d4e8ff;
-          font-weight: bold;
-          color: #1e293b !important; /* It's ok since we want dark blue */
-        }
-        .pdf-container .net-total-row td {
+        .pdf-container thead th {
           background: #1e3a8a;
-          color: white !important;
-          font-weight: bold;
-          border: 2px solid #1e3a8a;
+          color: #ffffff !important;
+          font-weight: 700;
+          padding: 6px 4px;
+          border: 1px solid #1e3a8a;
+          text-align: left;
+          vertical-align: middle;
+          word-wrap: break-word;
+          hyphens: auto;
         }
-        .pdf-container .footer {
-          margin-top: 20mm;
-          padding: 0 15mm 20mm 15mm;
-          border-top: 2px solid #1e40af;
-          page-break-before: always;
+        .pdf-container tbody td {
+          padding: 5px 4px;
+          border: 1px solid #cbd5e1;
+          vertical-align: top;
+          word-wrap: break-word;
+          overflow-wrap: anywhere;
+          color: #0f172a !important;
         }
-        .pdf-container .signature-section {
+        .pdf-container tbody tr:nth-child(even) td {
+          background: #f8fafc;
+        }
+        .pdf-container tfoot td,
+        .pdf-container tfoot th {
+          padding: 6px 4px;
+          border: 1px solid #94a3b8;
+          font-weight: 700;
+        }
+
+        .th-num { width: 4%; text-align: center !important; }
+        .th-right { text-align: right !important; }
+        .th-center { text-align: center !important; }
+        .td-num { text-align: center; }
+        .td-right { text-align: right; font-variant-numeric: tabular-nums; }
+        .td-strong { font-weight: 700; color: #1e3a8a; }
+
+        .total-row td {
+          background: #dbeafe !important;
+          font-weight: 700;
+          color: #1e3a8a !important;
+        }
+        .grand-row td {
+          background: #1e3a8a !important;
+          color: #ffffff !important;
+          font-weight: 800;
+        }
+        .profit-pos { color: #15803d !important; font-weight: 700; }
+        .profit-neg { color: #b91c1c !important; font-weight: 700; }
+
+        .pdf-footer-sign {
+          margin-top: 22px;
+          padding-top: 16px;
+          border-top: 2px solid #cbd5e1;
+        }
+        .signature-section {
           display: flex;
           justify-content: space-between;
-          margin-top: 15mm;
-          padding: 0 10mm 0 10mm;
-          page-break-inside: avoid;
-          page-break-after: avoid;
+          gap: 24px;
+          max-width: 160mm;
+          margin: 0 auto;
         }
-        .pdf-container .signature-item {
-          width: 150px;
+        .signature-item {
+          flex: 1;
           text-align: center;
+          min-width: 0;
         }
-        .pdf-container .signature-item p {
-          margin: 0;
-          font-size: 11px;
+        .signature-item .role {
+          font-size: 9px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          margin: 0 0 6px;
         }
-        .pdf-container .signature-item strong {
-          margin: 0 0 3mm 0;
-          font-size: 12px;
+        .signature-item .name {
+          font-size: 10px;
+          font-weight: 800;
+          color: #1e3a8a;
+          margin: 0 0 28px;
         }
-        .pdf-container .signature-line {
-          width: 100%;
+        .signature-line {
           height: 1px;
-          background: black;
-          margin: 3mm 0;
+          background: #0f172a;
+          margin: 0 auto;
+          max-width: 140px;
         }
+
         @media screen {
           #purchase-note-report-render {
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.12);
             margin: 20px auto;
-            padding: 20px;
+            padding: 24px;
             background: white;
+            border-radius: 4px;
           }
         }
       `}</style>
 
       <div id="purchase-note-report-render" className="pdf-container print-only">
-        {/* HEADER */}
-        <div className="header">
-          <div style={{ marginBottom: 12 }}>
-            <img src="/logo-kdmp.png" alt="Logo" style={{ maxWidth: 120, maxHeight: 50, objectFit: 'contain' }} />
+        <header className="pdf-header">
+          <div style={{ marginBottom: 6 }}>
+            <img src="/logo-kdmp.png" alt="" style={{ maxWidth: 100, maxHeight: 44, objectFit: 'contain' }} />
           </div>
-          <h1 style={{ margin: '0 0 8px 0', fontSize: 18, fontWeight: 'bold', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            KOPERASI DESA MERAH PUTIH SINDANGJAYA
-          </h1>
-          <h2 style={{ margin: '0 0 12px 0', fontSize: 13, color: '#3b82f6', fontWeight: '600' }}>
-            LAPORAN PEMBELIAN & PENJUALAN KOMPREHENSIF
-          </h2>
-          <p style={{ margin: 0, fontSize: 11, fontWeight: '600', textTransform: 'uppercase' }}>
-            <span style={{ color: '#1e40af' }}>GRUP: {groupName}</span> <span style={{ color: '#3b82f6' }}>|</span> TANGGAL: <span style={{ color: '#1e40af' }}>{formatDateShort(date)}</span>
-          </p>
-        </div>
+          <h1>Koperasi Desa Merah Putih Sindangjaya</h1>
+          <p className="subtitle">Laporan pembelian &amp; penjualan komprehensif</p>
+          <div className="pdf-meta">
+            <span><strong>Grup:</strong> {groupName}</span>
+            <span><strong>Tanggal:</strong> {formatDateShort(date)}</span>
+            <span><strong>Ref:</strong> {docRef}</span>
+          </div>
+        </header>
 
-        {/* SESSION 1: Rekap Invoice Gabungan */}
-        <div className="section-title" style={{ borderColor: '#3b82f6', color: '#3b82f6' }}>
-          Session 1: Rekap Penjualan Gabungan
-        </div>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: '4%', fontSize: 10 }}>No</th>
-                <th style={{ width: '25%', fontSize: 10 }}>Komoditas</th>
-                {uniqueCustomers.map(cust => (
-                  <th key={cust} className="text-center" style={{ fontSize: 10 }}>{cust}</th>
-                ))}
-                <th className="text-center" style={{ width: '6%', fontSize: 10 }}>Total</th>
-                <th className="text-center" style={{ width: '8%', fontSize: 10 }}>Satuan</th>
-                <th className="text-right" style={{ width: '15%', fontSize: 10 }}>Harga Satuan</th>
-                <th className="text-right" style={{ width: '15%', fontSize: 10 }}>Total (Rp)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {session1Pivot.map((row, idx) => (
-                <tr key={idx}>
-                  <td className="text-center" style={{ fontSize: 9.5 }}>{idx + 1}</td>
-                  <td style={{ fontWeight: 600, fontSize: 9.5 }}>{row.name}</td>
+        {/* I — Rekap penjualan */}
+        <section className="pdf-section">
+          <h2 className="section-heading">I. Rekapitulasi penjualan per komoditas dan pelanggan</h2>
+          <div className="pdf-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th className="th-num" style={{ width: '3%' }}>No</th>
+                  <th style={{ width: custColCount > 8 ? '14%' : '18%' }}>Komoditas</th>
                   {uniqueCustomers.map(cust => (
-                    <td key={cust} className="text-center" style={{ fontSize: 9.5 }}>
-                      {row.customerQty[cust] ? formatNumber(row.customerQty[cust]) : '-'}
-                    </td>
+                    <th key={cust} className="th-center" style={{ fontSize: pivotHeadFont, padding: '5px 2px' }}>
+                      {cust.length > 14 ? `${cust.slice(0, 12)}…` : cust}
+                    </th>
                   ))}
-                  <td className="text-center" style={{ fontWeight: 'bold', color: '#1e40af', fontSize: 9.5 }}>
-                    {formatNumber(row.totalQty)}
-                  </td>
-                  <td className="text-center" style={{ fontSize: 9.5 }}>{row.unit}</td>
-                  <td className="text-right" style={{ fontSize: 9.5 }}>{formatCurrency(row.price)}</td>
-                  <td className="text-right" style={{ fontWeight: 'bold', color: '#1e40af', fontSize: 9.5 }}>
-                    {formatCurrency(row.totalRowValue)}
-                  </td>
+                  <th className="th-center" style={{ width: '6%' }}>Total qty</th>
+                  <th className="th-center" style={{ width: '5%' }}>Sat.</th>
+                  <th className="th-right" style={{ width: '11%' }}>Harga / satuan</th>
+                  <th className="th-right" style={{ width: '12%' }}>Jumlah (Rp)</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="total-row">
-                <td colSpan={uniqueCustomers.length + 5} style={{ textAlign: 'right', fontSize: 10, fontWeight: 'bold', color: '#1e3a8a' }}>
-                  Total Penjualan Gabungan:
-                </td>
-                <td className="text-right" style={{ fontSize: 10, fontWeight: 'bold', color: '#1e3a8a' }}>
-                  {formatCurrency(session1Total)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {session1Pivot.map((row, idx) => (
+                  <tr key={`${row.name}-${row.price}-${idx}`}>
+                    <td className="td-num" style={{ fontSize: pivotCellFont }}>{idx + 1}</td>
+                    <td className="td-strong" style={{ fontSize: pivotCellFont }}>{row.name}</td>
+                    {uniqueCustomers.map(cust => (
+                      <td key={cust} className="td-num" style={{ fontSize: pivotCellFont }}>
+                        {row.customerQty[cust] ? formatNumber(row.customerQty[cust]) : '—'}
+                      </td>
+                    ))}
+                    <td className="td-num td-strong" style={{ fontSize: pivotCellFont }}>{formatNumber(row.totalQty)}</td>
+                    <td className="td-num" style={{ fontSize: pivotCellFont }}>{row.unit}</td>
+                    <td className="td-right" style={{ fontSize: pivotCellFont }}>{formatCurrency(row.price)}</td>
+                    <td className="td-right td-strong" style={{ fontSize: pivotCellFont }}>{formatCurrency(row.totalRowValue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="total-row">
+                  <td colSpan={uniqueCustomers.length + 5} className="td-right" style={{ fontSize: 10 }}>
+                    Total penjualan gabungan
+                  </td>
+                  <td className="td-right" style={{ fontSize: 10 }}>{formatCurrency(session1Total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
 
-        {/* SESSION 2: Rekap Pembelian Semua Bahan Baku */}
-        <div className="section-title" style={{ borderColor: '#10b981', color: '#10b981' }}>
-          Session 2: Rekap Pembelian Gabungan Bahan Baku
-        </div>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: '40%', fontSize: 10 }}>Bahan Baku</th>
-                <th className="text-center" style={{ width: '12%', fontSize: 10 }}>Qty Beli</th>
-                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>H. Pembelian</th>
-                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>H. Penjualan</th>
-                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>Laba</th>
-                <th className="text-center" style={{ width: '10%', fontSize: 10 }}>Margin %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {session2Data.filter(it => !it.isParentItem).map((item, idx) => {
-                const isMixVegParent = item.isParentItem;
-                let sellPrice = getAvgSellPrice(item.materialName);
-                if (sellPrice === 0) sellPrice = Number(item.sellPrice) || 0;
+        {/* II — Pembelian bahan */}
+        <section className="pdf-section">
+          <h2 className="section-heading">II. Rekapitulasi pembelian bahan baku &amp; margin</h2>
+          <div className="pdf-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: '34%' }}>Bahan baku</th>
+                  <th className="th-center" style={{ width: '11%' }}>Qty beli</th>
+                  <th className="th-right" style={{ width: '14%' }}>Harga beli / unit</th>
+                  <th className="th-right" style={{ width: '14%' }}>Harga jual rata-rata</th>
+                  <th className="th-right" style={{ width: '14%' }}>Laba (est.)</th>
+                  <th className="th-center" style={{ width: '13%' }}>Margin %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {session2Data.filter(it => !it.isParentItem).map((item, idx) => {
+                  const isMixVegParent = item.isParentItem;
+                  let sellPrice = getAvgSellPrice(item.materialName);
+                  if (sellPrice === 0) sellPrice = Number(item.sellPrice) || 0;
 
-                const totalBeli = isMixVegParent ?
-                  session2Data.filter(sub => sub.isSubItem && sub.parentName === item.materialName).reduce((s, sub) => s + (Number(sub.totalCost) || 0), 0)
+                  const totalBeli = isMixVegParent
+                    ? session2Data.filter(sub => sub.isSubItem && sub.parentName === item.materialName).reduce((s, sub) => s + (Number(sub.totalCost) || 0), 0)
                     : (Number(item.totalCost) || 0);
 
-                const invQtyTotal = Number(item.invoiceQty) || Number(item.qtyNota) || 0;
-                const displayPricePerUnit = isMixVegParent ?
-                  (invQtyTotal > 0 ? totalBeli / invQtyTotal : 0)
-                  : (item.qtyNota > 0 ? totalBeli / item.qtyNota : 0);
+                  const invQtyTotal = Number(item.invoiceQty) || Number(item.qtyNota) || 0;
+                  const displayPricePerUnit = isMixVegParent
+                    ? (invQtyTotal > 0 ? totalBeli / invQtyTotal : 0)
+                    : (item.qtyNota > 0 ? totalBeli / item.qtyNota : 0);
 
-                const totalJual = invQtyTotal * sellPrice;
-                const rowLaba = totalJual - totalBeli;
-                const margin = totalJual > 0 ? (rowLaba / totalJual * 100) : 0;
-                const displayQty = isMixVegParent ? '' : item.qtyNota;
+                  const totalJual = invQtyTotal * sellPrice;
+                  const rowLaba = totalJual - totalBeli;
+                  const margin = totalJual > 0 ? (rowLaba / totalJual * 100) : 0;
+                  const displayQty = isMixVegParent ? '' : item.qtyNota;
 
-                return (
-                  <tr key={idx}>
-                    <td style={{
-                      color: item.isSubItem ? '#8b5cf6' : '#000000',
-                      fontWeight: isMixVegParent ? 'bold' : 'normal',
-                      paddingLeft: item.isSubItem ? '5mm' : '4mm',
-                      fontSize: 9.5
-                    }}>
-                      {item.isSubItem ? '↳ ' : ''}{item.materialName}
-                    </td>
-                    <td className="text-center" style={{ fontSize: 9.5 }}>
-                      {displayQty !== '' ? `${formatNumber(displayQty)} ${item.unit}` : ''}
-                    </td>
-                    <td className="text-right" style={{ fontSize: 9.5 }}>
-                      {displayPricePerUnit > 0 ? formatCurrency(displayPricePerUnit) : '-'}
-                    </td>
-                    <td className="text-right" style={{ fontSize: 9.5 }}>
-                      {sellPrice > 0 ? formatCurrency(sellPrice) : '-'}
-                    </td>
-                    <td className="text-right" style={{
-                      color: rowLaba >= 0 ? '#15803d' : '#dc2626',
-                      fontWeight: 'bold',
-                      fontSize: 9.5
-                    }}>
-                      {(totalJual > 0 || isMixVegParent) ? formatCurrency(rowLaba) : (item.isSubItem ? '-' : formatCurrency(rowLaba))}
-                    </td>
-                    <td className="text-center" style={{
-                      color: margin >= 0 ? '#15803d' : '#dc2626',
-                      fontSize: 9.5
-                    }}>
-                      {totalJual > 0 ? `${margin.toFixed(1)}%` : '-'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  return (
+                    <tr key={`s2-${idx}-${item.materialName}`}>
+                      <td
+                        style={{
+                          color: item.isSubItem ? '#6d28d9' : '#0f172a',
+                          fontWeight: isMixVegParent ? 700 : 500,
+                          paddingLeft: item.isSubItem ? '10px' : '5px'
+                        }}
+                      >
+                        {item.isSubItem ? '↳ ' : ''}{item.materialName}
+                      </td>
+                      <td className="td-num">
+                        {displayQty !== '' ? `${formatNumber(displayQty)} ${item.unit || ''}` : '—'}
+                      </td>
+                      <td className="td-right">{displayPricePerUnit > 0 ? formatCurrency(displayPricePerUnit) : '—'}</td>
+                      <td className="td-right">{sellPrice > 0 ? formatCurrency(sellPrice) : '—'}</td>
+                      <td className={`td-right ${rowLaba >= 0 ? 'profit-pos' : 'profit-neg'}`}>
+                        {(totalJual > 0 || isMixVegParent) ? formatCurrency(rowLaba) : (item.isSubItem ? '—' : formatCurrency(rowLaba))}
+                      </td>
+                      <td className={`td-num ${margin >= 0 ? 'profit-pos' : 'profit-neg'}`}>
+                        {totalJual > 0 ? `${margin.toFixed(1)}%` : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-        {/* SESSION 3: Rekap Pembelian per Supplier */}
-        <div className="section-title" style={{ borderColor: '#8b5cf6', color: '#8b5cf6' }}>
-          Session 3: Rincian Pembelian per Supplier
-        </div>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: '4%', fontSize: 10 }}>No</th>
-                <th style={{ width: '20%', fontSize: 10 }}>Supplier</th>
-                <th style={{ width: '30%', fontSize: 10 }}>Item Pembelian</th>
-                <th className="text-center" style={{ width: '15%', fontSize: 10 }}>Qty Pembelian</th>
-                <th className="text-right" style={{ width: '15%', fontSize: 10 }}>H. Pembelian</th>
-                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>Total Beli</th>
-              </tr>
-            </thead>
-            <tbody>
-              {supplierGroups.map(([s, items], sIdx) => {
-                return (
-                  <React.Fragment key={`${sIdx}-${items.length}`}>
-                    {items.map((item, iIdx) => {
-                      const isMixVegParent = item.isParentItem && (item.materialName || '').toLowerCase().includes('mix vegetable');
-                      const totalBeli = isMixVegParent ?
-                        items.filter(sub => sub.isSubItem && sub.parentName === item.materialName).reduce((s, sub) => s + (Number(sub.totalCost) || 0), 0)
-                          : (Number(item.totalCost) || 0);
-                      const invQtyTotal = Number(item.invoiceQty) || Number(item.qtyNota) || 0;
-                      const priceUnit = isMixVegParent ?
-                        (invQtyTotal > 0 ? totalBeli / invQtyTotal : 0)
-                        : (Number(item.pricePerUnit) || 0);
-                      const displayQty = isMixVegParent ? '' : item.qtyNota;
-
-                      return (
-                        <tr key={iIdx}>
-                          {iIdx === 0 && (
-                            <td rowSpan={items.length} style={{
-                              verticalAlign: 'top',
-                              fontWeight: 'bold',
-                              color: '#1e40af'
-                            }}>
-                              {s}
-                            </td>
-                          )}
-                          <td style={{
-                            color: item.isSubItem ? '#8b5cf6' : '#000000',
-                            fontWeight: isMixVegParent ? 'bold' : 'normal',
-                            paddingLeft: item.isSubItem ? '5mm' : '4mm'
-                          }}>
-                            {item.isSubItem ? '↳ ' : ''}{item.materialName}
-                          </td>
-                          <td className="text-center">
-                            {displayQty !== '' ? `${formatNumber(displayQty)} ${item.unit}` : ''}
-                          </td>
-                          <td className="text-right">
-                            {priceUnit > 0 ? formatCurrency(priceUnit) : '-'}
-                          </td>
-                          <td className="text-right" style={{ fontWeight: 'bold' }}>
-                            {totalBeli > 0 ? formatCurrency(totalBeli) : '-'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* SESSION 4: Laporan Laba Rugi */}
-        <div className="section-title" style={{ borderColor: '#f59e0b', color: '#f59e0b' }}>
-          Session 4: Laporan Laba Rugi per Pelanggan
-        </div>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th className="text-right" style={{ width: '25%', fontSize: 10 }}>Total Penjualan</th>
-                <th className="text-right" style={{ width: '25%', fontSize: 10 }}>Total Pembelian</th>
-                <th className="text-right" style={{ width: '25%', fontSize: 10 }}>Laba / Rugi</th>
-                <th className="text-center" style={{ width: '25%', fontSize: 10 }}>Margin %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(() => {
-                const totalRev = session1Total;
-                const totalPurchase = grandTotalNet;
-                const totalProfit = totalRev - totalPurchase;
-                const totalMargin = totalRev > 0 ? (totalProfit / totalRev * 100) : 0;
-                return (
-                  <tr className="total-row">
-                    <td style={{ fontSize: 11, fontWeight: 'bold', color: '#1e3a8a' }}>
-                      {formatCurrency(totalRev)}
-                    </td>
-                    <td style={{ fontSize: 11, fontWeight: 'bold', color: '#dc2626' }}>
-                      {formatCurrency(totalPurchase)}
-                    </td>
-                    <td style={{ fontSize: 11, fontWeight: 'bold', color: totalProfit >= 0 ? '#15803d' : '#dc2626' }}>
-                      {formatCurrency(totalProfit)}
-                    </td>
-                    <td className="text-center" style={{ fontSize: 11, fontWeight: 'bold', color: totalMargin >= 0 ? '#15803d' : '#dc2626' }}>
-                      {totalMargin.toFixed(1)}%
-                    </td>
-                  </tr>
-                );
-              })()}
-            </tbody>
-          </table>
-        </div>
-
-        {/* SESSION 5: Tabel Pembayaran Supplier */}
-        <div className="section-title" style={{ borderColor: '#06b6d4', color: '#06b6d4' }}>
-          Session 5: Tabel Pembayaran Supplier
-        </div>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: '4%', fontSize: 10 }}>No</th>
-                <th style={{ width: '20%', fontSize: 10 }}>Nama Supplier</th>
-                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>Subtotal</th>
-                <th className="text-right" style={{ width: '12%', fontSize: 10 }}>Diskon</th>
-                <th className="text-right" style={{ width: '16%', fontSize: 10 }}>Net Bayar</th>
-                <th style={{ width: '32%', fontSize: 10 }}>Keterangan</th>
-              </tr>
-            </thead>
-            <tbody>
-              {supplierGroups.map(([s, items], idx) => {
-                const discount = Number(supplierDiscounts[s]) || 0;
-                const subtotal = items.reduce((sum, item) => {
-                  if (item.isParentItem && (item.materialName || '').toLowerCase().includes('mix vegetable')) return sum;
-                  return sum + (Number(item.totalCost) || 0);
-                }, 0);
-                const netToPay = Math.max(0, subtotal - discount);
-
-                const suppInfo = (suppliersData || []).find(sd => (sd.name || '').toLowerCase() === s.toLowerCase());
-
-                return (
-                  <tr key={idx}>
-                    <td className="text-center" style={{ fontSize: 9.5 }}>{idx + 1}</td>
-                    <td style={{ fontWeight: 'bold', color: '#1e40af', fontSize: 9.5 }}>{s}</td>
-                    <td className="text-right" style={{ fontSize: 9.5 }}>{formatCurrency(subtotal)}</td>
-                    <td className="text-right" style={{ color: discount > 0 ? '#dc2626' : '#3b82f6', fontSize: 9.5 }}>
-                      {discount > 0 ? `-${formatCurrency(discount)}` : '-'}
-                    </td>
-                    <td className="text-right" style={{ fontWeight: 'bold', color: '#15803d', fontSize: 9.5 }}>
-                      {formatCurrency(netToPay)}
-                    </td>
-                    <td style={{ fontSize: 9 }}>
-                      {suppInfo && suppInfo.bankName ? (
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 9 }}>{suppInfo.bankName}</div>
-                          <div style={{ color: '#06b6d4', fontSize: 9 }}>{suppInfo.accountNumber} a/n {suppInfo.accountName}</div>
-                        </div>
-                      ) : (
-                        <span style={{ color: '#06b6d4', fontStyle: 'italic', fontSize: 9 }}>Belum diatur</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              {totalAdditionalCosts > 0 && (
+        {/* III — Per supplier */}
+        <section className="pdf-section">
+          <h2 className="section-heading">III. Rincian pembelian per supplier</h2>
+          <div className="pdf-table-wrap">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'right', fontSize: 10, fontWeight: 'bold', color: '#1e3a8a' }}>
-                    + Biaya Tambahan:
-                  </td>
-                  <td className="text-right" style={{ fontSize: 10, fontWeight: 'bold', color: '#1e3a8a' }}>
-                    {formatCurrency(totalAdditionalCosts)}
-                  </td>
+                  <th className="th-num" style={{ width: '4%' }}>No</th>
+                  <th style={{ width: '18%' }}>Supplier</th>
+                  <th style={{ width: '28%' }}>Item</th>
+                  <th className="th-center" style={{ width: '14%' }}>Qty</th>
+                  <th className="th-right" style={{ width: '14%' }}>Harga / unit</th>
+                  <th className="th-right" style={{ width: '14%' }}>Subtotal (Rp)</th>
                 </tr>
-              )}
-              <tr className="net-total-row">
-                <td colSpan="5" style={{ textAlign: 'right', fontSize: 12, fontWeight: 'bold' }}>
-                  GRAND TOTAL TRANSFER:
-                </td>
-                <td className="text-right" style={{ fontSize: 12, fontWeight: 'bold' }}>
-                  {formatCurrency(grandTotalNet)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {supplierGroups.flatMap(([s, items], sIdx) =>
+                  items.map((item, iIdx) => {
+                    const isMixVegParent = item.isParentItem && (item.materialName || '').toLowerCase().includes('mix vegetable');
+                    const totalBeli = isMixVegParent
+                      ? items.filter(sub => sub.isSubItem && sub.parentName === item.materialName).reduce((acc, sub) => acc + (Number(sub.totalCost) || 0), 0)
+                      : (Number(item.totalCost) || 0);
+                    const invQtyTotal = Number(item.invoiceQty) || Number(item.qtyNota) || 0;
+                    const priceUnit = isMixVegParent
+                      ? (invQtyTotal > 0 ? totalBeli / invQtyTotal : 0)
+                      : (Number(item.pricePerUnit) || 0);
+                    const displayQty = isMixVegParent ? '' : item.qtyNota;
 
-        {/* FOOTER - Tanda Tangan */}
-        <div className="footer">
+                    return (
+                      <tr key={`s3-${sIdx}-${iIdx}-${item.materialName}`}>
+                        {iIdx === 0 && (
+                          <td rowSpan={items.length} className="td-num td-strong" style={{ verticalAlign: 'top' }}>
+                            {sIdx + 1}
+                          </td>
+                        )}
+                        {iIdx === 0 && (
+                          <td rowSpan={items.length} className="td-strong" style={{ verticalAlign: 'top' }}>
+                            {s}
+                          </td>
+                        )}
+                        <td
+                          style={{
+                            color: item.isSubItem ? '#6d28d9' : '#0f172a',
+                            fontWeight: isMixVegParent ? 700 : 500,
+                            paddingLeft: item.isSubItem ? '10px' : '5px'
+                          }}
+                        >
+                          {item.isSubItem ? '↳ ' : ''}{item.materialName}
+                        </td>
+                        <td className="td-num">
+                          {displayQty !== '' ? `${formatNumber(displayQty)} ${item.unit || ''}` : '—'}
+                        </td>
+                        <td className="td-right">{priceUnit > 0 ? formatCurrency(priceUnit) : '—'}</td>
+                        <td className="td-right td-strong">{totalBeli > 0 ? formatCurrency(totalBeli) : '—'}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* IV — Laba rugi */}
+        <section className="pdf-section">
+          <h2 className="section-heading">IV. Laba rugi per pelanggan &amp; ringkasan grup</h2>
+          <div className="pdf-table-wrap" style={{ marginBottom: 12 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: '28%' }}>Pelanggan</th>
+                  <th className="th-right" style={{ width: '18%' }}>Omset</th>
+                  <th className="th-right" style={{ width: '18%' }}>Perkiraan HPP</th>
+                  <th className="th-right" style={{ width: '18%' }}>Laba / (rugi)</th>
+                  <th className="th-center" style={{ width: '18%' }}>Margin %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {session4Data.map((row, i) => {
+                  const m = row.revenue > 0 ? (row.profit / row.revenue) * 100 : 0;
+                  return (
+                    <tr key={`s4-${i}-${row.customer}`}>
+                      <td className="td-strong">{row.customer}</td>
+                      <td className="td-right">{formatCurrency(row.revenue)}</td>
+                      <td className="td-right">{formatCurrency(row.hpp)}</td>
+                      <td className={`td-right ${row.profit >= 0 ? 'profit-pos' : 'profit-neg'}`}>{formatCurrency(row.profit)}</td>
+                      <td className={`td-num ${m >= 0 ? 'profit-pos' : 'profit-neg'}`}>{row.revenue > 0 ? `${m.toFixed(1)}%` : '—'}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="total-row">
+                  <td className="td-right">Jumlah (per pelanggan)</td>
+                  <td className="td-right">{formatCurrency(session4SumRev)}</td>
+                  <td className="td-right">{formatCurrency(session4SumHpp)}</td>
+                  <td className={`td-right ${session4SumProfit >= 0 ? 'profit-pos' : 'profit-neg'}`}>{formatCurrency(session4SumProfit)}</td>
+                  <td className="td-num">{session4SumRev > 0 ? `${((session4SumProfit / session4SumRev) * 100).toFixed(1)}%` : '—'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="pdf-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th colSpan={2}>Ringkasan arus kas &amp; laba grup</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ width: '55%', fontWeight: 600 }}>Total penjualan (invoice gabungan)</td>
+                  <td className="td-right td-strong">{formatCurrency(session1Total)}</td>
+                </tr>
+                <tr>
+                  <td style={{ fontWeight: 600 }}>Total pembayaran ke supplier (net) + biaya tambahan</td>
+                  <td className="td-right" style={{ fontWeight: 700, color: '#b91c1c' }}>{formatCurrency(grandTotalNet)}</td>
+                </tr>
+                <tr className="grand-row">
+                  <td>Laba / (rugi) grup (setelah pembelian &amp; biaya)</td>
+                  <td className="td-right">{formatCurrency(groupProfit)}</td>
+                </tr>
+                <tr className="total-row">
+                  <td>Margin atas omset grup</td>
+                  <td className="td-right">{groupMarginPct.toFixed(1)}%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* V — Pembayaran supplier */}
+        <section className="pdf-section">
+          <h2 className="section-heading">V. Rekapitulasi pembayaran ke supplier</h2>
+          <div className="pdf-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th className="th-num" style={{ width: '4%' }}>No</th>
+                  <th style={{ width: '20%' }}>Supplier</th>
+                  <th className="th-right" style={{ width: '15%' }}>Subtotal</th>
+                  <th className="th-right" style={{ width: '12%' }}>Diskon</th>
+                  <th className="th-right" style={{ width: '15%' }}>Net bayar</th>
+                  <th style={{ width: '34%' }}>Rekening / keterangan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supplierGroups.map(([s, items], idx) => {
+                  const discount = Number(supplierDiscounts[s]) || 0;
+                  const subtotal = items.reduce((sum, item) => {
+                    if (item.isParentItem && (item.materialName || '').toLowerCase().includes('mix vegetable')) return sum;
+                    return sum + (Number(item.totalCost) || 0);
+                  }, 0);
+                  const netToPay = Math.max(0, subtotal - discount);
+                  const suppInfo = (suppliersData || []).find(sd => (sd.name || '').toLowerCase() === s.toLowerCase());
+
+                  return (
+                    <tr key={`s5-${idx}-${s}`}>
+                      <td className="td-num">{idx + 1}</td>
+                      <td className="td-strong">{s}</td>
+                      <td className="td-right">{formatCurrency(subtotal)}</td>
+                      <td className="td-right" style={{ color: discount > 0 ? '#b91c1c' : '#64748b' }}>
+                        {discount > 0 ? `−${formatCurrency(discount)}` : '—'}
+                      </td>
+                      <td className="td-right profit-pos">{formatCurrency(netToPay)}</td>
+                      <td style={{ fontSize: 8.5, lineHeight: 1.3 }}>
+                        {suppInfo && suppInfo.bankName ? (
+                          <>
+                            <div style={{ fontWeight: 700 }}>{suppInfo.bankName}</div>
+                            <div style={{ color: '#0369a1' }}>{suppInfo.accountNumber} a/n {suppInfo.accountName}</div>
+                          </>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Belum diatur</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                {totalAdditionalCosts > 0 && (
+                  <tr>
+                    <td colSpan={4} className="td-right" style={{ fontWeight: 700, background: '#eff6ff' }}>
+                      + Biaya tambahan (lain-lain)
+                    </td>
+                    <td className="td-right" style={{ fontWeight: 800, background: '#eff6ff', color: '#1e3a8a' }}>
+                      {formatCurrency(totalAdditionalCosts)}
+                    </td>
+                    <td style={{ background: '#eff6ff' }} />
+                  </tr>
+                )}
+                <tr className="grand-row">
+                  <td colSpan={4} className="td-right">
+                    Total yang harus ditransfer (supplier + biaya)
+                  </td>
+                  <td className="td-right">{formatCurrency(grandTotalNet)}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+
+        <footer className="pdf-footer-sign">
           <div className="signature-section">
             <div className="signature-item">
-              <p style={{ margin: '0 0 8px 0', fontSize: 10, color: '#3b82f6', fontWeight: 600, textTransform: 'uppercase' }}>
-                Diperiksa Oleh,
-              </p>
-              <strong style={{ display: 'block', marginBottom: '25px', color: '#1e40af', fontSize: 12 }}>Bagian Operasional</strong>
+              <p className="role">Diperiksa oleh</p>
+              <p className="name">Bagian operasional</p>
               <div className="signature-line" />
             </div>
             <div className="signature-item">
-              <p style={{ margin: '0 0 8px 0', fontSize: 10, color: '#3b82f6', fontWeight: 600, textTransform: 'uppercase' }}>
-                Dibuat Oleh,
-              </p>
-              <strong style={{ display: 'block', marginBottom: '25px', color: '#1e40af', fontSize: 12 }}>Admin Pembelian</strong>
+              <p className="role">Disusun oleh</p>
+              <p className="name">Admin pembelian</p>
               <div className="signature-line" />
             </div>
           </div>
-        </div>
+        </footer>
       </div>
     </>
   );
