@@ -20,6 +20,7 @@ export default function PurchaseNotes() {
   const [groupRecap, setGroupRecap] = useState({}); // { groupName: [{ name, qty, unit }] }
   const [groupInvoices, setGroupInvoices] = useState({}); // { groupName: [inv1, inv2] }
   const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [collapsedPendingInvoices, setCollapsedPendingInvoices] = useState(false);
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
   
@@ -666,6 +667,7 @@ export default function PurchaseNotes() {
           </div>
         </div>
       )}
+    </div>
 
       <div className="table-container">
         <table className="table">
