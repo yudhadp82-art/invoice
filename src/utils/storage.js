@@ -146,7 +146,6 @@ async function updateInStore(collectionName, id, updates) {
       ...updates,
       updatedAt: now
     };
-    const idToSave = updatedData.id;
     delete updatedData.id;
 
     const { error } = await supabase
@@ -164,7 +163,7 @@ async function updateInStore(collectionName, id, updates) {
     return result;
   } catch (error) {
     console.error(`Error updating ${id} in ${collectionName}:`, error);
-    return null;
+    throw error;
   }
 }
 

@@ -753,10 +753,12 @@ export default function PurchaseNoteForm() {
     setSaving(true);
     try {
       // Save all items including sub-items (jagung, wortel, buncis) to preserve their supplier data
-      const itemsToSave = items;
+      const itemsToSave = [...items];
+
+      console.log(`💾 handleSave: Saving ${itemsToSave.length} items (isEditing=${isEditing}, id=${id})`);
 
       // Grand total based on parent and regular items only (sub-items would double-count)
-      const grandTotal = items.filter(it => !it.isSubItem).reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+      const grandTotal = itemsToSave.filter(it => !it.isSubItem).reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
       const totalDiscount = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);
       const totalAdditionalCosts = Object.values(additionalCosts).reduce((s, c) => s + (Number(c) || 0), 0);
       const finalTotal = Math.max(0, grandTotal - totalDiscount) + totalAdditionalCosts;
@@ -764,8 +766,10 @@ export default function PurchaseNoteForm() {
       const payload = {
         date, supplierName, items: itemsToSave, notes, grandTotal,
         invoiceId, invoiceNumber, groupName: currentGroupName,
-        sourceInvoiceIds, supplierDiscounts, additionalCosts, finalTotal
+        sourceInvoiceIds: [...sourceInvoiceIds], supplierDiscounts: { ...supplierDiscounts }, additionalCosts: { ...additionalCosts }, finalTotal
       };
+
+      let saveResult = null;
 
       if (isEditing) {
         const oldNote = await PurchaseNotes.getById(id);
@@ -780,13 +784,21 @@ export default function PurchaseNoteForm() {
             }
           }
         }
-        await PurchaseNotes.update(id, payload);
+        saveResult = await PurchaseNotes.update(id, payload);
+        if (!saveResult) {
+          throw new Error(`Gagal menyimpan nota pembelian ke database (update returned null). Items: ${itemsToSave.length}`);
+        }
+        console.log(`✅ handleSave: Updated note ${id} with ${itemsToSave.length} items successfully.`);
       } else {
-        await PurchaseNotes.create(payload);
+        saveResult = await PurchaseNotes.create(payload);
+        if (!saveResult) {
+          throw new Error(`Gagal membuat nota pembelian baru di database (create returned null). Items: ${itemsToSave.length}`);
+        }
+        console.log(`✅ handleSave: Created new note with ${itemsToSave.length} items successfully.`);
       }
 
       // Update stock for all items (including Mix Vegetable ingredients)
-      for (const it of items) {
+      for (const it of itemsToSave) {
         if (it.isSubItem && it.materialId) {
           // Update stock for individual ingredients (jagung, wortel, buncis)
           const m = await MasterItems.getById(it.materialId);
