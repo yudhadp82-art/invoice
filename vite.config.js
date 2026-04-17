@@ -3,15 +3,6 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  server: {
-    proxy: {
-      '/tgapi': {
-        target: 'https://api.telegram.org',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/tgapi/, ''),
-      },
-    },
-  },
   build: {
     outDir: 'dist',
     sourcemap: true,
