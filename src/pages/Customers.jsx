@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUsers, FiDownload, FiUpload, FiFileText, FiGitMerge } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUsers, FiDownload, FiUpload, FiFileText, FiGitMerge, FiEdit3 } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { Customers as CustomerStore, PriceCategories as CategoryStore, Invoices, PurchaseNotes, TelegramOrders } from '../utils/storage';
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
@@ -24,6 +24,12 @@ export default function Customers() {
   const [targetCustomer, setTargetCustomer] = useState(null);
   const [mergeContactInfo, setMergeContactInfo] = useState(true);
   const [isMerging, setIsMerging] = useState(false);
+
+  // Rename customer state
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [customerToRename, setCustomerToRename] = useState(null);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
 
   useEffect(() => {
     reload();
@@ -192,6 +198,90 @@ export default function Customers() {
     }
   }
 
+  // Rename customer functions
+  function openRenameModal(customer) {
+    setCustomerToRename(customer);
+    setNewCustomerName(customer.name);
+    setRenameModalOpen(true);
+  }
+
+  async function handleRename() {
+    if (!customerToRename || !newCustomerName.trim()) {
+      alert('Pilih customer dan masukkan nama baru!');
+      return;
+    }
+
+    const trimmedName = newCustomerName.trim();
+
+    if (trimmedName === customerToRename.name) {
+      alert('Nama baru tidak boleh sama dengan nama lama!');
+      return;
+    }
+
+    if (!confirm(`Apakah Anda yakin ingin mengubah nama customer:\n\n"${customerToRename.name}" → "${trimmedName}"?\n\nIni akan mengupdate:\n- Nama customer\n- Semua invoice yang menggunakan customer ini\n- Semua nota pembelian yang menggunakan customer ini\n- Semua telegram order yang menggunakan customer ini`)) {
+      return;
+    }
+
+    setIsRenaming(true);
+    try {
+      // 1. Update nama customer
+      await CustomerStore.update(customerToRename.id, {
+        name: trimmedName,
+        notes: [
+          customerToRename.notes || '',
+          `Nama diubah dari "${customerToRename.name}" menjadi "${trimmedName}" pada ${new Date().toLocaleDateString('id-ID')}`
+        ].filter(Boolean).join('\n\n---\n\n')
+      });
+
+      // 2. Update semua invoice
+      const allInvoices = await Invoices.getAll();
+      const invoicesToUpdate = allInvoices.filter(inv =>
+        inv.customerName === customerToRename.name || inv.customerId === customerToRename.id
+      );
+
+      for (const invoice of invoicesToUpdate) {
+        await Invoices.update(invoice.id, {
+          customerName: trimmedName
+        });
+      }
+
+      // 3. Update semua purchase notes
+      const allPurchaseNotes = await PurchaseNotes.getAll();
+      const purchaseNotesToUpdate = allPurchaseNotes.filter(note =>
+        note.customerName === customerToRename.name
+      );
+
+      for (const note of purchaseNotesToUpdate) {
+        await PurchaseNotes.update(note.id, {
+          customerName: trimmedName
+        });
+      }
+
+      // 4. Update semua telegram orders
+      const allTelegramOrders = await TelegramOrders.getAll();
+      const telegramOrdersToUpdate = allTelegramOrders.filter(order =>
+        order.matchedCustomerName === customerToRename.name || order.matchedCustomerId === customerToRename.id
+      );
+
+      for (const order of telegramOrdersToUpdate) {
+        await TelegramOrders.update(order.id, {
+          matchedCustomerName: trimmedName
+        });
+      }
+
+      const totalAffected = invoicesToUpdate.length + purchaseNotesToUpdate.length + telegramOrdersToUpdate.length;
+      alert(`✅ Berhasil mengubah nama customer!\n\nNama: "${customerToRename.name}" → "${trimmedName}"\n\nTotal ${totalAffected} record diupdate:\n- ${invoicesToUpdate.length} invoice\n- ${purchaseNotesToUpdate.length} nota pembelian\n- ${telegramOrdersToUpdate.length} telegram order`);
+
+      setRenameModalOpen(false);
+      await reload();
+    } catch (error) {
+      console.error('Error renaming customer:', error);
+      alert(`Gagal mengubah nama customer: ${error.message}`);
+    } finally {
+      setIsRenaming(false);
+    }
+  }
+
   function handleExport() {
     const columns = [
       { key: 'name', header: 'Nama', width: 25 },
@@ -345,8 +435,9 @@ export default function Customers() {
                 <td className="text-muted text-sm" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.address || '-'}</td>
                 <td>
                   <div className="table-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(c)}><FiEdit2 /></button>
-                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(c.id)}><FiTrash2 /></button>
+                    <button className="btn btn-ghost btn-sm text-info" onClick={() => openRenameModal(c)} title="Ganti Nama"><FiEdit3 /></button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(c)} title="Edit"><FiEdit2 /></button>
+                    <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleDelete(c.id)} title="Hapus"><FiTrash2 /></button>
                   </div>
                 </td>
               </tr>
@@ -539,6 +630,70 @@ export default function Customers() {
               disabled={!sourceCustomer || !targetCustomer || isMerging}
             >
               {isMerging ? 'Menggabungkan...' : <><FiGitMerge /> Gabungkan Customer</>}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Rename Customer Modal */}
+      <Modal isOpen={renameModalOpen} onClose={() => setRenameModalOpen(false)} title="Ganti Nama Customer" size="md" closeOnOverlay={true} closeOnEsc={true}>
+        <div className="p-lg">
+          <div className="mb-lg">
+            <p className="text-secondary mb-md">
+              Ganti nama customer. Ini akan mengupdate nama customer dan semua referensi di invoice, nota pembelian, dan telegram order.
+            </p>
+
+            {customerToRename && (
+              <div className="card p-md mb-lg">
+                <h4 className="text-primary font-bold mb-sm">Customer Yang Akan Diganti</h4>
+                <div className="text-sm text-secondary">
+                  <div><strong>Nama:</strong> {customerToRename.name}</div>
+                  <div><strong>Grup:</strong> {customerToRename.group || '-'}</div>
+                  <div><strong>Telepon:</strong> {customerToRename.phone || '-'}</div>
+                  <div><strong>Perusahaan:</strong> {customerToRename.company || '-'}</div>
+                </div>
+              </div>
+            )}
+
+            <div className="form-group mb-lg">
+              <label className="form-label font-bold">Nama Baru</label>
+              <input
+                className="form-input bg-glass"
+                type="text"
+                value={newCustomerName}
+                onChange={(e) => setNewCustomerName(e.target.value)}
+                placeholder="Masukkan nama baru..."
+                autoFocus
+              />
+            </div>
+
+            {/* Warning */}
+            {customerToRename && newCustomerName.trim() && newCustomerName.trim() !== customerToRename.name && (
+              <div className="card p-md mb-lg" style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                <div className="flex items-start gap-sm">
+                  <span className="text-2xl">ℹ️</span>
+                  <div>
+                    <div className="font-bold text-info mb-sm">Akan mengupdate semua referensi</div>
+                    <div className="text-sm text-secondary">
+                      Semua invoice, nota pembelian, dan telegram order yang menggunakan nama customer <strong>"{customerToRename.name}"</strong> akan diubah menjadi <strong>"{newCustomerName.trim()}"</strong>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-footer pt-lg border-top border-white-05 flex gap-sm">
+            <button type="button" className="btn btn-ghost" onClick={() => setRenameModalOpen(false)}>
+              Batal
+            </button>
+            <button
+              type="button"
+              className="btn btn-info flex-1"
+              onClick={handleRename}
+              disabled={!newCustomerName.trim() || isRenaming}
+            >
+              {isRenaming ? 'Mengganti Nama...' : 'Ganti Nama'}
             </button>
           </div>
         </div>
