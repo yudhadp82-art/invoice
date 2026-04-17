@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUsers, FiDownload, FiUpload, FiFileText, FiGitMerge, FiEdit3 } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUsers, FiDownload, FiUpload, FiFileText, FiGitMerge, FiEdit3, FiRefreshCw } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { Customers as CustomerStore, PriceCategories as CategoryStore, Invoices, PurchaseNotes, TelegramOrders } from '../utils/storage';
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
@@ -30,6 +30,9 @@ export default function Customers() {
   const [customerToRename, setCustomerToRename] = useState(null);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
+
+  // Fix SPPG names state
+  const [isFixingSppg, setIsFixingSppg] = useState(false);
 
   useEffect(() => {
     reload();
@@ -282,6 +285,30 @@ export default function Customers() {
     }
   }
 
+  // Fix SPPG names function
+  async function handleFixSppgNames() {
+    if (!confirm('Apakah Anda yakin ingin memperbaiki nama SPPG SINDANGJAYA 3?\n\nIni akan:\n1. Mengubah nama customer "SPPG SINDANGJAYA 3" menjadi "SPPG SINDANGJAYA 3 (LOTUS)"\n2. Mengupdate semua invoice ke nama baru\n3. Mengupdate semua purchase notes ke nama baru\n4. Mengupdate semua telegram order ke nama baru "SPPG SINDANGJAYA 3 (LOTUS)"\n\n**Tindakan ini tidak dapat dibatalkan!**')) {
+      return;
+    }
+
+    setIsFixingSppg(true);
+    try {
+      // Import dan jalankan fixSppgNames script
+      const fixSppgNames = (await import('../utils/fixSppgNames.js')).default;
+
+      await fixSppgNames();
+
+      alert('✅ Berhasil memperbaiki nama SPPG SINDANGJAYA 3!\n\nNama customer: "SPPG SINDANGJAYA 3" → "SPPG SINDANGJAYA 3 (LOTUS)"\n\nSemua referensi telah diupdate sesuai instruksi Anda.');
+
+      await reload();
+    } catch (error) {
+      console.error('Error fixing SPPG names:', error);
+      alert(`Gagal memperbaiki nama SPPG: ${error.message}`);
+    } finally {
+      setIsFixingSppg(false);
+    }
+  }
+
   function handleExport() {
     const columns = [
       { key: 'name', header: 'Nama', width: 25 },
@@ -352,6 +379,9 @@ export default function Customers() {
           </button>
           <button className="btn btn-secondary" onClick={handleExport}>
             <FiDownload /> Export Excel
+          </button>
+          <button className="btn btn-warning" onClick={handleFixSppgNames} disabled={isFixingSppg} title="Perbaiki Nama SPPG SINDANGJAYA 3">
+            <FiRefreshCw /> {isFixingSppg ? 'Memperbaiki...' : 'Perbaiki SPPG Names'}
           </button>
           <button className="btn btn-info" onClick={openMergeModal} title="Gabungkan Customer">
             <FiGitMerge /> Merge Customer
