@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUsers, FiDownload, FiUpload, FiFileText, FiGitMerge, FiEdit3, FiRefreshCw } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUsers, FiDownload, FiUpload, FiFileText, FiGitMerge, FiEdit3, FiRefreshCw, FiArrowRight } from 'react-icons/fi';
 import Modal from '../components/Modal';
 import { Customers as CustomerStore, PriceCategories as CategoryStore, Invoices, PurchaseNotes, TelegramOrders } from '../utils/storage';
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
@@ -33,6 +33,9 @@ export default function Customers() {
 
   // Fix SPPG names state
   const [isFixingSppg, setIsFixingSppg] = useState(false);
+
+  // Move SPPG 3 data state
+  const [isMovingSppgData, setIsMovingSppgData] = useState(false);
 
   useEffect(() => {
     reload();
@@ -309,6 +312,30 @@ export default function Customers() {
     }
   }
 
+  // Move SPPG 3 data function
+  async function handleMoveSppgData() {
+    if (!confirm('Apakah Anda yakin ingin memindahkan data SPPG SINDANGJAYA 3 ke SPPG SINDANGJAYA 3 (LOTUS)?\n\nIni akan:\n- Mencari semua data yang menggunakan nama "SPPG SINDANGJAYA 3"\n- Memindahkan semuanya ke nama "SPPG SINDANGJAYA 3 (LOTUS)"\n- Membuat ulang customer "SPPG SINDANGJAYA 3" jika perlu\n\n**Tindakan ini akan memindahkan semua data terkait!**')) {
+      return;
+    }
+
+    setIsMovingSppgData(true);
+    try {
+      // Import dan jalankan moveSppg3Data script
+      const moveSppg3Data = (await import('../utils/moveSppg3Data.js')).default;
+
+      const result = await moveSppg3Data();
+
+      alert(`✅ Berhasil memindahkan data SPPG SINDANGJAYA 3!\n\nTotal ${result.totalAffected} record dipindahkan:\n- ${result.invoicesMoved} invoice\n- ${result.purchaseNotesMoved} nota pembelian\n- ${result.telegramOrdersMoved} telegram order\n${result.targetCustomerCreated ? '\n- Customer sumber dibuat ulang' : ''}\n\nSemua data yang menggunakan nama "SPPG SINDANGJAYA 3" sekarang akan menggunakan nama "SPPG SINDANGJAYA 3 (LOTUS)"`);
+
+      await reload();
+    } catch (error) {
+      console.error('Error moving SPPG data:', error);
+      alert(`Gagal memindahkan data SPPG: ${error.message}`);
+    } finally {
+      setIsMovingSppgData(false);
+    }
+  }
+
   function handleExport() {
     const columns = [
       { key: 'name', header: 'Nama', width: 25 },
@@ -380,8 +407,8 @@ export default function Customers() {
           <button className="btn btn-secondary" onClick={handleExport}>
             <FiDownload /> Export Excel
           </button>
-          <button className="btn btn-warning" onClick={handleFixSppgNames} disabled={isFixingSppg} title="Perbaiki Nama SPPG SINDANGJAYA 3">
-            <FiRefreshCw /> {isFixingSppg ? 'Memperbaiki...' : 'Perbaiki SPPG Names'}
+          <button className="btn btn-success" onClick={handleMoveSppgData} disabled={isMovingSppgData} title="Pindahkan Data SPPG SINDANGJAYA 3">
+            <FiArrowRight /> {isMovingSppgData ? 'Memindahkan...' : 'Pindahkan Data SPPG 3'}
           </button>
           <button className="btn btn-info" onClick={openMergeModal} title="Gabungkan Customer">
             <FiGitMerge /> Merge Customer
