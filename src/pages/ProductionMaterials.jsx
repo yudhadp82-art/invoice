@@ -277,7 +277,7 @@ export default function ProductionMaterialsPage() {
       </>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Pembelian' : 'Tambah Pembelian'} size="md">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Pembelian' : 'Tambah Pembelian'} size="md" closeOnOverlay={false} closeOnEsc={true}>
         <form onSubmit={handleSave}>
           <div className="modal-body">
             <div className="form-group">

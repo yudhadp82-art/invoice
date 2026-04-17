@@ -319,7 +319,7 @@ export default function SalaryCostsPage() {
         </>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Biaya Gaji' : 'Tambah Biaya Gaji'} size="md">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Biaya Gaji' : 'Tambah Biaya Gaji'} size="md" closeOnOverlay={false} closeOnEsc={true}>
         <form onSubmit={handleSave} className="p-lg">
           <div className="grid gap-lg">
             <div className="form-group mb-0">

@@ -455,7 +455,7 @@ Kembalikan HANYA JSON berikut:
     feedbackLines.push('');
 
     correctedItems.forEach((it, i) => {
-      const unit = it.matchedUnit || it.unit;
+      const unit = it.unit || it.matchedUnit;
       const name = it.matchedName || it.productName;
       const base = `${i + 1}. ${it.qty} ${unit} ${name}`;
 

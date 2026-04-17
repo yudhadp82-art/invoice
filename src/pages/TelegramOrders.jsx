@@ -5,6 +5,7 @@ import { TelegramOrders as TelOrderStore, Customers as CustStore, Products as Pr
 import { checkBotStatus, fetchUpdates, parseOrderMessage, matchCustomer, matchProduct, sendMessage, suggestProducts, correctAndMatchItemsWithAI } from '../utils/telegram';
 import { formatDateTime, formatNumber } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
+import SearchableSelect from '../components/SearchableSelect';
 
 export default function TelegramOrdersPage() {
   const navigate = useNavigate();
@@ -299,8 +300,6 @@ export default function TelegramOrdersPage() {
         item.productId   = value;
         item.matchedName = p ? p.name : null;
         item.matchedUnit = p ? p.unit : null;
-        // Auto-fill unit from product
-        if (p?.unit) item.unit = p.unit;
         // Auto-fill price based on customer's price category
         item.price = resolvePrice(p, e.matchedCustomerId);
       } else if (field === 'qty') {
@@ -327,6 +326,18 @@ export default function TelegramOrdersPage() {
 
   function removeEditItem(index) {
     setEditOrder(e => ({ ...e, items: e.items.filter((_, i) => i !== index) }));
+  }
+
+  function getScopedProductOptions(item, customerId) {
+    const scopedProducts = allProducts.filter(p => !p.customerId || p.customerId === (customerId || 'never-match-if-empty'));
+    const suggestions = suggestProducts(item.productName, scopedProducts);
+    const suggestionIds = new Set(suggestions.map((product) => product.id));
+    const remainingProducts = scopedProducts.filter((product) => !suggestionIds.has(product.id));
+
+    return [...suggestions.slice(0, 5), ...remainingProducts].map((product) => ({
+      id: product.id,
+      name: product.name,
+    }));
   }
 
   function toggleOrderExpand(id) {
@@ -670,31 +681,13 @@ export default function TelegramOrdersPage() {
 
                       <div>
                         <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Produk</div>
-                        <select
-                          className="form-select"
+                        <SearchableSelect
+                          options={getScopedProductOptions(item, editOrder.matchedCustomerId)}
                           value={item.productId || ''}
-                          onChange={e => editItemChange(i, 'productId', e.target.value)}
-                          style={{ fontSize: 13 }}
-                        >
-                          <option value="">-- Pilih Produk --</option>
-                          {(() => {
-                            const scopedProducts = allProducts.filter(p => !p.customerId || p.customerId === (editOrder.matchedCustomerId || 'never-match-if-empty'));
-                            const suggestions = suggestProducts(item.productName, scopedProducts);
-                            const others = scopedProducts.filter(p => !suggestions.find(s => s.id === p.id));
-                            return (
-                              <>
-                                {suggestions.length > 0 && (
-                                  <optgroup label="Saran Pendekatan">
-                                    {suggestions.slice(0, 5).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                  </optgroup>
-                                )}
-                                <optgroup label="Semua Produk">
-                                  {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                </optgroup>
-                              </>
-                            );
-                          })()}
-                        </select>
+                          displayValue={item.matchedName || item.productName || ''}
+                          onChange={val => editItemChange(i, 'productId', val)}
+                          placeholder="Ketik/cari produk..."
+                        />
                       </div>
 
                       <div>

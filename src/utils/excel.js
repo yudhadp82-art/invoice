@@ -1,4 +1,11 @@
-import * as XLSX from 'xlsx';
+let xlsxModulePromise;
+
+function getXLSX() {
+  if (!xlsxModulePromise) {
+    xlsxModulePromise = import('xlsx');
+  }
+  return xlsxModulePromise;
+}
 
 // Helper to download base64 as a file reliably
 function downloadBase64File(base64Data, filename) {
@@ -19,7 +26,8 @@ function downloadBase64File(base64Data, filename) {
  * @param {string} sheetName - Excel sheet name
  * @param {Array} columns - Column definitions [{key, header, width}]
  */
-export function exportToExcel(data, filename, sheetName = 'Sheet1', columns = null) {
+export async function exportToExcel(data, filename, sheetName = 'Sheet1', columns = null) {
+  const XLSX = await getXLSX();
   let exportData;
   
   if (columns) {
@@ -58,8 +66,9 @@ export function exportToExcel(data, filename, sheetName = 'Sheet1', columns = nu
 export function importFromExcel(file, columnMap = null) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
+        const XLSX = await getXLSX();
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -93,7 +102,7 @@ export function importFromExcel(file, columnMap = null) {
 /**
  * Export invoice data with formatted layout
  */
-export function exportInvoicesToExcel(invoices) {
+export async function exportInvoicesToExcel(invoices) {
   const columns = [
     { key: 'invoiceNumber', header: 'No. Invoice', width: 20 },
     { key: 'customerName', header: 'Customer', width: 25 },
@@ -104,13 +113,13 @@ export function exportInvoicesToExcel(invoices) {
     { key: 'profit', header: 'Profit', width: 18, format: (v) => v || 0 },
     { key: 'paymentStatus', header: 'Status', width: 15, format: (v) => v === 'paid' ? 'Lunas' : v === 'partial' ? 'Sebagian' : 'Belum Bayar' },
   ];
-  exportToExcel(invoices, 'invoices_export', 'Invoices', columns);
+  await exportToExcel(invoices, 'invoices_export', 'Invoices', columns);
 }
 
 /**
  * Export delivery notes to Excel
  */
-export function exportDeliveryNotesToExcel(notes) {
+export async function exportDeliveryNotesToExcel(notes) {
   const columns = [
     { key: 'noteNumber', header: 'No. Surat Jalan', width: 20 },
     { key: 'customerName', header: 'Customer', width: 25 },
@@ -119,13 +128,13 @@ export function exportDeliveryNotesToExcel(notes) {
     { key: 'vehicleNumber', header: 'No. Kendaraan', width: 15 },
     { key: 'createdAt', header: 'Tanggal', width: 25, format: (v) => v ? new Date(v).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : '' },
   ];
-  exportToExcel(notes, 'surat_jalan_export', 'Surat Jalan', columns);
+  await exportToExcel(notes, 'surat_jalan_export', 'Surat Jalan', columns);
 }
 
 /**
  * Export purchases to Excel
  */
-export function exportPurchasesToExcel(purchases) {
+export async function exportPurchasesToExcel(purchases) {
   // Flatten items
   const rows = [];
   purchases.forEach(p => {
@@ -144,13 +153,13 @@ export function exportPurchasesToExcel(purchases) {
       });
     });
   });
-  exportToExcel(rows, 'pembelian_export', 'Pembelian');
+  await exportToExcel(rows, 'pembelian_export', 'Pembelian');
 }
 
 /**
  * Export HPP Reports to Excel
  */
-export function exportHppToExcel(reports) {
+export async function exportHppToExcel(reports) {
   const rows = [];
   
   reports.forEach(r => {
@@ -275,21 +284,22 @@ export function exportHppToExcel(reports) {
     }
   });
 
-  exportToExcel(rows, 'laporan_hpp_lengkap_export', 'Rincian HPP');
+  await exportToExcel(rows, 'laporan_hpp_lengkap_export', 'Rincian HPP');
 }
 
 /**
  * Export report data to Excel
  */
-export function exportReportToExcel(data, filename, sheetName) {
-  exportToExcel(data, filename, sheetName);
+export async function exportReportToExcel(data, filename, sheetName) {
+  await exportToExcel(data, filename, sheetName);
 }
 
 /**
  * Download a blank Excel template for importing data
  * @param {string} type - 'products' or 'customers'
  */
-export function downloadImportTemplate(type) {
+export async function downloadImportTemplate(type) {
+  const XLSX = await getXLSX();
   if (type === 'products') {
     const templateData = [
       { 'Nama Produk': 'Contoh: Bawang Merah Brebes', 'SKU': 'BWM-001', 'Kategori': 'Bumbu', 'Modal (Rp)': 25000, 'Harga Jual (Rp)': 35000, 'Stok': 50, 'Satuan': 'kg' },
@@ -351,7 +361,8 @@ export function triggerImportExcel(onImport, columnMap = null) {
 /**
  * Export pricing matrix to Excel
  */
-export function exportPricingToExcel(products, categories) {
+export async function exportPricingToExcel(products, categories) {
+  const XLSX = await getXLSX();
   const exportData = products.map(p => {
     const row = {
       'Nama Produk': p.name,
@@ -378,7 +389,8 @@ export function exportPricingToExcel(products, categories) {
 /**
  * Download template for pricing matrix import
  */
-export function downloadPricingTemplate(categories) {
+export async function downloadPricingTemplate(categories) {
+  const XLSX = await getXLSX();
   const row1 = {
     'Nama Produk': 'Bawang Merah Brebes',
     'SKU': 'BWM-001',

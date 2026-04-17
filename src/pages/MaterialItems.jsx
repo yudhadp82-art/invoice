@@ -186,7 +186,7 @@ export default function MaterialItems() {
       </>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Master Bahan' : 'Tambah Master Bahan'} persistent={true}>
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Master Bahan' : 'Tambah Master Bahan'} closeOnOverlay={false} closeOnEsc={true}>
         <form onSubmit={handleSave}>
           <div className="modal-body">
             <div className="form-group">

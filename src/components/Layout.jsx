@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   FiHome, FiPackage, FiUsers, FiFileText,
-  FiTruck, FiShoppingCart, FiBarChart2, FiTag, FiBriefcase, FiMessageCircle, FiPieChart, FiTool, FiDollarSign, FiTrendingUp,
+  FiTruck, FiShoppingCart, FiBarChart2, FiTag, FiBriefcase, FiMessageCircle, FiPieChart, FiTool, FiDollarSign, FiTrendingUp, FiPrinter,
   FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import { addMutationListener, removeMutationListener, executeUndo } from '../utils/storage';
@@ -20,6 +20,7 @@ const navItems = [
   { path: '/invoices', label: 'Invoice', icon: FiFileText },
   { path: '/delivery-notes', label: 'Surat Jalan', icon: FiTruck },
   { path: '/purchase-notes', label: 'Pembelian Bahan', icon: FiShoppingCart },
+  { path: '/receipts/sppg-sindangjaya-3', label: 'Kwitansi SPPG 3', icon: FiPrinter },
   { section: 'Produksi' },
   { path: '/production/material-items', label: 'Master Bahan', icon: FiTool },
   { path: '/production/materials', label: 'Bahan Pendukung', icon: FiPackage },

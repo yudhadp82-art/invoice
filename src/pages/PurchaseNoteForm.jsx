@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { FiArrowLeft, FiPlus, FiTrash2, FiSave, FiShoppingBag, FiInfo, FiUsers, FiFileText } from 'react-icons/fi';
-import { PurchaseNotes, Products as MasterItems, Invoices, Suppliers, Customers } from '../utils/storage';
+import { PurchaseNotes, SupportingMaterialItems as MasterItems, Invoices, Suppliers, Customers } from '../utils/storage';
 import { formatCurrency, formatNumberInput, parseNumberInput } from '../utils/formatter';
 import Modal from '../components/Modal';
 import PurchaseNoteReportPdf from '../components/PurchaseNoteReportPdf';
 import SearchableSelect from '../components/SearchableSelect';
+import DebugLogger from '../utils/debugLogger';
 
 const emptyItem = {
   materialId: '',
@@ -41,6 +42,14 @@ function ensureMixVegetableInMaster(master = []) {
   return [{ id: MIX_VEG_PARENT_ID, name: MIX_VEG_NAME, unit: 'kg', sellPrice: 0 }, ...master];
 }
 
+function normalizeMasterMaterials(master = []) {
+  return master.map((item) => ({
+    ...item,
+    sellPrice: Number(item.sellPrice ?? item.defaultPrice) || 0,
+    defaultPrice: Number(item.defaultPrice ?? item.sellPrice) || 0,
+  }));
+}
+
 // Format angka: ribuan pakai titik, hilangkan ,00 desimal
 function fmtNum(val) {
   const n = Number(val) || 0;
@@ -58,6 +67,7 @@ export default function PurchaseNoteForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const isEditing = !!id;
+  const debugLogger = new DebugLogger();
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [supplierName, setSupplierName] = useState('');
@@ -87,6 +97,34 @@ export default function PurchaseNoteForm() {
   const [allCustomers, setAllCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isNewMaterialModalOpen, setIsNewMaterialModalOpen] = useState(false);
+  const [newMaterialForm, setNewMaterialForm] = useState({ name: '', unit: 'kg', sellPrice: 0, stock: 0 });
+  const [savingMaterial, setSavingMaterial] = useState(false);
+
+  async function ensureMasterMaterial(itemLike) {
+    const normalizedName = String(itemLike?.materialName || itemLike?.name || '').trim();
+    if (!normalizedName) return null;
+
+    const existing = masterBahan.find((material) =>
+      String(material.name || '').trim().toLowerCase() === normalizedName.toLowerCase()
+    );
+    if (existing) {
+      return existing;
+    }
+
+    const created = await MasterItems.create({
+      name: normalizedName,
+      unit: itemLike?.unit || 'kg',
+      defaultPrice: Number(itemLike?.sellPrice ?? itemLike?.defaultPrice) || 0,
+      stock: 0
+    });
+
+    if (created) {
+      setMasterBahan((prev) => ensureMixVegetableInMaster(normalizeMasterMaterials([...prev, created])));
+    }
+
+    return created;
+  }
 
   useEffect(() => {
     loadData();
@@ -97,7 +135,7 @@ export default function PurchaseNoteForm() {
   function handleDataMutation() {
     // Refresh master bahan data when products change
     MasterItems.getAll().then(master => {
-      setMasterBahan(ensureMixVegetableInMaster(master));
+      setMasterBahan(ensureMixVegetableInMaster(normalizeMasterMaterials(master)));
     });
   }
 
@@ -106,12 +144,23 @@ export default function PurchaseNoteForm() {
     setError(null);
     try {
       const master = await MasterItems.getAll();
-      setMasterBahan(ensureMixVegetableInMaster(master));
+      const normalizedMaster = normalizeMasterMaterials(master);
+      setMasterBahan(ensureMixVegetableInMaster(normalizedMaster));
 
-      let actualItems = [...items]; 
+      let actualItems = [...items];
       if (isEditing) {
         const noteData = await PurchaseNotes.getById(id);
         if (noteData) {
+          console.log('📂 Loading purchase note:', {
+            id: noteData.id,
+            itemsCount: (noteData.items || []).length,
+            items: (noteData.items || []).map(it => ({
+              materialId: it.materialId,
+              materialName: it.materialName,
+              qtyNota: it.qtyNota,
+              totalCost: it.totalCost
+            }))
+          });
           setDate(noteData.date || new Date().toISOString().slice(0, 10));
           setSupplierName(noteData.supplierName || '');
           actualItems = (noteData.items || []).length > 0 ? noteData.items : [{ ...emptyItem }];
@@ -134,10 +183,10 @@ export default function PurchaseNoteForm() {
           // Find master product
           let mb = null;
           if (newItem.materialId) {
-            mb = master.find(m => m.id === newItem.materialId);
+            mb = normalizedMaster.find(m => m.id === newItem.materialId);
           }
-          if (!mb && mName && master.length > 0) {
-            mb = master.find(m => (m.name || '').toLowerCase() === mName);
+          if (!mb && mName && normalizedMaster.length > 0) {
+            mb = normalizedMaster.find(m => (m.name || '').toLowerCase() === mName);
           }
 
           if (mb) {
@@ -236,7 +285,7 @@ export default function PurchaseNoteForm() {
           const materials = (inv.items || [])
             .map(it => {
               const pName = (it.productName || '').toLowerCase();
-              const mb = master.find(m => (m.name || '').toLowerCase() === pName);
+              const mb = normalizedMaster.find(m => (m.name || '').toLowerCase() === pName);
 
               const qty = Number(it.qty) || 0;
               // Prioritize unitPrice, fallback to subtotal/qty if unitPrice is 0
@@ -581,6 +630,55 @@ export default function PurchaseNoteForm() {
     setItems([...items, { ...emptyItem }]);
   }
 
+  async function handleAddNewItem(e) {
+    e.preventDefault();
+    setSavingMaterial(true);
+    debugLogger.log('ADD_ITEM_START', 'Starting add new item process');
+    try {
+      const resolvedMaterial = await ensureMasterMaterial({
+        name: newMaterialForm.name,
+        unit: newMaterialForm.unit,
+        sellPrice: newMaterialForm.sellPrice
+      });
+
+      // Add new item directly to the current purchase note
+      const newItem = {
+        ...emptyItem,
+        materialId: resolvedMaterial?.id || '',
+        materialName: newMaterialForm.name.trim(),
+        unit: resolvedMaterial?.unit || newMaterialForm.unit,
+        sellPrice: Number(resolvedMaterial?.sellPrice) || Number(newMaterialForm.sellPrice) || 0,
+        supplier: supplierName,
+        qtyNota: Number(newMaterialForm.stock) || 0, // Use stock field as initial qty
+        isManuallyEdited: true
+      };
+
+      console.log('📝 New Item to Add:', newItem);
+
+      setItems((prev) => [...prev, newItem]);
+
+      setStatusMessage(`✅ Item "${newMaterialForm.name.trim()}" berhasil ditambahkan ke nota pembelian!`);
+      setTimeout(() => setStatusMessage(''), 3000);
+
+      // Use browser console for additional debugging
+      window.console.log('[DEBUG] Item added to state:', {
+        itemName: newMaterialForm.name.trim(),
+        currentItemsCount: items.length + 1,
+        timestamp: new Date().toISOString()
+      });
+
+      // Reset form and close modal
+      setNewMaterialForm({ name: '', unit: 'kg', sellPrice: 0, stock: 0 });
+      setIsNewMaterialModalOpen(false);
+
+    } catch (err) {
+      console.error('Error adding new item:', err);
+      setStatusMessage('❌ Gagal menambahkan item: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSavingMaterial(false);
+    }
+  }
+
   function removeItem(index) {
     if (items.length === 1) return;
     setItems(items.filter((_, i) => i !== index));
@@ -751,11 +849,41 @@ export default function PurchaseNoteForm() {
   async function handleSave(e) {
     if (e) e.preventDefault();
     setSaving(true);
+    debugLogger.log('SAVE_START', `Starting save process - isEditing: ${isEditing}, id: ${id}, itemsCount: ${items.length}`);
     try {
       // Save all items including sub-items (jagung, wortel, buncis) to preserve their supplier data
-      const itemsToSave = [...items];
+      const itemsToSave = await Promise.all(items.map(async (item) => {
+        if (item.isSubItem || item.isParentItem) {
+          return item;
+        }
 
-      console.log(`💾 handleSave: Saving ${itemsToSave.length} items (isEditing=${isEditing}, id=${id})`);
+        if (item.materialId) {
+          return item;
+        }
+
+        const resolvedMaterial = await ensureMasterMaterial(item);
+        if (!resolvedMaterial) {
+          return item;
+        }
+
+        return {
+          ...item,
+          materialId: resolvedMaterial.id,
+          unit: item.unit || resolvedMaterial.unit || 'kg',
+          sellPrice: Number(item.sellPrice) || Number(resolvedMaterial.sellPrice) || 0
+        };
+      }));
+
+      debugLogger.log('SAVE_ITEMS', 'Items prepared for saving', {
+        itemsCount: itemsToSave.length,
+        itemsSummary: itemsToSave.map((item, idx) => ({
+          idx,
+          materialId: item.materialId,
+          materialName: item.materialName,
+          qtyNota: item.qtyNota,
+          totalCost: item.totalCost
+        }))
+      });
 
       // Grand total based on parent and regular items only (sub-items would double-count)
       const grandTotal = itemsToSave.filter(it => !it.isSubItem).reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
@@ -795,6 +923,9 @@ export default function PurchaseNoteForm() {
           throw new Error(`Gagal membuat nota pembelian baru di database (create returned null). Items: ${itemsToSave.length}`);
         }
         console.log(`✅ handleSave: Created new note with ${itemsToSave.length} items successfully.`);
+
+        // Update items state to ensure PDF reflects saved data
+        setItems(itemsToSave);
       }
 
       // Update stock for all items (including Mix Vegetable ingredients)
@@ -855,10 +986,39 @@ export default function PurchaseNoteForm() {
   const totalDiscount = Object.values(supplierDiscounts).reduce((s, d) => s + (Number(d) || 0), 0);
   const totalAdditionalCosts = Object.values(additionalCosts).reduce((s, c) => s + (Number(c) || 0), 0);
   const grandTotalValue = Math.max(0, totalItemCost - totalDiscount) + totalAdditionalCosts;
+  const supplierRecap = Array.from(new Set(items.map(it => it.supplier || (it.isSubItem ? null : supplierName)).filter(Boolean)))
+    .map((supplier) => {
+      const displayName = supplier === 'H. Falah' ? 'Falahudin' : supplier;
+      const supplierItems = items.filter((it) => {
+        const itemSupplier = it.supplier || (it.isSubItem ? null : supplierName);
+        return itemSupplier === supplier && !it.isParentItem;
+      }).sort((a, b) => {
+        if (Boolean(a.isSubItem) !== Boolean(b.isSubItem)) return a.isSubItem ? 1 : -1;
+        return (Number(b.totalCost) || 0) - (Number(a.totalCost) || 0) || (a.materialName || '').localeCompare(b.materialName || '');
+      });
+      const subtotal = supplierItems.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
+      const discount = Number(supplierDiscounts[supplier]) || 0;
+      const totalQty = supplierItems.reduce((sum, it) => sum + (Number(it.qtyNota) || 0), 0);
+      const mainItemsCount = supplierItems.filter(it => !it.isSubItem).length;
+      const subItemsCount = supplierItems.filter(it => it.isSubItem).length;
+
+      return {
+        supplier,
+        displayName,
+        supplierItems,
+        subtotal,
+        discount,
+        finalTotal: Math.max(0, subtotal - discount),
+        totalQty,
+        mainItemsCount,
+        subItemsCount,
+      };
+    })
+    .sort((a, b) => b.finalTotal - a.finalTotal || a.displayName.localeCompare(b.displayName));
 
   return (
-    <div className="animate-in">
-      <div className="page-header page-header-actions" style={{ marginBottom: 20 }}>
+    <div className="animate-in purchase-note-form-page">
+      <div className="page-header page-header-actions purchase-note-form-header" style={{ marginBottom: 20 }}>
         <div className="flex-center gap-md">
           <button onClick={() => navigate('/purchase-notes')} className="btn btn-ghost btn-sm"><FiArrowLeft /></button>
           <div>
@@ -905,8 +1065,8 @@ export default function PurchaseNoteForm() {
               </div>
             </div>
 
-            <div className="card overflow-x p-0">
-              <table className="table table-compact" style={{ minWidth: 1200 }}>
+            <div className="card overflow-x p-0 purchase-note-table-card">
+              <table className="table table-compact purchase-note-table" style={{ minWidth: 1200 }}>
                 <thead>
                   <tr>
                     <th style={{ width: 36 }}>No</th>
@@ -957,6 +1117,7 @@ export default function PurchaseNoteForm() {
                                 <SearchableSelect
                                   options={masterBahan.map(m => ({ id: m.id, name: m.name }))}
                                   value={item.materialId}
+                                  displayValue={item.materialName || ''}
                                   onChange={val => updateItem(idx, 'materialId', val)}
                                   placeholder="Pilih/Cari Bahan..."
                                   required
@@ -1056,66 +1217,96 @@ export default function PurchaseNoteForm() {
                   })}
                 </tbody>
               </table>
-              <div className="p-md border-top"><button type="button" className="btn btn-ghost btn-sm" onClick={addItem}><FiPlus /> Tambah Item</button></div>
+              <div className="p-md border-top">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    setNewMaterialForm({ name: '', unit: 'kg', sellPrice: 0, stock: 0 });
+                    setIsNewMaterialModalOpen(true);
+                  }}
+                >
+                  <FiPlus /> Tambah Bahan Baku Baru
+                </button>
+              </div>
             </div>
 
             {/* Rekap Per Supplier */}
             <div className="card p-md">
               <div className="flex-between items-center mb-md">
-                <h3 className="m-0 text-sm font-bold uppercase tracking-wider opacity-70">📋 Rekap Pembelian Per Supplier</h3>
+                <h3 className="m-0 text-sm font-bold uppercase tracking-wider opacity-70">Rekap Pembelian Per Supplier</h3>
+                {supplierRecap.length > 0 && (
+                  <div className="text-xs opacity-60">
+                    {supplierRecap.length} supplier | {fmtNum(supplierRecap.reduce((sum, row) => sum + row.totalQty, 0))} total qty
+                  </div>
+                )}
               </div>
 
-              {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).length === 0 ? (
+              {supplierRecap.length === 0 ? (
                 <div className="text-center text-muted py-lg">
                   <em>Belum ada item ditambahkan</em>
                 </div>
               ) : (
-                <div className="grid grid-2 gap-lg">
-                  {Array.from(new Set(items.map(it => it.supplier || (it.isSubItem ? null : supplierName)).filter(Boolean))).map(supplier => {
-                    const displaySup = supplier === 'H. Falah' ? 'Falahudin' : supplier;
-                    // Include both parent/regular items AND sub-items that have this supplier
-                    const supplierItems = items.filter(it => {
-                      const itSupplier = it.supplier || (it.isSubItem ? null : supplierName);
-                      return itSupplier === supplier && !it.isParentItem;
-                    });
-                    const supplierTotal = supplierItems.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
-                    const disc = Number(supplierDiscounts[supplier]) || 0;
-                    const finalTotal = supplierTotal - disc;
-
+                <div className="grid gap-md">
+                  {supplierRecap.map(({ supplier, displayName, supplierItems, subtotal, discount, finalTotal, totalQty, mainItemsCount, subItemsCount }) => {
                     return (
-                      <div key={supplier} className="border rounded-lg p-md" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)' }}>
-                        <div className="flex-between items-center mb-sm" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
-                          <strong style={{ color: 'var(--accent-primary)', fontSize: '14px' }}>{displaySup}</strong>
-                          <span className="font-bold" style={{ color: 'var(--accent-success)', fontSize: '15px' }}>{formatCurrency(finalTotal)}</span>
+                      <div key={supplier} className="border rounded-lg overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                        <div className="flex-between items-start mb-sm" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '14px 16px', gap: 12, marginBottom: 0, background: 'rgba(255,255,255,0.03)' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <strong style={{ color: 'var(--accent-primary)', fontSize: '14px', display: 'block', marginBottom: 4 }}>{displayName}</strong>
+                            <div className="text-xs opacity-60">{mainItemsCount} item utama{mainItemsCount !== supplierItems.length ? ` | ${subItemsCount} sub-item` : ''} | {fmtNum(totalQty)} total qty</div>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(96px, 1fr))', gap: 10, flex: 1 }}>
+                            <div className="rounded-lg" style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.03)' }}>
+                              <div className="text-xxs opacity-50 uppercase tracking-wider">Subtotal</div>
+                              <div className="font-bold" style={{ marginTop: 4 }}>{formatCurrency(subtotal)}</div>
+                            </div>
+                            <div className="rounded-lg" style={{ padding: '10px 12px', background: discount > 0 ? 'rgba(248,113,113,0.08)' : 'rgba(255,255,255,0.03)' }}>
+                              <div className="text-xxs opacity-50 uppercase tracking-wider">Diskon</div>
+                              <div className="font-bold" style={{ marginTop: 4, color: discount > 0 ? '#f87171' : 'inherit' }}>{discount > 0 ? `-${formatCurrency(discount)}` : '-'}</div>
+                            </div>
+                            <div className="rounded-lg" style={{ padding: '10px 12px', background: 'rgba(16,185,129,0.08)' }}>
+                              <div className="text-xxs opacity-50 uppercase tracking-wider">Final</div>
+                              <div className="font-bold" style={{ marginTop: 4, color: 'var(--accent-success)' }}>{formatCurrency(finalTotal)}</div>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="flex flex-col gap-xs">
+                        <div style={{ overflowX: 'auto' }}>
                           {supplierItems.length === 0 ? (
-                            <em className="text-xs opacity-30">Tidak ada item</em>
+                            <div className="p-md">
+                              <em className="text-xs opacity-30">Tidak ada item</em>
+                            </div>
                           ) : (
-                            supplierItems.map((it, idx) => (
-                              <div key={idx} className="flex-between text-xs" style={{ gap: 12, paddingLeft: it.isSubItem ? 12 : 0, borderLeft: it.isSubItem ? '2px solid rgba(139,92,246,0.3)' : 'none' }}>
-                                <span className="flex-1" style={{ opacity: 0.8 }}>
-                                  {it.isSubItem && <span style={{ color: '#8b5cf6', marginRight: 4 }}>↳</span>}
-                                  {it.materialName || 'Tanpa Nama'}
-                                </span>
-                                <span style={{ opacity: 0.6, minWidth: '50px', textAlign: 'right' }}>
-                                  {fmtNum(it.qtyNota)} {it.unit}
-                                </span>
-                                <span className="font-medium whitespace-nowrap" style={{ minWidth: '80px', textAlign: 'right', color: 'var(--accent-warning)' }}>
-                                  {formatCurrency(it.totalCost)}
-                                </span>
-                              </div>
-                            ))
+                            <table className="table table-compact" style={{ minWidth: 720, marginBottom: 0 }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ width: 40 }}>No</th>
+                                  <th>Item</th>
+                                  <th style={{ width: 120 }}>Qty</th>
+                                  <th style={{ width: 150 }}>Harga</th>
+                                  <th style={{ width: 160 }}>Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {supplierItems.map((it, idx) => (
+                                  <tr key={idx} style={{ background: it.isSubItem ? 'rgba(139,92,246,0.04)' : 'transparent' }}>
+                                    <td className="text-center text-xs text-muted">{idx + 1}</td>
+                                    <td style={{ paddingLeft: it.isSubItem ? 20 : undefined }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        {it.isSubItem && <span style={{ color: '#8b5cf6', fontSize: 12 }}>{'->'}</span>}
+                                        <span style={{ fontWeight: it.isSubItem ? 500 : 600, lineHeight: 1.4 }}>{it.materialName || 'Tanpa Nama'}</span>
+                                      </div>
+                                    </td>
+                                    <td className="text-right text-sm">{fmtNum(it.qtyNota)} {it.unit}</td>
+                                    <td className="text-right text-sm">{formatCurrency(Number(it.pricePerUnit) || 0)}</td>
+                                    <td className="text-right font-bold text-sm" style={{ color: 'var(--accent-warning)' }}>{formatCurrency(it.totalCost)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           )}
                         </div>
-
-                        {disc > 0 && (
-                          <div className="flex-between text-xs text-danger mt-sm pt-sm" style={{ borderTop: '1px dashed rgba(239,68,68,0.3)' }}>
-                            <span>Diskon</span>
-                            <span>-{formatCurrency(disc)}</span>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -1123,31 +1314,36 @@ export default function PurchaseNoteForm() {
               )}
             </div>
 
-
             {/* Panel Ringkasan Modern */}
             <div className="card p-0 overflow-hidden border-primary-pale shadow-glow-sm animate-in" style={{ background: 'var(--bg-card)' }}>
               <div className="grid grid-3 gap-0" style={{ minHeight: 140 }}>
                 {/* Kolom 1: Per-Supplier Totals */}
                 <div className="p-xl border-right" style={{ borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
-                  <div className="text-xxs opacity-50 uppercase tracking-widest mb-lg">Rincian Per Supplier</div>
-                  <div className="flex flex-col gap-md">
-                    {Array.from(new Set(items.map(it => it.supplier || (it.isSubItem ? null : supplierName)).filter(Boolean))).map(s => {
-                      const displaySup = s === 'H. Falah' ? 'Falahudin' : s;
-                      const subtotal = items
-                        .filter(it => {
-                          const itSup = it.supplier || (it.isSubItem ? null : supplierName);
-                          return itSup === s && !it.isParentItem;
-                        })
-                        .reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0);
-                      const disc = Number(supplierDiscounts[s]) || 0;
+                  <div className="text-xxs opacity-50 uppercase tracking-widest mb-sm">Rincian Per Supplier</div>
+                  <div className="text-xs opacity-60 mb-lg">Urut dari total terbesar ke terkecil</div>
+                  <div className="flex flex-col gap-sm">
+                    {supplierRecap.map(({ supplier, displayName, finalTotal }) => {
                       return (
-                        <div key={s} className="flex-between text-sm" style={{ gap: 24, marginBottom: 4 }}>
-                          <span className="opacity-80 truncate" title={displaySup}>{displaySup}</span>
-                          <span className="font-bold whitespace-nowrap">{formatCurrency(subtotal - disc)}</span>
+                        <div
+                          key={supplier}
+                          className="flex-between text-sm"
+                          style={{
+                            gap: 16,
+                            padding: '10px 12px',
+                            borderRadius: 12,
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.05)'
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <div className="opacity-80 truncate" title={displayName} style={{ fontWeight: 600 }}>{displayName}</div>
+                            <div className="text-xxs opacity-50">Supplier</div>
+                          </div>
+                          <span className="font-bold whitespace-nowrap" style={{ color: 'var(--accent-primary)' }}>{formatCurrency(finalTotal)}</span>
                         </div>
                       );
                     })}
-                    {Array.from(new Set(items.map(it => it.supplier || supplierName))).filter(Boolean).length === 0 && (
+                    {supplierRecap.length === 0 && (
                       <em className="text-xs opacity-30 text-center block py-md">Belum ada item ditambahkan</em>
                     )}
                   </div>
@@ -1155,11 +1351,21 @@ export default function PurchaseNoteForm() {
 
                 {/* Kolom 2: Breakdown Biaya */}
                 <div className="p-xl flex flex-col justify-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                  <div className="text-xxs opacity-50 uppercase tracking-widest mb-lg">Breakdown Biaya</div>
+                  <div className="text-xxs opacity-50 uppercase tracking-widest mb-sm">Breakdown Biaya</div>
+                  <div className="text-xs opacity-60 mb-lg">Komponen pembentuk total tagihan akhir</div>
                   <div className="flex flex-col gap-sm">
-                    <div className="flex-between text-xs"><span>Subtotal Produk</span><span className="font-medium text-sm">{formatCurrency(totalItemCost)}</span></div>
-                    <div className="flex-between text-xs text-danger"><span>Total Diskon</span><span className="font-medium text-sm">-{formatCurrency(totalDiscount)}</span></div>
-                    <div className="flex-between text-xs text-info"><span>Biaya Tambahan</span><span className="font-medium text-sm">+{formatCurrency(totalAdditionalCosts)}</span></div>
+                    <div className="flex-between text-sm" style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)' }}>
+                      <span className="opacity-75">Subtotal Produk</span>
+                      <span className="font-bold">{formatCurrency(totalItemCost)}</span>
+                    </div>
+                    <div className="flex-between text-sm" style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(248,113,113,0.08)', color: '#f87171' }}>
+                      <span>Total Diskon</span>
+                      <span className="font-bold">-{formatCurrency(totalDiscount)}</span>
+                    </div>
+                    <div className="flex-between text-sm" style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(6,182,212,0.08)', color: '#67e8f9' }}>
+                      <span>Biaya Tambahan</span>
+                      <span className="font-bold">+{formatCurrency(totalAdditionalCosts)}</span>
+                    </div>
                   </div>
                   <hr className="opacity-5 my-md" />
                   <div className="grid grid-3 gap-md">
@@ -1184,11 +1390,12 @@ export default function PurchaseNoteForm() {
                   borderLeft: '1px solid rgba(255,255,255,0.05)'
                 }}>
                   <div className="text-xxs opacity-60 uppercase tracking-widest mb-sm">Total Tagihan Keseluruhan</div>
-                  <div className="text-3xl font-black text-primary" style={{ fontSize: '2.4rem', letterSpacing: '-0.02em' }}>
+                  <div className="text-xs opacity-70 mb-md">Nilai akhir setelah diskon dan biaya tambahan</div>
+                  <div className="text-3xl font-black text-primary" style={{ fontSize: '2.4rem', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
                     {formatCurrency(grandTotalValue)}
                   </div>
-                  <div className="mt-md">
-                     <button type="button" onClick={handleSave} className="btn btn-primary w-full shadow-glow" disabled={saving || loading}>
+                  <div className="mt-md" style={{ width: '100%', maxWidth: 260 }}>
+                     <button type="button" onClick={handleSave} className="btn btn-primary w-full shadow-glow" disabled={saving || loading} style={{ height: 46 }}>
                        <FiSave /> {saving ? 'Menyimpan...' : 'Simpan & Selesaikan'}
                      </button>
                   </div>
@@ -1227,7 +1434,7 @@ export default function PurchaseNoteForm() {
             </div>
           </form>
 
-          <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Tarik dari Invoice">
+          <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Tarik dari Invoice" closeOnOverlay={false} closeOnEsc={true}>
             <div className="p-md overflow-y" style={{ maxHeight: 400 }}>
               {invoices.filter(inv => !usedInvoiceIds.has(inv.id)).map(inv => (
                 <div key={inv.id} className="flex-between p-sm border-bottom hover-bright pointer" onClick={() => setSelectedInvoiceIds(prev => prev.includes(inv.id) ? prev.filter(i => i !== inv.id) : [...prev, inv.id])}>
@@ -1249,7 +1456,7 @@ export default function PurchaseNoteForm() {
             </div>
           </Modal>
 
-          <Modal isOpen={isGroupImportModalOpen} onClose={() => setIsGroupImportModalOpen(false)} title="Rekap Grup">
+          <Modal isOpen={isGroupImportModalOpen} onClose={() => setIsGroupImportModalOpen(false)} title="Rekap Grup" closeOnOverlay={false} closeOnEsc={true}>
             <div className="p-md grid gap-sm">
               {Object.keys(groupRecapData).length === 0 && <p className="text-center text-muted p-lg">Tidak ada data rekap grup yang tersedia.</p>}
               {Object.keys(groupRecapData).map(grp => (
@@ -1264,9 +1471,105 @@ export default function PurchaseNoteForm() {
             </div>
           </Modal>
 
+          <Modal isOpen={isNewMaterialModalOpen} onClose={() => setIsNewMaterialModalOpen(false)} title="Tambah Item Baru" closeOnOverlay={false} closeOnEsc={true}>
+            <form onSubmit={handleAddNewItem} className="p-md grid gap-md">
+              <div className="form-group">
+                <label className="form-label">Nama Item *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newMaterialForm.name}
+                  onChange={(e) => setNewMaterialForm({ ...newMaterialForm, name: e.target.value })}
+                  placeholder="Contoh: Wortel Segar"
+                  required
+                  autoFocus
+                  list="existing-materials"
+                />
+                <datalist id="existing-materials">
+                  {masterBahan.filter(m => m.name && m.name.trim() !== '').map(m => (
+                    <option key={m.id} value={m.name}>
+                      {m.name} ({m.unit})
+                    </option>
+                  ))}
+                </datalist>
+              </div>
+
+              <div className="grid grid-2 gap-md">
+                <div className="form-group">
+                  <label className="form-label">Satuan *</label>
+                  <select
+                    className="form-input"
+                    value={newMaterialForm.unit}
+                    onChange={(e) => setNewMaterialForm({ ...newMaterialForm, unit: e.target.value })}
+                    required
+                  >
+                    <option value="kg">kg</option>
+                    <option value="gram">gram</option>
+                    <option value="ons">ons</option>
+                    <option value="pcs">pcs</option>
+                    <option value="ikat">ikat</option>
+                    <option value="bungkus">bungkus</option>
+                    <option value="pack">pack</option>
+                    <option value="liter">liter</option>
+                    <option value="ml">ml</option>
+                    <option value="kardus">kardus</option>
+                    <option value="karung">karung</option>
+                    <option value="botol">botol</option>
+                    <option value="renteng">renteng</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Harga Referensi</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={newMaterialForm.sellPrice}
+                    onChange={(e) => setNewMaterialForm({ ...newMaterialForm, sellPrice: Number(e.target.value) || 0 })}
+                    placeholder="0 (opsional)"
+                    min="0"
+                    step="100"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Qty Nota Awal</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={newMaterialForm.stock}
+                  onChange={(e) => setNewMaterialForm({ ...newMaterialForm, stock: Number(e.target.value) || 0 })}
+                  placeholder="0 (opsional)"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div className="p-md border-top flex gap-sm">
+                <button
+                  type="button"
+                  className="btn btn-ghost flex-1"
+                  onClick={() => setIsNewMaterialModalOpen(false)}
+                  disabled={savingMaterial}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary flex-1"
+                  disabled={savingMaterial || !newMaterialForm.name.trim()}
+                >
+                  {savingMaterial ? 'Menambahkan...' : 'Tambah ke Nota'}
+                </button>
+              </div>
+            </form>
+          </Modal>
+
           {isGeneratingPdf && <PurchaseNoteReportPdf groupName={currentGroupName || invoiceNumber || 'Nota'} date={date} purchaseItems={items} supplierName={supplierName} supplierDiscounts={supplierDiscounts} additionalCosts={additionalCosts} forPrint={false} />}
         </>
       )}
     </div>
   );
 }
+

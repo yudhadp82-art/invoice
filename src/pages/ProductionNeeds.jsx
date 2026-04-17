@@ -328,7 +328,7 @@ export default function ProductionNeedsPage() {
         </>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Kebutuhan Produksi' : 'Tambah Kebutuhan'} size="md">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Kebutuhan Produksi' : 'Tambah Kebutuhan'} size="md" closeOnOverlay={false} closeOnEsc={true}>
         <form onSubmit={handleSave} className="p-lg">
           <div className="grid gap-lg">
             <div className="form-group mb-0">

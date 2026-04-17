@@ -5,14 +5,10 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { formatCurrency, formatDateShort } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
-import { pdf } from '@react-pdf/renderer';
-import PurchaseNoteReportPdfDocument from '../components/PurchaseNoteReportPdfDocument';
-import { saveAs } from 'file-saver';
 import { FiPlus, FiSearch, FiFileText, FiCalendar, FiArrowRight, FiTrash2, FiEdit2, FiPrinter, FiSend } from 'react-icons/fi';
 import { PurchaseNotes as PNStore, Invoices, SupportingMaterialItems as MasterItems, Customers, Suppliers, TelegramOrders } from '../utils/storage';
 import { sendDocument } from '../utils/telegram';
 import { getInvoicesForPurchaseNote } from '../utils/purchaseReportModel';
-import SupplierPaymentRecapPdfDocument from '../components/SupplierPaymentRecapPdfDocument';
 
 export default function PurchaseNotes() {
   const [notes, setNotes] = useState([]);
@@ -20,8 +16,9 @@ export default function PurchaseNotes() {
   const [groupRecap, setGroupRecap] = useState({}); // { groupName: [{ name, qty, unit }] }
   const [groupInvoices, setGroupInvoices] = useState({}); // { groupName: [inv1, inv2] }
   const [collapsedGroups, setCollapsedGroups] = useState({});
-  const [collapsedPendingInvoices, setCollapsedPendingInvoices] = useState(false);
+  const [collapsedPendingInvoices, setCollapsedPendingInvoices] = useState(true);
   const [search, setSearch] = useState('');
+  const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [deleteId, setDeleteId] = useState(null);
   
   const [fullInvoices, setFullInvoices] = useState([]);
@@ -36,6 +33,23 @@ export default function PurchaseNotes() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isGeneratingRecap, setIsGeneratingRecap] = useState(false);
+
+  function getNoteCustomerNames(note) {
+    const ids = note.sourceInvoiceIds || (note.invoiceId ? [note.invoiceId] : []);
+    const matchedInvs = fullInvoices.filter(inv => ids.includes(inv.id));
+    const customerNames = Array.from(new Set(matchedInvs.map(inv => inv.customerName).filter(Boolean)));
+    if (customerNames.length > 0) return customerNames;
+    if (note.customerName) return [note.customerName];
+    return [];
+  }
+
+  function toggleCustomerFilter(customerName) {
+    setSelectedCustomers(prev =>
+      prev.includes(customerName)
+        ? prev.filter(name => name !== customerName)
+        : [...prev, customerName]
+    );
+  }
 
   useEffect(() => {
     reload();
@@ -149,6 +163,13 @@ export default function PurchaseNotes() {
     });
     setGroupRecap(result);
     setGroupInvoices(groupInvs);
+    setCollapsedGroups(prev => {
+      const next = { ...prev };
+      Object.keys(result).forEach(grp => {
+        if (typeof next[grp] === 'undefined') next[grp] = true;
+      });
+      return next;
+    });
     } catch (err) {
       console.error('Failed to load purchase notes data:', err);
       setError('Gagal memuat data dari database. Silakan periksa koneksi internet Anda atau hubungi admin.');
@@ -164,6 +185,11 @@ export default function PurchaseNotes() {
     
     setPdfBusyNoteId(note.id);
     try {
+      const [{ pdf }, { saveAs }, { default: PurchaseNoteReportPdfDocument }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('file-saver'),
+        import('../components/PurchaseNoteReportPdfDocument')
+      ]);
       const { invsForGroup, grp, noteDateStr } = getInvoicesForPurchaseNote(note, fullInvoices, allCustomers);
       const logoSrc = `${window.location.origin}/logo-kdmp.png`;
       const instance = pdf(
@@ -225,6 +251,10 @@ export default function PurchaseNotes() {
     setSendingId(note.id);
 
     try {
+      const [{ pdf }, { default: PurchaseNoteReportPdfDocument }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('../components/PurchaseNoteReportPdfDocument')
+      ]);
       const { invsForGroup, grp, noteDateStr } = getInvoicesForPurchaseNote(note, fullInvoices, allCustomers);
       const logoSrc = `${window.location.origin}/logo-kdmp.png`;
       const instance = pdf(
@@ -314,6 +344,11 @@ export default function PurchaseNotes() {
   async function handlePrintRecapPdf() {
     setIsGeneratingRecap(true);
     try {
+      const [{ pdf }, { saveAs }, { default: SupplierPaymentRecapPdfDocument }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('file-saver'),
+        import('../components/SupplierPaymentRecapPdfDocument')
+      ]);
       const logoSrc = `${window.location.origin}/logo-kdmp.png`;
       const instance = pdf(
         <SupplierPaymentRecapPdfDocument
@@ -335,19 +370,34 @@ export default function PurchaseNotes() {
     }
   }
 
+  const customerOptions = Array.from(
+    new Set(
+      notes.flatMap(note => getNoteCustomerNames(note))
+    )
+  ).sort((a, b) => a.localeCompare(b, 'id'));
+
   const filtered = notes.filter(n => {
     let match = true;
+    const noteDate = n.date || n.createdAt;
+    const noteCustomers = getNoteCustomerNames(n);
+
     if (startDate) {
-      const d = n.date || n.createdAt;
-      if (!d || d < startDate) match = false;
+      if (!noteDate || noteDate < startDate) match = false;
     }
     if (endDate) {
-      const d = n.date || n.createdAt;
-      if (!d || d > endDate) match = false;
+      if (!noteDate || noteDate > endDate) match = false;
+    }
+    if (selectedCustomers.length > 0) {
+      if (!noteCustomers.some(customer => selectedCustomers.includes(customer))) match = false;
     }
     if (search) {
       const q = search.toLowerCase();
-      if (!(n.supplierName || '').toLowerCase().includes(q) && !(n.notes || '').toLowerCase().includes(q)) match = false;
+      const customerMatch = noteCustomers.some(customer => customer.toLowerCase().includes(q));
+      if (
+        !(n.supplierName || '').toLowerCase().includes(q) &&
+        !(n.notes || '').toLowerCase().includes(q) &&
+        !customerMatch
+      ) match = false;
     }
     return match;
   });
@@ -571,10 +621,52 @@ export default function PurchaseNotes() {
           <FiSearch className="search-icon" />
           <input
             type="text"
-            placeholder="Cari supplier atau catatan..."
+            placeholder="Cari customer, supplier, atau catatan..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+        </div>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          minWidth: '280px',
+          flex: 1,
+          background: 'rgba(255,255,255,0.03)',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          border: '1px solid rgba(255,255,255,0.08)'
+        }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>
+            Filter SPPG / Customer
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '120px', overflowY: 'auto', paddingRight: '4px' }}>
+            {customerOptions.length === 0 ? (
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Belum ada customer</span>
+            ) : customerOptions.map(customer => (
+              <label
+                key={customer}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 10px',
+                  borderRadius: '999px',
+                  background: selectedCustomers.includes(customer) ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.04)',
+                  border: selectedCustomers.includes(customer) ? '1px solid rgba(59,130,246,0.45)' : '1px solid rgba(255,255,255,0.08)',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedCustomers.includes(customer)}
+                  onChange={() => toggleCustomerFilter(customer)}
+                />
+                <span>{customer}</span>
+              </label>
+            ))}
+          </div>
         </div>
         <div style={{
           display: 'flex',
@@ -675,8 +767,8 @@ export default function PurchaseNotes() {
           <thead>
             <tr>
               <th>Tanggal</th>
-              <th>Supplier</th>
               <th>Customer</th>
+              <th>Customer Detail</th>
               <th className="text-right">Total Biaya</th>
               <th>Status Split</th>
               <th></th>
@@ -694,21 +786,18 @@ export default function PurchaseNotes() {
                 </td>
               </tr>
             ) : filtered.map(note => {
-              // Resolve customer names from linked invoices
-              const ids = note.sourceInvoiceIds || (note.invoiceId ? [note.invoiceId] : []);
-              const matchedInvs = fullInvoices.filter(inv => ids.includes(inv.id));
-              const customerNames = Array.from(new Set(matchedInvs.map(inv => inv.customerName).filter(Boolean)));
+              const customerNames = getNoteCustomerNames(note);
               const displayCustomer = customerNames.length > 0 ? customerNames.join(', ') : (note.customerName || '-');
 
               return (
                 <tr key={note.id}>
                   <td className="text-muted"><FiCalendar style={{marginRight: 4}} /> {formatDateShort(note.date)}</td>
-                  <td><strong>{note.supplierName || 'General Supplier'}</strong></td>
                   <td>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-primary-hover)' }}>
                       {displayCustomer}
                     </div>
                   </td>
+                  <td><strong>{note.supplierName || 'General Supplier'}</strong></td>
                   <td className="text-right font-medium">{formatCurrency(note.grandTotal)}</td>
                   <td>
                     <span className="badge badge-cyan">Split S5 & S2</span>

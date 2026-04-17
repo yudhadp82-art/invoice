@@ -319,7 +319,13 @@ export default function Products() {
       )}
 
       {/* Editor Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Produk' : 'Tambah Produk'}>
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editingId ? 'Edit Produk' : 'Tambah Produk'}
+        closeOnOverlay={false}
+        closeOnEsc={true}
+      >
         <form onSubmit={handleSave}>
           <div className="modal-body">
             <div className="form-group" style={{ marginBottom: 20 }}>

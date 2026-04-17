@@ -7,6 +7,7 @@ import { FiSearch, FiCheck, FiChevronDown } from 'react-icons/fi';
 export default function SearchableSelect({ 
   options = [], 
   value = '', 
+  displayValue = '',
   onChange, 
   placeholder = 'Cari...', 
   className = '',
@@ -19,7 +20,7 @@ export default function SearchableSelect({
   const inputRef = useRef(null);
 
   const selectedOption = options.find(o => String(o.id) === String(value));
-  const displayName = selectedOption ? selectedOption.name : '';
+  const displayName = selectedOption ? selectedOption.name : displayValue;
 
   useEffect(() => {
     function handleClickOutside(e) {

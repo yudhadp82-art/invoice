@@ -252,7 +252,7 @@ export default function Customers() {
       </>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Customer' : 'Tambah Customer'}>
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit Customer' : 'Tambah Customer'} closeOnOverlay={false} closeOnEsc={true}>
         <form onSubmit={handleSave}>
           <div className="modal-body">
             <div className="form-row">

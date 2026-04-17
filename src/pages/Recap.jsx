@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { FiBarChart2, FiCalendar, FiDownload, FiShoppingCart, FiFileText, FiPrinter, FiSearch } from 'react-icons/fi';
 import { Invoices as InvoiceStore, PurchaseNotes as PNStore } from '../utils/storage';
 import { formatCurrency, formatNumber, formatDateShort, isToday, isThisMonth } from '../utils/formatter';
-import * as XLSX from 'xlsx';
 
 export default function Recap() {
   const [invoices, setInvoices] = useState([]);
@@ -240,12 +239,13 @@ export default function Recap() {
     .sort((a, b) => b.profit - a.profit);
 
   // Handle download margin report as Excel
-  const handleDownloadMarginReport = () => {
+  const handleDownloadMarginReport = async () => {
     // Expand all invoices before downloading
     setExpandedInvoices(new Set(invoiceMarginAnalysis.map(inv => inv.id)));
 
     // Wait for render then download
-    setTimeout(() => {
+    setTimeout(async () => {
+      const XLSX = await import('xlsx');
       // Prepare data for Excel export
       const exportData = [];
 
@@ -298,7 +298,8 @@ export default function Recap() {
     // Only expand this specific invoice
     setExpandedInvoices(new Set([invoiceId]));
 
-    setTimeout(() => {
+    setTimeout(async () => {
+      const XLSX = await import('xlsx');
       const inv = invoiceMarginAnalysis.find(i => i.id === invoiceId);
       if (!inv) return;
 

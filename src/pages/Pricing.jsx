@@ -306,7 +306,7 @@ export default function Pricing() {
       </div>
 
       {/* Modal Kategori */}
-      <Modal isOpen={catModalOpen} onClose={() => setCatModalOpen(false)} title={editingCatId ? 'Edit Kategori' : 'Tambah Kategori'}>
+      <Modal isOpen={catModalOpen} onClose={() => setCatModalOpen(false)} title={editingCatId ? 'Edit Kategori' : 'Tambah Kategori'} closeOnOverlay={false} closeOnEsc={true}>
         <form onSubmit={handleSaveCategory}>
           <div className="modal-body">
             <div className="form-group">
@@ -322,7 +322,7 @@ export default function Pricing() {
       </Modal>
 
       {editingProduct && (
-        <Modal isOpen={priceModalOpen} onClose={() => setPriceModalOpen(false)} title={`Set Harga: ${editingProduct.name}`} size="fullscreen" persistent={true}>
+        <Modal isOpen={priceModalOpen} onClose={() => setPriceModalOpen(false)} title={`Set Harga: ${editingProduct.name}`} size="fullscreen" closeOnOverlay={false} closeOnEsc={true}>
           <form onSubmit={handleSavePrices}>
             <div className="modal-body">
               <div className="form-group" style={{ marginBottom: 20 }}>
@@ -394,7 +394,7 @@ export default function Pricing() {
       />
 
       {/* Modal Tambah Produk */}
-      <Modal isOpen={productModalOpen} onClose={() => setProductModalOpen(false)} title="Tambah Produk Baru">
+      <Modal isOpen={productModalOpen} onClose={() => setProductModalOpen(false)} title="Tambah Produk Baru" closeOnOverlay={false} closeOnEsc={true}>
         <form onSubmit={handleSaveProduct}>
           <div className="modal-body">
             <div className="form-row">

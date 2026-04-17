@@ -31,8 +31,9 @@ function notifyMutation(action, collectionName, payload) {
   window.dispatchEvent(new Event('app-data-mutation'));
 }
 
-async function getAllFromStore(collectionName) {
+async function getAllFromStore(collectionName, options = {}) {
   try {
+    const { suppressEmptyWarning = false } = options;
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -55,6 +56,7 @@ async function getAllFromStore(collectionName) {
         console.error(`🚨 CRITICAL: Database has ${count} rows in ${collectionName}, but Client received 0. This is likely an RLS (Row Level Security) policy issue.`);
         throw new Error(`Permission Denied (RLS): Database has ${count} rows but access is restricted.`);
       }
+      if (suppressEmptyWarning) return [];
       console.warn(`⚠️ Supabase returned 0 rows for ${collectionName}. Table is empty.`);
     }
 
@@ -231,7 +233,7 @@ export const PurchaseNotes = {
     try {
       const [newNotes, oldPurchases] = await Promise.all([
         getAllFromStore(COLLECTIONS.PURCHASE_NOTES),
-        getAllFromStore(COLLECTIONS.PURCHASES)
+        getAllFromStore(COLLECTIONS.PURCHASES, { suppressEmptyWarning: true })
       ]);
       // Consolidate both collections to ensure no data is missing
       const consolidated = [...newNotes];

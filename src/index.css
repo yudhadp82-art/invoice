@@ -616,6 +616,50 @@ body {
   gap: var(--space-xs);
 }
 
+.purchase-note-form-page {
+  --purchase-note-sticky-top: 12px;
+  --purchase-note-header-offset: 96px;
+}
+
+.purchase-note-form-header {
+  position: static;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.purchase-note-table-card {
+  overflow: auto;
+  max-height: calc(100vh - 180px);
+}
+
+.purchase-note-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  background: #ffffff;
+  color: #dc2626;
+  box-shadow: inset 0 -1px 0 var(--border-color);
+}
+
+@media (max-width: 768px) {
+  .purchase-note-form-page {
+    --purchase-note-sticky-top: 8px;
+    --purchase-note-header-offset: 84px;
+  }
+
+  .purchase-note-form-header {
+    padding: 12px 14px;
+  }
+
+  .purchase-note-table-card {
+    max-height: calc(100vh - 150px);
+  }
+}
+
 /* ===== Modal ===== */
 .modal-overlay {
   position: fixed;

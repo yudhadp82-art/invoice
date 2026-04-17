@@ -6,8 +6,6 @@ import { Invoices as InvoiceStore, DeliveryNotes as DNStore, TelegramOrders, Hpp
 import { formatCurrency, formatDateShort, formatNumber } from '../utils/formatter';
 import { exportInvoicesToExcel } from '../utils/excel';
 import { sendDocument } from '../utils/telegram';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import CombinedPdfTemplates from '../components/CombinedPdfTemplates';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -17,6 +15,8 @@ export default function Invoices() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [customerFilter, setCustomerFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [printId, setPrintId] = useState(null);
   const [sendingId, setSendingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -52,6 +52,10 @@ export default function Invoices() {
     setSendingId(inv.id);
 
     try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf')
+      ]);
       const note = deliveryNotes.find(n => n.invoiceId === inv.id);
       if (!note) {
         toast.error('Surat Jalan untuk invoice ini tidak ditemukan. Silakan buat Surat Jalan terlebih dahulu.');
@@ -148,12 +152,31 @@ export default function Invoices() {
     await reload();
   }
 
+  function getInvoiceDateValue(inv) {
+    const rawDate = inv?.date || inv?.createdAt;
+    if (!rawDate) return '';
+
+    if (typeof rawDate === 'string') {
+      return rawDate.slice(0, 10);
+    }
+
+    if (rawDate?.seconds) {
+      return new Date(rawDate.seconds * 1000).toISOString().slice(0, 10);
+    }
+
+    const parsed = new Date(rawDate);
+    return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+  }
+
   const uniqueCustomers = Array.from(new Set(invoices.map(inv => inv.customerName).filter(Boolean))).sort();
 
   const filtered = invoices
     .filter(inv => {
       if (statusFilter !== 'all' && inv.paymentStatus !== statusFilter) return false;
       if (customerFilter !== 'all' && inv.customerName !== customerFilter) return false;
+      const invoiceDate = getInvoiceDateValue(inv);
+      if (dateFrom && (!invoiceDate || invoiceDate < dateFrom)) return false;
+      if (dateTo && (!invoiceDate || invoiceDate > dateTo)) return false;
       const q = search.toLowerCase();
       return (inv.invoiceNumber || '').toLowerCase().includes(q) ||
         (inv.customerName || '').toLowerCase().includes(q);
@@ -192,7 +215,7 @@ export default function Invoices() {
           <p>Kelola invoice penjualan</p>
         </div>
         <div className="flex gap-sm">
-          <button className="btn btn-secondary" onClick={() => exportInvoicesToExcel(filtered)}>
+          <button className="btn btn-secondary" onClick={() => void exportInvoicesToExcel(filtered)}>
             <FiDownload /> Export Excel
           </button>
           <Link to="/invoices/new" className="btn btn-primary">
@@ -241,6 +264,39 @@ export default function Invoices() {
           <option value="unpaid">Belum Bayar</option>
           <option value="partial">Sebagian</option>
         </select>
+      </div>
+
+      <div className="toolbar" style={{ alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <label className="form-label">Dari Tanggal</label>
+          <input
+            type="date"
+            className="form-input"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="form-label">Sampai Tanggal</label>
+          <input
+            type="date"
+            className="form-input"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={e => setDateTo(e.target.value)}
+          />
+        </div>
+        <button
+          className="btn btn-secondary"
+          type="button"
+          onClick={() => {
+            setDateFrom('');
+            setDateTo('');
+          }}
+          disabled={!dateFrom && !dateTo}
+        >
+          Reset Tanggal
+        </button>
       </div>
 
       <div className="tabs-container" style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }}>

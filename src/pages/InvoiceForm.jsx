@@ -1,12 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiArrowLeft, FiSave, FiSearch } from 'react-icons/fi';
-import { Invoices, Customers, Products, DeliveryNotes, TelegramOrders, SupportingMaterialItems } from '../utils/storage';
+import { Invoices, Customers, Products, DeliveryNotes, TelegramOrders, SupportingMaterialItems, PriceCategories } from '../utils/storage';
 import { formatCurrency, generateInvoiceNumber, generateDeliveryNoteNumber, getCustomerPrice, formatNumberInput, parseNumberInput } from '../utils/formatter';
 import ConfirmModal from '../components/ConfirmModal';
 import CombinedPdfTemplates from '../components/CombinedPdfTemplates';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import Modal from '../components/Modal';
+
+const LOTUS_CUSTOMER_NAME = 'SPPG SINDANGJAYA (LOTUS)';
+const LOTUS_CATEGORY_NAME = 'SPPG SINDANGJAYA (LOTUS) (Khusus)';
+
+const emptyQuickProductForm = {
+  name: '',
+  sku: '',
+  category: '',
+  unit: 'kg',
+  purchaseCost: '',
+  sellPrice: '',
+  customerId: ''
+};
+
+const emptyAddItemForm = {
+  productId: '',
+  qty: 1
+};
 
 // -------------------------------------------------------
 // Searchable Product Selector Component
@@ -326,6 +343,11 @@ export default function InvoiceForm() {
   const [isMaterialsModalOpen, setIsMaterialsModalOpen] = useState(false);
   const [selectedMaterialIds, setSelectedMaterialIds] = useState([]);
   const [materialSearch, setMaterialSearch] = useState('');
+  const [isQuickProductModalOpen, setIsQuickProductModalOpen] = useState(false);
+  const [quickProductForm, setQuickProductForm] = useState(emptyQuickProductForm);
+  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+  const [addItemForm, setAddItemForm] = useState(emptyAddItemForm);
+  const [isCreatingLotusCustomer, setIsCreatingLotusCustomer] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -361,7 +383,7 @@ export default function InvoiceForm() {
           return {
             productId: item.productId || '',
             productName: item.matchedName || item.productName,
-            unit: item.matchedUnit || item.unit || 'kg',
+            unit: item.unit || item.matchedUnit || 'kg',
             qty: item.qty,
             unitPrice: unitPrice,
             purchaseCost: product ? product.purchaseCost : 0,
@@ -427,28 +449,173 @@ export default function InvoiceForm() {
     }));
   }
 
+  async function handleSelectLotusCustomer() {
+    if (isCreatingLotusCustomer) return;
+
+    setIsCreatingLotusCustomer(true);
+    try {
+      let allCustomers = customers;
+      let lotusCustomer = allCustomers.find(c => (c.name || '').toLowerCase() === LOTUS_CUSTOMER_NAME.toLowerCase());
+
+      if (!lotusCustomer) {
+        const allCategories = await PriceCategories.getAll();
+        let lotusCategory = allCategories.find(cat => (cat.name || '').toLowerCase() === LOTUS_CATEGORY_NAME.toLowerCase());
+
+        if (!lotusCategory) {
+          lotusCategory = await PriceCategories.create({ name: LOTUS_CATEGORY_NAME });
+        }
+
+        lotusCustomer = await Customers.create({
+          name: LOTUS_CUSTOMER_NAME,
+          company: 'SPPG',
+          phone: '',
+          email: '',
+          address: 'Sindangjaya (LOTUS)',
+          priceCategoryId: lotusCategory?.id || 'cat-retail',
+          group: 'LOTUS',
+        });
+      }
+
+      const refreshedCustomers = await Customers.getAll();
+      setCustomers(refreshedCustomers);
+
+      const selectedCustomer = refreshedCustomers.find(c => c.id === lotusCustomer?.id)
+        || refreshedCustomers.find(c => (c.name || '').toLowerCase() === LOTUS_CUSTOMER_NAME.toLowerCase());
+
+      if (selectedCustomer) {
+        handleCustomerChange(selectedCustomer.id);
+      }
+    } catch (err) {
+      console.error('Failed to prepare Lotus customer:', err);
+      alert(`Gagal menyiapkan customer ${LOTUS_CUSTOMER_NAME}.`);
+    } finally {
+      setIsCreatingLotusCustomer(false);
+    }
+  }
+
   function addItem() {
     const availableProducts = products.filter(p => !p.customerId || p.customerId === form.customerId);
     if (availableProducts.length === 0) {
       alert('Tidak ada produk yang tersedia untuk customer ini.');
       return;
     }
-    const product = availableProducts[0];
-    const customer = customers.find(c => c.id === form.customerId);
-    const unitPrice = customer ? getCustomerPrice(product, customer) : product.sellPrice;
+    setAddItemForm({
+      productId: availableProducts[0].id,
+      qty: 1
+    });
+    setIsAddItemModalOpen(true);
+  }
 
-    setForm(f => ({
-      ...f,
-      items: [...f.items, {
-        productId: product.id,
-        productName: product.name,
-        unit: product.unit,
-        qty: 1,
-        unitPrice,
-        purchaseCost: product.purchaseCost,
-        subtotal: unitPrice,
-      }],
-    }));
+  function openQuickProductModal() {
+    setQuickProductForm({
+      ...emptyQuickProductForm,
+      customerId: form.customerId || ''
+    });
+    setIsQuickProductModalOpen(true);
+  }
+
+  function appendProductToInvoice(productRecord) {
+    const effectiveCustomerId = productRecord.customerId || form.customerId;
+    const customer = customers.find(c => c.id === effectiveCustomerId);
+    const unitPrice = customer ? getCustomerPrice(productRecord, customer) : Number(productRecord.sellPrice || 0);
+
+    setForm(f => {
+      const existingIndex = f.items.findIndex(item => item.productId === productRecord.id);
+
+      if (existingIndex >= 0) {
+        const items = [...f.items];
+        const existingItem = { ...items[existingIndex] };
+        const nextQty = (Number(existingItem.qty) || 0) + 1;
+
+        existingItem.qty = nextQty;
+        existingItem.unitPrice = unitPrice;
+        existingItem.purchaseCost = Number(productRecord.purchaseCost) || 0;
+        existingItem.subtotal = unitPrice * nextQty;
+        existingItem.unit = productRecord.unit;
+        existingItem.productName = productRecord.name;
+        existingItem.type = 'product';
+
+        items[existingIndex] = existingItem;
+        return { ...f, items };
+      }
+
+      return {
+        ...f,
+        items: [...f.items, {
+          productId: productRecord.id,
+          productName: productRecord.name,
+          unit: productRecord.unit,
+          qty: 1,
+          unitPrice,
+          purchaseCost: Number(productRecord.purchaseCost) || 0,
+          subtotal: unitPrice,
+          type: 'product'
+        }]
+      };
+    });
+  }
+
+  function appendProductToInvoiceWithQty(productRecord, qty) {
+    const safeQty = Math.max(1, Number(qty) || 1);
+    for (let i = 0; i < safeQty; i += 1) {
+      appendProductToInvoice(productRecord);
+    }
+  }
+
+  async function handleQuickProductSave(e) {
+    e.preventDefault();
+
+    const productData = {
+      name: quickProductForm.name.trim(),
+      sku: quickProductForm.sku.trim(),
+      category: quickProductForm.category.trim(),
+      unit: quickProductForm.unit.trim() || 'kg',
+      purchaseCost: Number(quickProductForm.purchaseCost) || 0,
+      sellPrice: Number(quickProductForm.sellPrice) || 0,
+      stock: 0,
+      customerId: quickProductForm.customerId || ''
+    };
+
+    const normalizedName = productData.name.trim().toLowerCase();
+    const normalizedCustomerId = productData.customerId || '';
+    const existingProduct = products.find(p =>
+      (p.name || '').trim().toLowerCase() === normalizedName &&
+      (p.customerId || '') === normalizedCustomerId
+    );
+
+    if (existingProduct) {
+      appendProductToInvoice(existingProduct);
+      setIsQuickProductModalOpen(false);
+      setQuickProductForm(emptyQuickProductForm);
+      alert('Produk dengan nama yang sama sudah ada di master. Produk existing ditambahkan ke invoice.');
+      return;
+    }
+
+    const createdProduct = await Products.create(productData);
+    if (!createdProduct) {
+      alert('Gagal menyimpan produk baru');
+      return;
+    }
+
+    setProducts(prev => [...prev, createdProduct]);
+    appendProductToInvoice(createdProduct);
+
+    setIsQuickProductModalOpen(false);
+    setQuickProductForm(emptyQuickProductForm);
+  }
+
+  function handleAddItemSubmit(e) {
+    e.preventDefault();
+
+    const selectedProduct = products.find(p => p.id === addItemForm.productId);
+    if (!selectedProduct) {
+      alert('Pilih produk terlebih dahulu');
+      return;
+    }
+
+    appendProductToInvoiceWithQty(selectedProduct, addItemForm.qty);
+    setIsAddItemModalOpen(false);
+    setAddItemForm(emptyAddItemForm);
   }
 
   function toggleMaterialSelection(id) {
@@ -694,6 +861,16 @@ export default function InvoiceForm() {
               customers={customers} 
               onChange={handleCustomerChange} 
             />
+            <div style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleSelectLotusCustomer}
+                disabled={isCreatingLotusCustomer}
+              >
+                <FiPlus /> {isCreatingLotusCustomer ? 'Menyiapkan LOTUS...' : 'Pilih / Buat SPPG SINDANGJAYA (LOTUS)'}
+              </button>
+            </div>
           </div>
           <div className="form-group">
             <label className="form-label">Tanggal Invoice</label>
@@ -719,6 +896,9 @@ export default function InvoiceForm() {
         <div className="card-header flex-between">
           <h3 className="card-title">Item Invoice</h3>
           <div className="flex gap-sm">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={openQuickProductModal}>
+              <FiPlus /> Produk Baru
+            </button>
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setIsMaterialsModalOpen(true)}>
               <FiPlus /> Tambah dari Master Bahan
             </button>
@@ -910,6 +1090,163 @@ export default function InvoiceForm() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={isAddItemModalOpen}
+        onClose={() => setIsAddItemModalOpen(false)}
+        title="Tambah Item Invoice"
+        closeOnOverlay={false}
+      >
+        <form onSubmit={handleAddItemSubmit}>
+          <div className="modal-body">
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label">Cari Produk</label>
+              <ProductSearch
+                value={addItemForm.productId}
+                products={products.filter(p => !p.customerId || p.customerId === form.customerId)}
+                onChange={productId => setAddItemForm(f => ({ ...f, productId }))}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Qty</label>
+              <input
+                className="form-input"
+                type="text"
+                value={formatNumberInput(addItemForm.qty)}
+                onChange={e => {
+                  const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                  if (/^\d*\.?\d*$/.test(val) || val === '') {
+                    setAddItemForm(f => ({ ...f, qty: val }));
+                  }
+                }}
+                placeholder="1"
+              />
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={() => setIsAddItemModalOpen(false)}>
+              Batal
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Tambah ke Invoice
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={isQuickProductModalOpen}
+        onClose={() => setIsQuickProductModalOpen(false)}
+        title="Tambah Produk Baru"
+        closeOnOverlay={false}
+      >
+        <form onSubmit={handleQuickProductSave}>
+          <div className="modal-body">
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label">Atribusi Produk</label>
+              <select
+                className="form-select"
+                value={quickProductForm.customerId}
+                onChange={e => setQuickProductForm(f => ({ ...f, customerId: e.target.value }))}
+              >
+                <option value="">Global</option>
+                {form.customerId && (
+                  <option value={form.customerId}>
+                    Customer Invoice Saat Ini ({form.customerName || 'Tanpa Nama'})
+                  </option>
+                )}
+              </select>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Nama Produk</label>
+                <input
+                  className="form-input"
+                  required
+                  autoFocus
+                  value={quickProductForm.name}
+                  onChange={e => setQuickProductForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Nama produk"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">SKU</label>
+                <input
+                  className="form-input"
+                  value={quickProductForm.sku}
+                  onChange={e => setQuickProductForm(f => ({ ...f, sku: e.target.value }))}
+                  placeholder="Kode SKU"
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Kategori</label>
+                <input
+                  className="form-input"
+                  value={quickProductForm.category}
+                  onChange={e => setQuickProductForm(f => ({ ...f, category: e.target.value }))}
+                  placeholder="Kategori"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Satuan</label>
+                <input
+                  className="form-input"
+                  required
+                  value={quickProductForm.unit}
+                  onChange={e => setQuickProductForm(f => ({ ...f, unit: e.target.value }))}
+                  placeholder="kg / pcs / pack"
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Modal (Rp)</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  value={formatNumberInput(quickProductForm.purchaseCost)}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                    if (/^\d*\.?\d*$/.test(val) || val === '') {
+                      setQuickProductForm(f => ({ ...f, purchaseCost: val }));
+                    }
+                  }}
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Harga Jual (Rp)</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  value={formatNumberInput(quickProductForm.sellPrice)}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                    if (/^\d*\.?\d*$/.test(val) || val === '') {
+                      setQuickProductForm(f => ({ ...f, sellPrice: val }));
+                    }
+                  }}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={() => setIsQuickProductModalOpen(false)}>
+              Batal
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Simpan Produk
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Sync Overlay */}
       {isSyncing && (
