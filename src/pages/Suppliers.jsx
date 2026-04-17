@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiBriefcase, FiDownload, FiUpload, FiFileText } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiBriefcase, FiDownload, FiUpload, FiFileText, FiGitMerge } from 'react-icons/fi';
 import Modal from '../components/Modal';
-import { Suppliers as SupplierStore } from '../utils/storage';
+import { Suppliers as SupplierStore, PurchaseNotes } from '../utils/storage';
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -16,6 +16,13 @@ export default function Suppliers() {
   const [form, setForm] = useState(emptySupplier);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Merge supplier state
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [sourceSupplier, setSourceSupplier] = useState(null);
+  const [targetSupplier, setTargetSupplier] = useState(null);
+  const [mergeContactInfo, setMergeContactInfo] = useState(true);
+  const [isMerging, setIsMerging] = useState(false);
 
   useEffect(() => {
     reload();
@@ -76,6 +83,76 @@ export default function Suppliers() {
     await SupplierStore.delete(deleteId);
     setDeleteId(null);
     await reload();
+  }
+
+  // Merge supplier functions
+  function openMergeModal() {
+    setSourceSupplier(null);
+    setTargetSupplier(null);
+    setMergeModalOpen(true);
+  }
+
+  async function handleMerge() {
+    if (!sourceSupplier || !targetSupplier) {
+      alert('Pilih supplier sumber dan target!');
+      return;
+    }
+
+    if (sourceSupplier.id === targetSupplier.id) {
+      alert('Supplier sumber dan target tidak boleh sama!');
+      return;
+    }
+
+    if (!confirm(`Apakah Anda yakin ingin menggabungkan:\n\n"${sourceSupplier.name || sourceSupplier.company}" ke "${targetSupplier.name || targetSupplier.company}"?\n\nIni akan:\n- Update semua nota pembelian yang menggunakan supplier sumber\n- Hapus supplier sumber\n- ${mergeContactInfo ? 'Menggabungkan informasi kontak' : 'Menjaga informasi kontak target'}`)) {
+      return;
+    }
+
+    setIsMerging(true);
+    try {
+      // 1. Gabungkan informasi kontak jika diaktifkan
+      if (mergeContactInfo) {
+        const updatedContact = {
+          ...targetSupplier,
+          phone: targetSupplier.phone || sourceSupplier.phone,
+          email: targetSupplier.email || sourceSupplier.email,
+          address: targetSupplier.address || sourceSupplier.address,
+          bankName: targetSupplier.bankName || sourceSupplier.bankName,
+          accountName: targetSupplier.accountName || sourceSupplier.accountName,
+          accountNumber: targetSupplier.accountNumber || sourceSupplier.accountNumber,
+          notes: [
+            targetSupplier.notes || '',
+            sourceSupplier.notes || '',
+            `Digabungkan dari "${sourceSupplier.name || sourceSupplier.company}" pada ${new Date().toLocaleDateString('id-ID')}`
+          ].filter(Boolean).join('\n\n---\n\n')
+        };
+        await SupplierStore.update(targetSupplier.id, updatedContact);
+      }
+
+      // 2. Update semua purchase notes
+      const allNotes = await PurchaseNotes.getAll();
+      const notesToUpdate = allNotes.filter(note =>
+        note.supplierName === (sourceSupplier.name || sourceSupplier.company)
+      );
+
+      for (const note of notesToUpdate) {
+        await PurchaseNotes.update(note.id, {
+          supplierName: targetSupplier.name || targetSupplier.company
+        });
+      }
+
+      // 3. Hapus supplier sumber
+      await SupplierStore.delete(sourceSupplier.id);
+
+      alert(`✅ Berhasil menggabungkan ${notesToUpdate.length} nota pembelian dari supplier "${sourceSupplier.name || sourceSupplier.company}" ke "${targetSupplier.name || targetSupplier.company}"`);
+
+      setMergeModalOpen(false);
+      await reload();
+    } catch (error) {
+      console.error('Error merging suppliers:', error);
+      alert(`Gagal menggabungkan supplier: ${error.message}`);
+    } finally {
+      setIsMerging(false);
+    }
   }
 
   function handleExport() {
@@ -144,6 +221,9 @@ export default function Suppliers() {
           </button>
           <button className="btn btn-secondary" onClick={handleExport}>
             <FiDownload /> Export Excel
+          </button>
+          <button className="btn btn-info" onClick={openMergeModal} title="Gabungkan Supplier">
+            <FiGitMerge /> Merge Supplier
           </button>
           <button className="btn btn-primary shadow-glow" onClick={openAdd}>
             <FiPlus /> Tambah Supplier
@@ -310,13 +390,128 @@ export default function Suppliers() {
         </form>
       </Modal>
 
-      <ConfirmModal 
-        isOpen={!!deleteId} 
-        onClose={() => setDeleteId(null)} 
+      <ConfirmModal
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
         onConfirm={confirmDelete}
         title="Hapus Supplier"
         message="Menghapus supplier tidak akan menghapus riwayat transaksi pembelian terkait."
       />
+
+      {/* Merge Supplier Modal */}
+      <Modal isOpen={mergeModalOpen} onClose={() => setMergeModalOpen(false)} title="Gabungkan Supplier" size="lg" closeOnOverlay={true} closeOnEsc={true}>
+        <div className="p-lg">
+          <div className="mb-lg">
+            <p className="text-secondary mb-md">
+              Pilih dua supplier yang ingin digabungkan. Supplier sumber akan dihapus dan semua nota pembelian akan dipindahkan ke supplier target.
+            </p>
+
+            <div className="grid grid-2 gap-lg mb-lg">
+              {/* Source Supplier */}
+              <div className="card p-md border-dashed">
+                <h4 className="text-primary font-bold mb-sm">Supplier Sumber (akan dihapus)</h4>
+                <select
+                  className="form-input bg-glass"
+                  value={sourceSupplier?.id || ''}
+                  onChange={(e) => {
+                    const supplier = suppliers.find(s => s.id === e.target.value);
+                    setSourceSupplier(supplier || null);
+                  }}
+                >
+                  <option value="">Pilih supplier sumber...</option>
+                  {suppliers.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name || s.company || 'Tanpa Nama'} {s.company && s.company !== s.name ? `(${s.company})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {sourceSupplier && (
+                  <div className="mt-md text-sm text-secondary">
+                    <div><strong>Nama:</strong> {sourceSupplier.name || '-'}</div>
+                    <div><strong>Perusahaan:</strong> {sourceSupplier.company || '-'}</div>
+                    <div><strong>Telepon:</strong> {sourceSupplier.phone || '-'}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Target Supplier */}
+              <div className="card p-md border-dashed">
+                <h4 className="text-info font-bold mb-sm">Supplier Target (akan tetap ada)</h4>
+                <select
+                  className="form-input bg-glass"
+                  value={targetSupplier?.id || ''}
+                  onChange={(e) => {
+                    const supplier = suppliers.find(s => s.id === e.target.value);
+                    setTargetSupplier(supplier || null);
+                  }}
+                >
+                  <option value="">Pilih supplier target...</option>
+                  {suppliers.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name || s.company || 'Tanpa Nama'} {s.company && s.company !== s.name ? `(${s.company})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {targetSupplier && (
+                  <div className="mt-md text-sm text-secondary">
+                    <div><strong>Nama:</strong> {targetSupplier.name || '-'}</div>
+                    <div><strong>Perusahaan:</strong> {targetSupplier.company || '-'}</div>
+                    <div><strong>Telepon:</strong> {targetSupplier.phone || '-'}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Merge Options */}
+            <div className="card p-md mb-lg">
+              <label className="flex items-center gap-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={mergeContactInfo}
+                  onChange={(e) => setMergeContactInfo(e.target.checked)}
+                  className="form-checkbox"
+                />
+                <div>
+                  <div className="font-bold">Gabungkan Informasi Kontak</div>
+                  <div className="text-sm text-secondary">
+                    Jika supplier target tidak memiliki info kontak, gunakan info dari supplier sumber
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {/* Warning */}
+            {sourceSupplier && targetSupplier && (
+              <div className="card p-md mb-lg" style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                <div className="flex items-start gap-sm">
+                  <span className="text-2xl">⚠️</span>
+                  <div>
+                    <div className="font-bold text-warning mb-sm">Tindakan ini tidak dapat dibatalkan!</div>
+                    <div className="text-sm text-secondary">
+                      Supplier <strong>"{sourceSupplier.name || sourceSupplier.company}"</strong> akan dihapus permanen.
+                      Semua nota pembelian yang menggunakan supplier ini akan dipindahkan ke <strong>"{targetSupplier.name || targetSupplier.company}"</strong>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-footer pt-lg border-top border-white-05 flex gap-sm">
+            <button type="button" className="btn btn-ghost" onClick={() => setMergeModalOpen(false)}>
+              Batal
+            </button>
+            <button
+              type="button"
+              className="btn btn-info flex-1"
+              onClick={handleMerge}
+              disabled={!sourceSupplier || !targetSupplier || isMerging}
+            >
+              {isMerging ? 'Menggabungkan...' : <><FiGitMerge /> Gabungkan Supplier</>}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
