@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUsers, FiDownload, FiUpload, FiFileText } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUsers, FiDownload, FiUpload, FiFileText, FiGitMerge } from 'react-icons/fi';
 import Modal from '../components/Modal';
-import { Customers as CustomerStore, PriceCategories as CategoryStore } from '../utils/storage';
+import { Customers as CustomerStore, PriceCategories as CategoryStore, Invoices, PurchaseNotes, TelegramOrders } from '../utils/storage';
 import { exportToExcel, triggerImportExcel, downloadImportTemplate } from '../utils/excel';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -17,6 +17,13 @@ export default function Customers() {
   const [form, setForm] = useState(emptyCustomer);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Merge customer state
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [sourceCustomer, setSourceCustomer] = useState(null);
+  const [targetCustomer, setTargetCustomer] = useState(null);
+  const [mergeContactInfo, setMergeContactInfo] = useState(true);
+  const [isMerging, setIsMerging] = useState(false);
 
   useEffect(() => {
     reload();
@@ -90,6 +97,101 @@ export default function Customers() {
     await reload();
   }
 
+  // Merge customer functions
+  function openMergeModal() {
+    setSourceCustomer(null);
+    setTargetCustomer(null);
+    setMergeModalOpen(true);
+  }
+
+  async function handleMerge() {
+    if (!sourceCustomer || !targetCustomer) {
+      alert('Pilih customer sumber dan target!');
+      return;
+    }
+
+    if (sourceCustomer.id === targetCustomer.id) {
+      alert('Customer sumber dan target tidak boleh sama!');
+      return;
+    }
+
+    if (!confirm(`Apakah Anda yakin ingin menggabungkan:\n\n"${sourceCustomer.name}" ke "${targetCustomer.name}"?\n\nIni akan:\n- Update semua invoice yang menggunakan customer sumber\n- Update semua nota pembelian yang menggunakan customer sumber\n- Update semua telegram order yang menggunakan customer sumber\n- Hapus customer sumber\n- ${mergeContactInfo ? 'Menggabungkan informasi kontak' : 'Menjaga informasi kontak target'}`)) {
+      return;
+    }
+
+    setIsMerging(true);
+    try {
+      // 1. Gabungkan informasi kontak jika diaktifkan
+      if (mergeContactInfo) {
+        const updatedContact = {
+          ...targetCustomer,
+          phone: targetCustomer.phone || sourceCustomer.phone,
+          email: targetCustomer.email || sourceCustomer.email,
+          address: targetCustomer.address || sourceCustomer.address,
+          company: targetCustomer.company || sourceCustomer.company,
+          notes: [
+            targetCustomer.notes || '',
+            sourceCustomer.notes || '',
+            `Digabungkan dari "${sourceCustomer.name}" pada ${new Date().toLocaleDateString('id-ID')}`
+          ].filter(Boolean).join('\n\n---\n\n')
+        };
+        await CustomerStore.update(targetCustomer.id, updatedContact);
+      }
+
+      // 2. Update semua invoice
+      const allInvoices = await Invoices.getAll();
+      const invoicesToUpdate = allInvoices.filter(inv =>
+        inv.customerName === sourceCustomer.name || inv.customerId === sourceCustomer.id
+      );
+
+      for (const invoice of invoicesToUpdate) {
+        await Invoices.update(invoice.id, {
+          customerName: targetCustomer.name,
+          customerId: targetCustomer.id
+        });
+      }
+
+      // 3. Update semua purchase notes
+      const allPurchaseNotes = await PurchaseNotes.getAll();
+      const purchaseNotesToUpdate = allPurchaseNotes.filter(note =>
+        note.customerName === sourceCustomer.name
+      );
+
+      for (const note of purchaseNotesToUpdate) {
+        await PurchaseNotes.update(note.id, {
+          customerName: targetCustomer.name
+        });
+      }
+
+      // 4. Update semua telegram orders
+      const allTelegramOrders = await TelegramOrders.getAll();
+      const telegramOrdersToUpdate = allTelegramOrders.filter(order =>
+        order.matchedCustomerName === sourceCustomer.name || order.matchedCustomerId === sourceCustomer.id
+      );
+
+      for (const order of telegramOrdersToUpdate) {
+        await TelegramOrders.update(order.id, {
+          matchedCustomerName: targetCustomer.name,
+          matchedCustomerId: targetCustomer.id
+        });
+      }
+
+      // 5. Hapus customer sumber
+      await CustomerStore.delete(sourceCustomer.id);
+
+      const totalAffected = invoicesToUpdate.length + purchaseNotesToUpdate.length + telegramOrdersToUpdate.length;
+      alert(`✅ Berhasil menggabungkan ${totalAffected} record:\n- ${invoicesToUpdate.length} invoice\n- ${purchaseNotesToUpdate.length} nota pembelian\n- ${telegramOrdersToUpdate.length} telegram order\n\ndari customer "${sourceCustomer.name}" ke "${targetCustomer.name}"`);
+
+      setMergeModalOpen(false);
+      await reload();
+    } catch (error) {
+      console.error('Error merging customers:', error);
+      alert(`Gagal menggabungkan customer: ${error.message}`);
+    } finally {
+      setIsMerging(false);
+    }
+  }
+
   function handleExport() {
     const columns = [
       { key: 'name', header: 'Nama', width: 25 },
@@ -160,6 +262,9 @@ export default function Customers() {
           </button>
           <button className="btn btn-secondary" onClick={handleExport}>
             <FiDownload /> Export Excel
+          </button>
+          <button className="btn btn-info" onClick={openMergeModal} title="Gabungkan Customer">
+            <FiGitMerge /> Merge Customer
           </button>
           <button className="btn btn-primary" onClick={openAdd}>
             <FiPlus /> Tambah Customer
@@ -314,13 +419,130 @@ export default function Customers() {
           </div>
         </form>
       </Modal>
-      <ConfirmModal 
-        isOpen={!!deleteId} 
-        onClose={() => setDeleteId(null)} 
+      <ConfirmModal
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
         onConfirm={confirmDelete}
         title="Hapus Customer"
         message="Apakah Anda yakin ingin menghapus customer ini?"
       />
+
+      {/* Merge Customer Modal */}
+      <Modal isOpen={mergeModalOpen} onClose={() => setMergeModalOpen(false)} title="Gabungkan Customer" size="lg" closeOnOverlay={true} closeOnEsc={true}>
+        <div className="p-lg">
+          <div className="mb-lg">
+            <p className="text-secondary mb-md">
+              Pilih dua customer yang ingin digabungkan. Customer sumber akan dihapus dan semua data terkait akan dipindahkan ke customer target.
+            </p>
+
+            <div className="grid grid-2 gap-lg mb-lg">
+              {/* Source Customer */}
+              <div className="card p-md border-dashed">
+                <h4 className="text-primary font-bold mb-sm">Customer Sumber (akan dihapus)</h4>
+                <select
+                  className="form-input bg-glass"
+                  value={sourceCustomer?.id || ''}
+                  onChange={(e) => {
+                    const customer = customers.find(c => c.id === e.target.value);
+                    setSourceCustomer(customer || null);
+                  }}
+                >
+                  <option value="">Pilih customer sumber...</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.company && c.company !== c.name ? `(${c.company})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {sourceCustomer && (
+                  <div className="mt-md text-sm text-secondary">
+                    <div><strong>Nama:</strong> {sourceCustomer.name}</div>
+                    <div><strong>Grup:</strong> {sourceCustomer.group || '-'}</div>
+                    <div><strong>Telepon:</strong> {sourceCustomer.phone || '-'}</div>
+                    <div><strong>Perusahaan:</strong> {sourceCustomer.company || '-'}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Target Customer */}
+              <div className="card p-md border-dashed">
+                <h4 className="text-info font-bold mb-sm">Customer Target (akan tetap ada)</h4>
+                <select
+                  className="form-input bg-glass"
+                  value={targetCustomer?.id || ''}
+                  onChange={(e) => {
+                    const customer = customers.find(c => c.id === e.target.value);
+                    setTargetCustomer(customer || null);
+                  }}
+                >
+                  <option value="">Pilih customer target...</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.company && c.company !== c.name ? `(${c.company})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {targetCustomer && (
+                  <div className="mt-md text-sm text-secondary">
+                    <div><strong>Nama:</strong> {targetCustomer.name}</div>
+                    <div><strong>Grup:</strong> {targetCustomer.group || '-'}</div>
+                    <div><strong>Telepon:</strong> {targetCustomer.phone || '-'}</div>
+                    <div><strong>Perusahaan:</strong> {targetCustomer.company || '-'}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Merge Options */}
+            <div className="card p-md mb-lg">
+              <label className="flex items-center gap-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={mergeContactInfo}
+                  onChange={(e) => setMergeContactInfo(e.target.checked)}
+                  className="form-checkbox"
+                />
+                <div>
+                  <div className="font-bold">Gabungkan Informasi Kontak</div>
+                  <div className="text-sm text-secondary">
+                    Jika customer target tidak memiliki info kontak, gunakan info dari customer sumber
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {/* Warning */}
+            {sourceCustomer && targetCustomer && (
+              <div className="card p-md mb-lg" style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                <div className="flex items-start gap-sm">
+                  <span className="text-2xl">⚠️</span>
+                  <div>
+                    <div className="font-bold text-warning mb-sm">Tindakan ini tidak dapat dibatalkan!</div>
+                    <div className="text-sm text-secondary">
+                      Customer <strong>"{sourceCustomer.name}"</strong> akan dihapus permanen.
+                      Semua invoice, nota pembelian, dan telegram order yang menggunakan customer ini akan dipindahkan ke <strong>"{targetCustomer.name}"</strong>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-footer pt-lg border-top border-white-05 flex gap-sm">
+            <button type="button" className="btn btn-ghost" onClick={() => setMergeModalOpen(false)}>
+              Batal
+            </button>
+            <button
+              type="button"
+              className="btn btn-info flex-1"
+              onClick={handleMerge}
+              disabled={!sourceCustomer || !targetCustomer || isMerging}
+            >
+              {isMerging ? 'Menggabungkan...' : <><FiGitMerge /> Gabungkan Customer</>}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
