@@ -33,14 +33,8 @@ export default function PurchaseNoteReportPdf({
     session2Data,
     getAvgSellPrice,
     supplierGroups,
-    session4Data,
-    session4SumRev,
-    session4SumHpp,
-    session4SumProfit,
     totalAdditionalCosts,
     grandTotalNet,
-    groupProfit,
-    groupMarginPct,
     custColCount
   } = model;
   const pivotHeadFont = custColCount > 10 ? 7 : custColCount > 6 ? 8 : 9;
@@ -254,7 +248,7 @@ export default function PurchaseNoteReportPdf({
                   <th style={{ width: custColCount > 8 ? '14%' : '18%' }}>Komoditas</th>
                   {uniqueCustomers.map(cust => (
                     <th key={cust} className="th-center" style={{ fontSize: pivotHeadFont, padding: '5px 2px' }}>
-                      {cust.length > 14 ? `${cust.slice(0, 12)}…` : cust}
+                      {cust}
                     </th>
                   ))}
                   <th className="th-center" style={{ width: '6%' }}>Total qty</th>
@@ -420,76 +414,9 @@ export default function PurchaseNoteReportPdf({
           </div>
         </section>
 
-        {/* IV — Laba rugi */}
+        {/* IV — Pembayaran supplier */}
         <section className="pdf-section">
-          <h2 className="section-heading">IV. Laba rugi per pelanggan &amp; ringkasan grup</h2>
-          <div className="pdf-table-wrap" style={{ marginBottom: 12 }}>
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ width: '28%' }}>Pelanggan</th>
-                  <th className="th-right" style={{ width: '18%' }}>Omset</th>
-                  <th className="th-right" style={{ width: '18%' }}>Perkiraan HPP</th>
-                  <th className="th-right" style={{ width: '18%' }}>Laba / (rugi)</th>
-                  <th className="th-center" style={{ width: '18%' }}>Margin %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {session4Data.map((row, i) => {
-                  const m = row.revenue > 0 ? (row.profit / row.revenue) * 100 : 0;
-                  return (
-                    <tr key={`s4-${i}-${row.customer}`}>
-                      <td className="td-strong">{row.customer}</td>
-                      <td className="td-right">{formatCurrency(row.revenue)}</td>
-                      <td className="td-right">{formatCurrency(row.hpp)}</td>
-                      <td className={`td-right ${row.profit >= 0 ? 'profit-pos' : 'profit-neg'}`}>{formatCurrency(row.profit)}</td>
-                      <td className={`td-num ${m >= 0 ? 'profit-pos' : 'profit-neg'}`}>{row.revenue > 0 ? `${m.toFixed(1)}%` : '—'}</td>
-                    </tr>
-                  );
-                })}
-                <tr className="total-row">
-                  <td className="td-right">Jumlah (per pelanggan)</td>
-                  <td className="td-right">{formatCurrency(session4SumRev)}</td>
-                  <td className="td-right">{formatCurrency(session4SumHpp)}</td>
-                  <td className={`td-right ${session4SumProfit >= 0 ? 'profit-pos' : 'profit-neg'}`}>{formatCurrency(session4SumProfit)}</td>
-                  <td className="td-num">{session4SumRev > 0 ? `${((session4SumProfit / session4SumRev) * 100).toFixed(1)}%` : '—'}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="pdf-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th colSpan={2}>Ringkasan arus kas &amp; laba grup</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ width: '55%', fontWeight: 600 }}>Total penjualan (invoice gabungan)</td>
-                  <td className="td-right td-strong">{formatCurrency(session1Total)}</td>
-                </tr>
-                <tr>
-                  <td style={{ fontWeight: 600 }}>Total pembayaran ke supplier (net) + biaya tambahan</td>
-                  <td className="td-right" style={{ fontWeight: 700, color: '#b91c1c' }}>{formatCurrency(grandTotalNet)}</td>
-                </tr>
-                <tr className="grand-row">
-                  <td>Laba / (rugi) grup (setelah pembelian &amp; biaya)</td>
-                  <td className="td-right">{formatCurrency(groupProfit)}</td>
-                </tr>
-                <tr className="total-row">
-                  <td>Margin atas omset grup</td>
-                  <td className="td-right">{groupMarginPct.toFixed(1)}%</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* V — Pembayaran supplier */}
-        <section className="pdf-section">
-          <h2 className="section-heading">V. Rekapitulasi pembayaran ke supplier</h2>
+          <h2 className="section-heading">IV. Rekapitulasi pembayaran ke supplier</h2>
           <div className="pdf-table-wrap">
             <table>
               <thead>

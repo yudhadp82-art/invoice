@@ -144,14 +144,8 @@ export default function PurchaseNoteReportPdfDocument({
     session2Data,
     getAvgSellPrice,
     supplierGroups,
-    session4Data,
-    session4SumRev,
-    session4SumHpp,
-    session4SumProfit,
     totalAdditionalCosts,
     grandTotalNet,
-    groupProfit,
-    groupMarginPct,
     custColCount
   } = model;
 
@@ -212,7 +206,7 @@ export default function PurchaseNoteReportPdfDocument({
               <Text style={[styles.th, { width: '16%' }]}>Komoditas</Text>
               {uniqueCustomers.map(c => (
                 <Text key={c} style={[styles.th, { width: custWidthPct, textAlign: 'center', fontSize: pivotFont }]}>
-                  {c.length > 12 ? `${c.slice(0, 10)}…` : c}
+                  {c}
                 </Text>
               ))}
               <Text style={[styles.th, { width: '6%', textAlign: 'center' }]}>Tot.qty</Text>
@@ -351,69 +345,7 @@ export default function PurchaseNoteReportPdfDocument({
         )}
 
         {/* ========== SECTION 4 ========== */}
-        <Text style={styles.sectionTitle} wrap={false}>IV. Laba rugi per pelanggan & ringkasan grup</Text>
-        <View style={{ marginBottom: 14 }}>
-          <View style={styles.tableHeader} wrap={false}>
-            <Text style={[styles.th, { width: '28%' }]}>Pelanggan</Text>
-            <Text style={[styles.th, { width: '18%', textAlign: 'right' }]}>Omset</Text>
-            <Text style={[styles.th, { width: '18%', textAlign: 'right' }]}>HPP</Text>
-            <Text style={[styles.th, { width: '18%', textAlign: 'right' }]}>Laba</Text>
-            <Text style={[styles.th, styles.tdLast, { width: '18%', textAlign: 'center' }]}>Mar.%</Text>
-          </View>
-          {session4Data.map((row, i) => {
-            const m = row.revenue > 0 ? (row.profit / row.revenue) * 100 : 0;
-            return (
-              <View key={`s4-${i}`} style={[styles.row, i % 2 === 1 ? styles.rowAlt : {}]} wrap={false}>
-                <Text style={[styles.td, { width: '28%', fontWeight: 700 }]}>{row.customer}</Text>
-                <Text style={[styles.td, { width: '18%', textAlign: 'right' }]}>{formatCurrency(row.revenue)}</Text>
-                <Text style={[styles.td, { width: '18%', textAlign: 'right' }]}>{formatCurrency(row.hpp)}</Text>
-                <Text style={[styles.td, { width: '18%', textAlign: 'right', color: row.profit >= 0 ? '#15803d' : '#b91c1c' }]}>
-                  {formatCurrency(row.profit)}
-                </Text>
-                <Text style={[styles.td, styles.tdLast, { width: '18%', textAlign: 'center', color: m >= 0 ? '#15803d' : '#b91c1c' }]}>
-                  {row.revenue > 0 ? `${m.toFixed(1)}%` : '—'}
-                </Text>
-              </View>
-            );
-          })}
-          <View style={[styles.row, styles.totalRow]} wrap={false}>
-            <Text style={[styles.td, { width: '28%', textAlign: 'right' }]}>Jumlah</Text>
-            <Text style={[styles.td, { width: '18%', textAlign: 'right' }]}>{formatCurrency(session4SumRev)}</Text>
-            <Text style={[styles.td, { width: '18%', textAlign: 'right' }]}>{formatCurrency(session4SumHpp)}</Text>
-            <Text style={[styles.td, { width: '18%', textAlign: 'right', color: session4SumProfit >= 0 ? '#15803d' : '#b91c1c' }]}>
-              {formatCurrency(session4SumProfit)}
-            </Text>
-            <Text style={[styles.td, styles.tdLast, { width: '18%', textAlign: 'center' }]}>
-              {session4SumRev > 0 ? `${((session4SumProfit / session4SumRev) * 100).toFixed(1)}%` : '—'}
-            </Text>
-          </View>
-        </View>
-
-        {/* ========== RINGKASAN ARUS KAS ========== */}
-        <View wrap={false} style={{ marginBottom: 14 }}>
-          <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Ringkasan arus kas & laba grup</Text>
-          <View style={[styles.row]} wrap={false}>
-            <Text style={[styles.td, { width: '62%', fontWeight: 700, borderRightWidth: 0 }]}>Total penjualan (invoice gabungan)</Text>
-            <Text style={[styles.td, styles.tdLast, { width: '38%', textAlign: 'right', fontWeight: 700 }]}>{formatCurrency(session1Total)}</Text>
-          </View>
-          <View style={[styles.row, styles.rowAlt]} wrap={false}>
-            <Text style={[styles.td, { width: '62%', fontWeight: 700, borderRightWidth: 0 }]}>Total pembayaran supplier (net) + biaya tambahan</Text>
-            <Text style={[styles.td, styles.tdLast, { width: '38%', textAlign: 'right', fontWeight: 700, color: '#b91c1c' }]}>
-              {formatCurrency(grandTotalNet)}
-            </Text>
-          </View>
-          <View style={[styles.row, styles.grandRow]} wrap={false}>
-            <Text style={[styles.grandText, { width: '62%', borderRightWidth: 0, paddingVertical: 4, paddingHorizontal: 4 }]}>Laba / (rugi) grup</Text>
-            <Text style={[styles.grandText, { width: '38%', textAlign: 'right', paddingVertical: 4, paddingHorizontal: 4 }]}>{formatCurrency(groupProfit)}</Text>
-          </View>
-          <View style={[styles.row, styles.totalRow]} wrap={false}>
-            <Text style={[styles.td, { width: '62%', fontWeight: 700, borderRightWidth: 0 }]}>Margin atas omset grup</Text>
-            <Text style={[styles.td, styles.tdLast, { width: '38%', textAlign: 'right', fontWeight: 700 }]}>{groupMarginPct.toFixed(1)}%</Text>
-          </View>
-        </View>
-
-        {/* ========== SECTION 5 ========== */}
-        <Text style={styles.sectionTitle} wrap={false}>V. Rekapitulasi pembayaran ke supplier</Text>
+        <Text style={styles.sectionTitle} wrap={false}>IV. Rekapitulasi pembayaran ke supplier</Text>
         <View style={{ marginBottom: 10 }}>
           <View style={styles.tableHeader} wrap={false}>
             <Text style={[styles.th, { width: '4%', textAlign: 'center' }]}>No</Text>
