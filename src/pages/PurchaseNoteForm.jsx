@@ -727,15 +727,16 @@ export default function PurchaseNoteForm() {
       setItems(newItems);
       return;
     } else if (field === 'qtyNota') {
-      it[field] = value;
+      const parsedQty = parseNumberInput(value);
+      it[field] = parsedQty;
       // Recalculate costs and margins
-      const qty = Number(value) || 0;
+      const qty = parsedQty;
       const pricePerUnit = Number(it.pricePerUnit) || 0;
       const sellPrice = Number(it.sellPrice) || 0;
 
       it.totalCost = qty * pricePerUnit;
       it.purchaseCost = it.totalCost;
-      it.salesRevenue = (Number(it.invoiceQty) || Number(it.qtyNota) || 0) * (Number(it.invoicePrice) || 0);
+      it.salesRevenue = (Number(it.invoiceQty) || qty) * (Number(it.invoicePrice) || 0);
       it.profit = it.salesRevenue - it.purchaseCost;
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
     } else if (field === 'totalCost') {
