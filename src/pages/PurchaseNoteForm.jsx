@@ -741,22 +741,23 @@ export default function PurchaseNoteForm() {
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
     } else if (field === 'totalCost') {
       // If totalCost is input, calculate pricePerUnit
-      it.totalCost = Number(value) || 0;
+      const parsedValue = parseNumberInput(value);
+      it.totalCost = parsedValue;
       const qty = Number(it.qtyNota) || 0;
       if (qty > 0) {
-        it.pricePerUnit = Number((it.totalCost / qty).toFixed(2));
+        it.pricePerUnit = Number((parsedValue / qty).toFixed(2));
       }
       // Recalculate margin
-      const sellPrice = Number(it.sellPrice) || 0;
-      it.purchaseCost = it.totalCost;
+      it.purchaseCost = parsedValue;
       it.salesRevenue = (Number(it.invoiceQty) || Number(it.qtyNota) || 0) * (Number(it.invoicePrice) || 0);
       it.profit = it.salesRevenue - it.purchaseCost;
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
     } else if (field === 'pricePerUnit') {
       // If pricePerUnit is input, calculate totalCost
-      it[field] = value;
+      const parsedValue = parseNumberInput(value);
+      it[field] = parsedValue;
       const qty = Number(it.qtyNota) || 0;
-      it.totalCost = qty * Number(value);
+      it.totalCost = qty * parsedValue;
       it.purchaseCost = it.totalCost;
 
       // Recalculate margin
@@ -764,18 +765,20 @@ export default function PurchaseNoteForm() {
       it.profit = it.salesRevenue - it.purchaseCost;
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
     } else if (field === 'sellPrice') {
-      it[field] = value;
+      const parsedValue = parseNumberInput(value);
+      it[field] = parsedValue;
       // Recalculate margin
       const qty = Number(it.qtyNota) || 0;
-      const sellPrice = Number(value) || 0;
+      const sellPrice = parsedValue;
       it.salesRevenue = (Number(it.invoiceQty) || Number(it.qtyNota) || 0) * (Number(it.invoicePrice) || 0);
       it.purchaseCost = Number(it.totalCost) || 0;
       it.profit = it.salesRevenue - it.purchaseCost;
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
     } else if (field === 'invoiceQty') {
       // Total Jual = Qty Invoice × Harga Invoice per item
-      it[field] = value;
-      const invoiceQty = Number(value) || 0;
+      const parsedValue = parseNumberInput(value);
+      it[field] = parsedValue;
+      const invoiceQty = parsedValue;
       const invoicePrice = Number(it.invoicePrice) || 0;
       it.salesRevenue = invoiceQty * invoicePrice;
       it.purchaseCost = Number(it.totalCost) || 0;
@@ -783,9 +786,10 @@ export default function PurchaseNoteForm() {
       it.marginPercent = it.salesRevenue > 0 ? ((it.profit / it.salesRevenue) * 100) : 0;
     } else if (field === 'invoicePrice') {
       // Total Jual = Qty Invoice × Harga Invoice per item
-      it[field] = value;
+      const parsedValue = parseNumberInput(value);
+      it[field] = parsedValue;
       const invoiceQty = Number(it.invoiceQty) || 0;
-      const invoicePrice = Number(value) || 0;
+      const invoicePrice = parsedValue;
       it.salesRevenue = invoiceQty * invoicePrice;
       it.purchaseCost = Number(it.totalCost) || 0;
       it.profit = it.salesRevenue - it.purchaseCost;
@@ -1157,15 +1161,15 @@ export default function PurchaseNoteForm() {
                             className="form-input form-input-sm text-center font-bold text-info"
                             style={{ fontSize: '0.85rem' }}
                             value={formatNumberInput(item.invoiceQty)}
-                            onChange={e => updateItem(idx, 'invoiceQty', parseNumberInput(e.target.value))}
+                            onChange={e => updateItem(idx, 'invoiceQty', e.target.value)}
                             placeholder="0"
                           />
                         </td>
                         <td>
-                          <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', parseNumberInput(e.target.value))} />
+                          <input type="text" className="form-input form-input-sm text-center" value={formatNumberInput(item.qtyNota)} onChange={e => updateItem(idx, 'qtyNota', e.target.value)} />
                         </td>
                         <td>
-                          <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', parseNumberInput(e.target.value))} placeholder="Harga Beli" />
+                          <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.pricePerUnit)} onChange={e => updateItem(idx, 'pricePerUnit', e.target.value)} placeholder="Harga Beli" />
                         </td>
                         <td>
                           <input
@@ -1178,12 +1182,12 @@ export default function PurchaseNoteForm() {
                               minWidth: '100px'
                             }}
                             value={formatNumberInput(item.totalCost)}
-                            onChange={e => updateItem(idx, 'totalCost', parseNumberInput(e.target.value))}
+                            onChange={e => updateItem(idx, 'totalCost', e.target.value)}
                             placeholder="0"
                           />
                         </td>
                         <td>
-                          <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', parseNumberInput(e.target.value))} placeholder="Harga Jual" />
+                          <input type="text" className="form-input form-input-sm" value={formatNumberInput(item.sellPrice)} onChange={e => updateItem(idx, 'sellPrice', e.target.value)} placeholder="Harga Jual" />
                         </td>
                         <td>
                           <input
@@ -1191,7 +1195,7 @@ export default function PurchaseNoteForm() {
                             className="form-input form-input-sm text-center font-bold"
                             style={{ color: '#3b82f6', fontSize: '13px' }}
                             value={formatNumberInput(item.invoicePrice)}
-                            onChange={e => updateItem(idx, 'invoicePrice', parseNumberInput(e.target.value))}
+                            onChange={e => updateItem(idx, 'invoicePrice', e.target.value)}
                             placeholder="Harga Invoice"
                             title="Harga satuan dari invoice"
                           />
@@ -1374,11 +1378,11 @@ export default function PurchaseNoteForm() {
                       <div key={f} className="flex flex-col">
                         <label className="text-xxs opacity-40 capitalize mb-xs">{f === 'labor' ? 'Tenaga' : f === 'shipping' ? 'Ongkir' : 'Lain'}</label>
                         <input 
-                          type="text" 
-                          className="form-input form-input-sm text-center font-sm" 
+                          type="text"
+                          className="form-input form-input-sm text-center font-sm"
                           style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 4px', height: 40 }}
-                          value={formatNumberInput(additionalCosts[f])} 
-                          onChange={e => setAdditionalCosts({...additionalCosts, [f]: parseNumberInput(e.target.value)})} 
+                          value={formatNumberInput(additionalCosts[f])}
+                          onChange={e => setAdditionalCosts({...additionalCosts, [f]: e.target.value})}
                         />
                       </div>
                     ))}
@@ -1417,11 +1421,11 @@ export default function PurchaseNoteForm() {
                       <span className="text-xs font-semibold flex-1 truncate" title={displaySup}>{displaySup}</span>
                       <input 
                         type="text" 
-                        className="form-input form-input-sm text-center" 
-                        style={{ width: 120, fontSize: 13, height: 36 }} 
+                        className="form-input form-input-sm text-center"
+                        style={{ width: 120, fontSize: 13, height: 36 }}
                         placeholder="Rp 0"
-                        value={formatNumberInput(supplierDiscounts[s] || 0)} 
-                        onChange={e => setSupplierDiscounts({...supplierDiscounts, [s]: parseNumberInput(e.target.value)})} 
+                        value={formatNumberInput(supplierDiscounts[s] || 0)}
+                        onChange={e => setSupplierDiscounts({...supplierDiscounts, [s]: e.target.value})}
                       />
                     </div>
                   );
